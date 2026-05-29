@@ -1,0 +1,1 @@
+# arr-mcp — runtime subpackage
