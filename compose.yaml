@@ -1,0 +1,29 @@
+# arr-mcp compose — run under media user's rootless Podman
+# cp .env.example .env && edit .env before starting
+
+services:
+  arr-mcp:
+    image: ghcr.io/ryanbrinn/arr-mcp:latest
+    build:
+      context: .
+      dockerfile: Containerfile
+    container_name: arr-mcp
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      ARR_MCP_API_KEY: "${ARR_MCP_API_KEY}"
+      ARR_MCP_PORT: "8081"
+      ARR_MCP_STACKS_DIR: "/opt/stacks"
+      ARR_MCP_MEDIA_DIR: "/media-server"
+      ARR_MCP_CONTAINER_RUNTIME: "podman"
+      ARR_MCP_LOG_LEVEL: "${ARR_MCP_LOG_LEVEL:-info}"
+    volumes:
+      # Rootless Podman socket (media user UID 1000)
+      - /run/user/1000/podman/podman.sock:/run/user/1000/podman/podman.sock:ro
+      # Stack definitions
+      - /opt/stacks:/opt/stacks:rw
+      # Media filesystem (read-only for disk_usage / directory_list)
+      - /media-server:/media-server:ro
+    security_opt:
+      - label=disable
