@@ -1,8 +1,22 @@
 # arr-mcp
 
+![Beta](https://img.shields.io/badge/status-beta-orange)
+![Version](https://img.shields.io/badge/version-0.1.0--beta.1-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+> **Work in progress.** This project is in active development. APIs and configuration may change between releases.
+
 MCP server for natural language management of a home media server stack — Plex, Sonarr, Radarr, SABnzbd, and more — via Podman or Docker.
 
 Replaces Dockge. Connects to Claude as an MCP tool server so you can manage your stack conversationally.
+
+---
+
+## AI Disclosure
+
+This project was co-authored with [Claude](https://claude.ai) (Anthropic). The architecture, code, and documentation were developed collaboratively between the project author and Claude in an interactive session. All code has been reviewed by the author and is maintained as a human-owned open source project.
+
+---
 
 ## Features
 
@@ -17,13 +31,10 @@ Replaces Dockge. Connects to Claude as an MCP tool server so you can manage your
 ## Quick start
 
 ```bash
-# 1. Clone and configure
 git clone https://github.com/ryanbrinn/arr-mcp
 cd arr-mcp
 cp .env.example .env
 # Edit .env — at minimum set ARR_MCP_API_KEY
-
-# 2. Run under media user's rootless Podman
 podman-compose up -d
 ```
 
