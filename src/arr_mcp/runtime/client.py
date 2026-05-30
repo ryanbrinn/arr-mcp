@@ -25,7 +25,7 @@ class ContainerClient:
         self.socket_path = socket_path
         log.info("Container runtime: %s  socket: %s", runtime, socket_path)
         uds_path = socket_path.removeprefix("unix://")
-        self._transport = httpx.AsyncHTTPTransport(uds_socket=uds_path)
+        self._transport = httpx.AsyncHTTPTransport(uds=uds_path)
         self._client = httpx.AsyncClient(
             transport=self._transport,
             base_url="http://localhost",

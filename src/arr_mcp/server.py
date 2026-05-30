@@ -11,7 +11,7 @@ import uvicorn
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
@@ -38,11 +38,11 @@ def build_mcp_server(settings: Settings, client: ContainerClient) -> FastMCP:
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, api_key: str) -> None:
+    def __init__(self, app: Starlette, api_key: str) -> None:
         super().__init__(app)
         self.api_key = api_key
 
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         if request.url.path == "/health":
             return await call_next(request)
         auth = request.headers.get("Authorization", "")

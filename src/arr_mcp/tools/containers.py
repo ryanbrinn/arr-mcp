@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import httpx
 from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent
 
@@ -18,7 +19,7 @@ API = "/v1.41"
 def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
 
     @server.tool()
-    async def container_list():
+    async def container_list() -> list[TextContent]:
         """List all containers with status, uptime, and ports."""
         data: list[dict[str, Any]] = await client.get(f"{API}/containers/json?all=true")
         rows = []
@@ -37,25 +38,25 @@ def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
         return [TextContent(type="text", text="\n".join(rows) or "No containers found.")]
 
     @server.tool()
-    async def container_start(name: str):
+    async def container_start(name: str) -> list[TextContent]:
         """Start a stopped container by name."""
         await client.post(f"{API}/containers/{name}/start")
         return [TextContent(type="text", text=f"Started: {name}")]
 
     @server.tool()
-    async def container_stop(name: str):
+    async def container_stop(name: str) -> list[TextContent]:
         """Stop a running container by name."""
         await client.post(f"{API}/containers/{name}/stop")
         return [TextContent(type="text", text=f"Stopped: {name}")]
 
     @server.tool()
-    async def container_restart(name: str):
+    async def container_restart(name: str) -> list[TextContent]:
         """Restart a container by name."""
         await client.post(f"{API}/containers/{name}/restart")
         return [TextContent(type="text", text=f"Restarted: {name}")]
 
     @server.tool()
-    async def container_remove(name: str, confirm: bool = False):
+    async def container_remove(name: str, confirm: bool = False) -> list[TextContent]:
         """Remove a container. Requires confirm=True."""
         if not confirm:
             return [TextContent(type="text", text="Pass confirm=True to remove the container.")]
@@ -63,12 +64,10 @@ def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
         return [TextContent(type="text", text=f"Removed: {name}")]
 
     @server.tool()
-    async def container_logs(name: str, lines: int = 100):
+    async def container_logs(name: str, lines: int = 100) -> list[TextContent]:
         """Fetch the last N log lines from a container."""
-        import httpx
-
         uds = client.socket_path.removeprefix("unix://")
-        transport = httpx.AsyncHTTPTransport(uds_socket=uds)
+        transport = httpx.AsyncHTTPTransport(uds=uds)
         async with httpx.AsyncClient(transport=transport, base_url="http://localhost") as c:
             r = await c.get(f"{API}/containers/{name}/logs?stdout=true&stderr=true&tail={lines}")
         # Docker/Podman multiplex stream — strip 8-byte header per frame
@@ -85,7 +84,7 @@ def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
         return [TextContent(type="text", text="".join(lines_out) or "(no logs)")]
 
     @server.tool()
-    async def container_stats():
+    async def container_stats() -> list[TextContent]:
         """Show CPU, memory, and network stats for all running containers."""
         containers: list[dict[str, Any]] = await client.get(f"{API}/containers/json")
         rows = ["NAME                 CPU%    MEM USAGE / LIMIT     NET I/O"]

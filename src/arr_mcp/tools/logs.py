@@ -25,19 +25,19 @@ def register_log_tools(server: FastMCP, settings: Settings) -> None:
     extra_roots = [Path(settings.stacks_dir).resolve(), Path(settings.media_dir).resolve()]
 
     @server.tool()
-    async def log_read(path: str, lines: int = 100):
+    async def log_read(path: str, lines: int = 100) -> list[TextContent]:
         """Read the last N lines of a log file."""
         p = _check_log_path(path, extra_roots)
         if not p.exists():
             return [TextContent(type="text", text=f"File not found: {p}")]
-        tail = collections.deque(maxlen=lines)
+        tail: collections.deque[str] = collections.deque(maxlen=lines)
         with p.open(errors="replace") as f:
             for line in f:
                 tail.append(line)
         return [TextContent(type="text", text="".join(tail) or "(empty)")]
 
     @server.tool()
-    async def log_search(path: str, query: str, lines: int = 50):
+    async def log_search(path: str, query: str, lines: int = 50) -> list[TextContent]:
         """Search a log file for lines matching a query string (case-insensitive)."""
         p = _check_log_path(path, extra_roots)
         if not p.exists():
