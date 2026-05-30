@@ -110,7 +110,9 @@ def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
                 rx = sum(v.get("rx_bytes", 0) for v in nets.values()) / 1024
                 tx = sum(v.get("tx_bytes", 0) for v in nets.values()) / 1024
                 rows.append(
-                    f"{name:20s} {cpu_pct:6.2f}%  {used:6.1f}MB / {limit:6.1f}MB  {rx:.1f}kB / {tx:.1f}kB"
+                    f"{name:20s} {cpu_pct:6.2f}%  "
+                    f"{used:6.1f}MB / {limit:6.1f}MB  "
+                    f"{rx:.1f}kB / {tx:.1f}kB"
                 )
             except Exception as exc:
                 rows.append(f"{name:20s} (stats unavailable: {exc})")
