@@ -5,26 +5,29 @@ from __future__ import annotations
 import collections
 from pathlib import Path
 
-from mcp.server import Server
+from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent
 
 from arr_mcp.config import Settings
 
 
-def _check_log_path(path: str) -> Path:
+def _check_log_path(path: str, extra_roots: list[Path] | None = None) -> Path:
     p = Path(path).resolve()
     allowed = [Path("/var/log"), Path("/media-server"), Path("/opt/stacks")]
+    if extra_roots:
+        allowed.extend(extra_roots)
     if not any(str(p).startswith(str(a)) for a in allowed):
         raise PermissionError(f"Log path not allowed: {p}")
     return p
 
 
-def register_log_tools(server: Server, settings: Settings) -> None:
+def register_log_tools(server: FastMCP, settings: Settings) -> None:
+    extra_roots = [Path(settings.stacks_dir).resolve(), Path(settings.media_dir).resolve()]
 
     @server.tool()
-    async def log_read(path: str, lines: int = 100) -> list[TextContent]:
+    async def log_read(path: str, lines: int = 100):
         """Read the last N lines of a log file."""
-        p = _check_log_path(path)
+        p = _check_log_path(path, extra_roots)
         if not p.exists():
             return [TextContent(type="text", text=f"File not found: {p}")]
         tail = collections.deque(maxlen=lines)
@@ -34,9 +37,9 @@ def register_log_tools(server: Server, settings: Settings) -> None:
         return [TextContent(type="text", text="".join(tail) or "(empty)")]
 
     @server.tool()
-    async def log_search(path: str, query: str, lines: int = 50) -> list[TextContent]:
+    async def log_search(path: str, query: str, lines: int = 50):
         """Search a log file for lines matching a query string (case-insensitive)."""
-        p = _check_log_path(path)
+        p = _check_log_path(path, extra_roots)
         if not p.exists():
             return [TextContent(type="text", text=f"File not found: {p}")]
         q = query.lower()

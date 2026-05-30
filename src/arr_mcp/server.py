@@ -9,8 +9,7 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from dotenv import load_dotenv
-from mcp.server import Server
-from mcp.server.streamable_http import StreamableHTTPServerTransport
+from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -29,8 +28,8 @@ load_dotenv()
 log = logging.getLogger(__name__)
 
 
-def build_mcp_server(settings: Settings, client: ContainerClient) -> Server:
-    server = Server("arr-mcp")
+def build_mcp_server(settings: Settings, client: ContainerClient) -> FastMCP:
+    server = FastMCP("arr-mcp")
     register_container_tools(server, client)
     register_stack_tools(server, client, settings)
     register_filesystem_tools(server, settings)
@@ -55,17 +54,15 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 def create_app(settings: Settings) -> Starlette:
     client = ContainerClient(settings)
     mcp_server = build_mcp_server(settings, client)
-    transport = StreamableHTTPServerTransport(mcp_server)
 
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
         log.info("arr-mcp starting — runtime=%s port=%d", settings.container_runtime, settings.port)
-        async with transport:
-            yield
+        yield
         log.info("arr-mcp stopped")
 
     routes = [
-        Mount("/mcp", app=transport),
+        Mount("/mcp", app=mcp_server.streamable_http_app()),
         Route("/health", endpoint=health_check),
     ]
     app = Starlette(routes=routes, lifespan=lifespan)

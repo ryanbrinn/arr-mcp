@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from arr_mcp.tools.containers import register_container_tools
-from mcp.server import Server
+from mcp.server.fastmcp import FastMCP
 
 
-def _make_server(mock_client: MagicMock) -> Server:
-    server = Server("test")
+def _make_server(mock_client: MagicMock) -> FastMCP:
+    server = FastMCP("test")
     register_container_tools(server, mock_client)
     return server
 

@@ -6,7 +6,7 @@ import asyncio
 import logging
 from pathlib import Path
 
-from mcp.server import Server
+from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent
 
 from arr_mcp.config import Settings
@@ -27,7 +27,7 @@ async def _compose(stack_path: Path, *args: str) -> str:
     return stdout.decode("utf-8", errors="replace")
 
 
-def register_stack_tools(server: Server, client: ContainerClient, settings: Settings) -> None:
+def register_stack_tools(server: FastMCP, client: ContainerClient, settings: Settings) -> None:
     stacks_root = Path(settings.stacks_dir)
 
     def _stack_path(name: str) -> Path:
@@ -37,7 +37,7 @@ def register_stack_tools(server: Server, client: ContainerClient, settings: Sett
         return p
 
     @server.tool()
-    async def stack_list() -> list[TextContent]:
+    async def stack_list():
         """List all stacks in the stacks directory."""
         if not stacks_root.exists():
             return [TextContent(type="text", text=f"Stacks directory not found: {stacks_root}")]
@@ -45,13 +45,13 @@ def register_stack_tools(server: Server, client: ContainerClient, settings: Sett
         return [TextContent(type="text", text="\n".join(stacks) or "No stacks found.")]
 
     @server.tool()
-    async def stack_up(name: str) -> list[TextContent]:
+    async def stack_up(name: str):
         """Start a stack with podman-compose up -d."""
         out = await _compose(_stack_path(name), "up", "-d")
         return [TextContent(type="text", text=out)]
 
     @server.tool()
-    async def stack_down(name: str, confirm: bool = False) -> list[TextContent]:
+    async def stack_down(name: str, confirm: bool = False):
         """Stop a stack. Requires confirm=True."""
         if not confirm:
             return [TextContent(type="text", text="Pass confirm=True to bring the stack down.")]
@@ -59,20 +59,20 @@ def register_stack_tools(server: Server, client: ContainerClient, settings: Sett
         return [TextContent(type="text", text=out)]
 
     @server.tool()
-    async def stack_pull(name: str) -> list[TextContent]:
+    async def stack_pull(name: str):
         """Pull latest images for a stack."""
         out = await _compose(_stack_path(name), "pull")
         return [TextContent(type="text", text=out)]
 
     @server.tool()
-    async def stack_restart(name: str) -> list[TextContent]:
+    async def stack_restart(name: str):
         """Restart a stack (down then up)."""
         down = await _compose(_stack_path(name), "down")
         up = await _compose(_stack_path(name), "up", "-d")
         return [TextContent(type="text", text=f"--- down ---\n{down}\n--- up ---\n{up}")]
 
     @server.tool()
-    async def compose_read(stack: str) -> list[TextContent]:
+    async def compose_read(stack: str):
         """Read the compose.yaml for a stack."""
         p = _stack_path(stack)
         for fname in ("compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml"):
@@ -82,14 +82,14 @@ def register_stack_tools(server: Server, client: ContainerClient, settings: Sett
         return [TextContent(type="text", text=f"No compose file found in {p}")]
 
     @server.tool()
-    async def compose_write(stack: str, content: str) -> list[TextContent]:
+    async def compose_write(stack: str, content: str):
         """Write/replace the compose.yaml for a stack."""
         p = _stack_path(stack) / "compose.yaml"
         p.write_text(content)
         return [TextContent(type="text", text=f"Written: {p}")]
 
     @server.tool()
-    async def compose_validate(stack: str) -> list[TextContent]:
+    async def compose_validate(stack: str):
         """Dry-run validate a stack compose file."""
         out = await _compose(_stack_path(stack), "up", "--dry-run")
         return [TextContent(type="text", text=out)]

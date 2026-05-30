@@ -9,11 +9,12 @@ import pytest
 
 from arr_mcp.config import Settings
 from arr_mcp.tools.stacks import register_stack_tools
-from mcp.server import Server
+from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.exceptions import ToolError
 
 
-def _make_server(settings: Settings, mock_client: MagicMock) -> Server:
-    server = Server("test")
+def _make_server(settings: Settings, mock_client: MagicMock) -> FastMCP:
+    server = FastMCP("test")
     register_stack_tools(server, mock_client, settings)
     return server
 
@@ -58,7 +59,7 @@ async def test_stack_down_with_confirm_runs(settings: Settings, mock_client: Mag
 
 async def test_stack_up_nonexistent_raises(settings: Settings, mock_client: MagicMock) -> None:
     server = _make_server(settings, mock_client)
-    with pytest.raises(ValueError, match="Stack not found"):
+    with pytest.raises(ToolError, match="Stack not found"):
         await server.call_tool("stack_up", {"name": "nonexistent"})
 
 

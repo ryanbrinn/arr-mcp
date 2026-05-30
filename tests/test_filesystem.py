@@ -9,7 +9,8 @@ import pytest
 
 from arr_mcp.config import Settings
 from arr_mcp.tools.filesystem import _check_path, register_filesystem_tools
-from mcp.server import Server
+from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.exceptions import ToolError
 
 
 def test_allowed_media_path(settings: Settings) -> None:
@@ -46,7 +47,7 @@ def test_proc_path_blocked(settings: Settings) -> None:
 
 
 async def test_file_write_and_read(settings: Settings, mock_client: MagicMock) -> None:
-    server = Server("test")
+    server = FastMCP("test")
     register_filesystem_tools(server, settings)
     target = str(Path(settings.stacks_dir) / "test.txt")
     await server.call_tool("file_write", {"path": target, "content": "hello world"})
@@ -55,14 +56,14 @@ async def test_file_write_and_read(settings: Settings, mock_client: MagicMock) -
 
 
 async def test_directory_list_empty(settings: Settings, mock_client: MagicMock) -> None:
-    server = Server("test")
+    server = FastMCP("test")
     register_filesystem_tools(server, settings)
     result = await server.call_tool("directory_list", {"path": settings.stacks_dir})
     assert result[0].text == "(empty)"
 
 
 async def test_directory_list_with_entries(settings: Settings, mock_client: MagicMock) -> None:
-    server = Server("test")
+    server = FastMCP("test")
     register_filesystem_tools(server, settings)
     (Path(settings.stacks_dir) / "mystack").mkdir()
     (Path(settings.stacks_dir) / "readme.txt").write_text("hi")
@@ -72,7 +73,7 @@ async def test_directory_list_with_entries(settings: Settings, mock_client: Magi
 
 
 async def test_file_write_outside_allowed_fails(settings: Settings, mock_client: MagicMock) -> None:
-    server = Server("test")
+    server = FastMCP("test")
     register_filesystem_tools(server, settings)
-    with pytest.raises(PermissionError):
+    with pytest.raises(ToolError, match="not in allowed roots"):
         await server.call_tool("file_write", {"path": "/etc/evil.txt", "content": "bad"})

@@ -6,7 +6,7 @@ import os
 import shutil
 from pathlib import Path
 
-from mcp.server import Server
+from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent
 
 from arr_mcp.config import Settings
@@ -27,10 +27,10 @@ def _check_path(path: str, settings: Settings) -> Path:
     return p
 
 
-def register_filesystem_tools(server: Server, settings: Settings) -> None:
+def register_filesystem_tools(server: FastMCP, settings: Settings) -> None:
 
     @server.tool()
-    async def disk_usage(path: str = "/media-server") -> list[TextContent]:
+    async def disk_usage(path: str = "/media-server"):
         """Show disk usage for a path."""
         p = _check_path(path, settings)
         total, used, free = shutil.disk_usage(str(p))
@@ -45,7 +45,7 @@ def register_filesystem_tools(server: Server, settings: Settings) -> None:
         )]
 
     @server.tool()
-    async def directory_list(path: str) -> list[TextContent]:
+    async def directory_list(path: str):
         """List files and directories at a path."""
         p = _check_path(path, settings)
         if not p.exists():
@@ -59,13 +59,13 @@ def register_filesystem_tools(server: Server, settings: Settings) -> None:
         return [TextContent(type="text", text="\n".join(lines) or "(empty)")]
 
     @server.tool()
-    async def file_read(path: str) -> list[TextContent]:
+    async def file_read(path: str):
         """Read a text file."""
         p = _check_path(path, settings)
         return [TextContent(type="text", text=p.read_text(errors="replace"))]
 
     @server.tool()
-    async def file_write(path: str, content: str) -> list[TextContent]:
+    async def file_write(path: str, content: str):
         """Write content to a file (creates parent dirs as needed)."""
         p = _check_path(path, settings)
         p.parent.mkdir(parents=True, exist_ok=True)

@@ -8,10 +8,13 @@ from unittest.mock import MagicMock
 import pytest
 
 from arr_mcp.config import Settings
+import sys
+
 from arr_mcp.tools.logs import _check_log_path, register_log_tools
-from mcp.server import Server
+from mcp.server.fastmcp import FastMCP
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Linux path test")
 def test_varlog_allowed() -> None:
     result = _check_log_path("/var/log/syslog")
     assert str(result) == "/var/log/syslog"
@@ -28,14 +31,14 @@ def test_log_traversal_blocked() -> None:
 
 
 async def test_log_read_missing_file(settings: Settings, mock_client: MagicMock) -> None:
-    server = Server("test")
+    server = FastMCP("test")
     register_log_tools(server, settings)
     result = await server.call_tool("log_read", {"path": str(Path(settings.stacks_dir) / "missing.log")})
     assert "not found" in result[0].text.lower()
 
 
 async def test_log_read_returns_last_n_lines(settings: Settings, mock_client: MagicMock) -> None:
-    server = Server("test")
+    server = FastMCP("test")
     register_log_tools(server, settings)
     log_file = Path(settings.stacks_dir) / "test.log"
     log_file.write_text("\n".join(f"line {i}" for i in range(1, 21)))
@@ -47,7 +50,7 @@ async def test_log_read_returns_last_n_lines(settings: Settings, mock_client: Ma
 
 
 async def test_log_search_finds_matches(settings: Settings, mock_client: MagicMock) -> None:
-    server = Server("test")
+    server = FastMCP("test")
     register_log_tools(server, settings)
     log_file = Path(settings.stacks_dir) / "app.log"
     log_file.write_text("INFO starting\nERROR something broke\nINFO running\nERROR disk full\n")
@@ -59,7 +62,7 @@ async def test_log_search_finds_matches(settings: Settings, mock_client: MagicMo
 
 
 async def test_log_search_case_insensitive(settings: Settings, mock_client: MagicMock) -> None:
-    server = Server("test")
+    server = FastMCP("test")
     register_log_tools(server, settings)
     log_file = Path(settings.stacks_dir) / "app.log"
     log_file.write_text("ERROR big problem\nerror small problem\nINFO fine\n")
@@ -70,7 +73,7 @@ async def test_log_search_case_insensitive(settings: Settings, mock_client: Magi
 
 
 async def test_log_search_missing_file(settings: Settings, mock_client: MagicMock) -> None:
-    server = Server("test")
+    server = FastMCP("test")
     register_log_tools(server, settings)
     result = await server.call_tool(
         "log_search",

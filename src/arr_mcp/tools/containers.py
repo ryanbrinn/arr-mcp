@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from mcp.server import Server
-from mcp.types import TextContent, Tool
+from mcp.server.fastmcp import FastMCP
+from mcp.types import TextContent
 
 from arr_mcp.runtime.client import ContainerClient
 
@@ -15,10 +15,10 @@ log = logging.getLogger(__name__)
 API = "/v1.41"
 
 
-def register_container_tools(server: Server, client: ContainerClient) -> None:
+def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
 
     @server.tool()
-    async def container_list() -> list[TextContent]:
+    async def container_list():
         """List all containers with status, uptime, and ports."""
         data: list[dict[str, Any]] = await client.get(f"{API}/containers/json?all=true")
         rows = []
@@ -34,25 +34,25 @@ def register_container_tools(server: Server, client: ContainerClient) -> None:
         return [TextContent(type="text", text="\n".join(rows) or "No containers found.")]
 
     @server.tool()
-    async def container_start(name: str) -> list[TextContent]:
+    async def container_start(name: str):
         """Start a stopped container by name."""
         await client.post(f"{API}/containers/{name}/start")
         return [TextContent(type="text", text=f"Started: {name}")]
 
     @server.tool()
-    async def container_stop(name: str) -> list[TextContent]:
+    async def container_stop(name: str):
         """Stop a running container by name."""
         await client.post(f"{API}/containers/{name}/stop")
         return [TextContent(type="text", text=f"Stopped: {name}")]
 
     @server.tool()
-    async def container_restart(name: str) -> list[TextContent]:
+    async def container_restart(name: str):
         """Restart a container by name."""
         await client.post(f"{API}/containers/{name}/restart")
         return [TextContent(type="text", text=f"Restarted: {name}")]
 
     @server.tool()
-    async def container_remove(name: str, confirm: bool = False) -> list[TextContent]:
+    async def container_remove(name: str, confirm: bool = False):
         """Remove a container. Requires confirm=True."""
         if not confirm:
             return [TextContent(type="text", text="Pass confirm=True to remove the container.")]
@@ -60,7 +60,7 @@ def register_container_tools(server: Server, client: ContainerClient) -> None:
         return [TextContent(type="text", text=f"Removed: {name}")]
 
     @server.tool()
-    async def container_logs(name: str, lines: int = 100) -> list[TextContent]:
+    async def container_logs(name: str, lines: int = 100):
         """Fetch the last N log lines from a container."""
         import httpx
 
@@ -82,7 +82,7 @@ def register_container_tools(server: Server, client: ContainerClient) -> None:
         return [TextContent(type="text", text="".join(lines_out) or "(no logs)")]
 
     @server.tool()
-    async def container_stats() -> list[TextContent]:
+    async def container_stats():
         """Show CPU, memory, and network stats for all running containers."""
         containers: list[dict[str, Any]] = await client.get(f"{API}/containers/json")
         rows = ["NAME                 CPU%    MEM USAGE / LIMIT     NET I/O"]
