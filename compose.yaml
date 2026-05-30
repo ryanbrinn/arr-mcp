@@ -17,6 +17,10 @@ services:
       ARR_MCP_STACKS_DIR: "/opt/stacks"
       ARR_MCP_MEDIA_DIR: "/media-server"
       ARR_MCP_CONTAINER_RUNTIME: "podman"
+      # Explicit socket path — required when running inside a container.
+      # The host socket is bind-mounted below; this tells arr-mcp exactly
+      # where to find it rather than relying on UID-based detection.
+      ARR_MCP_SOCKET_PATH: "/run/user/1000/podman/podman.sock"
       ARR_MCP_LOG_LEVEL: "${ARR_MCP_LOG_LEVEL:-info}"
     volumes:
       # Rootless Podman socket (media user UID 1000)

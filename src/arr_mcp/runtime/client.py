@@ -17,7 +17,10 @@ class ContainerClient:
     """Async HTTP client talking to the Podman/Docker socket."""
 
     def __init__(self, settings: Settings) -> None:
-        runtime, socket_path = detect_runtime(settings.container_runtime)
+        runtime, socket_path = detect_runtime(
+            preference=settings.container_runtime,
+            socket_path=settings.socket_path,
+        )
         self.runtime = runtime
         self.socket_path = socket_path
         log.info("Container runtime: %s  socket: %s", runtime, socket_path)

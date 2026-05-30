@@ -2,16 +2,25 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 import shutil
 
 
-def detect_runtime(preference: str = "auto") -> tuple[str, str]:
+def detect_runtime(preference: str = "auto", socket_path: str = "") -> tuple[str, str]:
     """Return (runtime, socket_path) for the best available runtime.
+
+    If socket_path is provided explicitly (e.g. from ARR_MCP_SOCKET_PATH),
+    it is used as-is and detection is skipped. This is the correct behaviour
+    when arr-mcp is running inside a container with the host socket bind-mounted.
 
     preference: 'auto' | 'podman' | 'docker'
     """
+    if socket_path:
+        # Explicit path wins — infer runtime from the path string.
+        runtime = "podman" if "podman" in socket_path else "docker"
+        sock = socket_path if socket_path.startswith("unix://") else f"unix://{socket_path}"
+        return (runtime, sock)
+
     if preference == "docker":
         return _find_docker()
     if preference == "podman":
@@ -25,9 +34,7 @@ def detect_runtime(preference: str = "auto") -> tuple[str, str]:
 
 
 def _find_podman() -> tuple[str, str]:
-    uid = os.getuid()
     candidates = [
-        f"/run/user/{uid}/podman/podman.sock",
         "/run/user/1000/podman/podman.sock",
         "/run/podman/podman.sock",
     ]
