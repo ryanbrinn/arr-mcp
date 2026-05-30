@@ -6,7 +6,6 @@ import logging
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
 
 import uvicorn
 from dotenv import load_dotenv
@@ -16,6 +15,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
+from starlette.types import ASGIApp
 
 from arr_mcp.config import Settings
 from arr_mcp.runtime.client import ContainerClient
@@ -39,7 +39,7 @@ def build_mcp_server(settings: Settings, client: ContainerClient) -> FastMCP:
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: Any, api_key: str) -> None:
+    def __init__(self, app: ASGIApp , api_key: str) -> None:
         super().__init__(app)
         self.api_key = api_key
 
