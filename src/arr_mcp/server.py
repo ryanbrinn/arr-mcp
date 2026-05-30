@@ -6,6 +6,7 @@ import logging
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 import uvicorn
 from dotenv import load_dotenv
@@ -38,7 +39,7 @@ def build_mcp_server(settings: Settings, client: ContainerClient) -> FastMCP:
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: Starlette, api_key: str) -> None:
+    def __init__(self, app: Any, api_key: str) -> None:
         super().__init__(app)
         self.api_key = api_key
 
