@@ -25,8 +25,13 @@ def test_detect_docker_explicit(settings: Settings) -> None:
 
 
 def test_auto_prefers_podman_when_available(settings: Settings) -> None:
-    with patch("arr_mcp.runtime.detector._find_podman", return_value=("podman", settings.socket_path)), \
-         patch("arr_mcp.runtime.detector._find_docker", return_value=("docker", "unix:///var/run/docker.sock")):
+    with patch(
+        "arr_mcp.runtime.detector._find_podman",
+        return_value=("podman", settings.socket_path),
+    ), patch(
+        "arr_mcp.runtime.detector._find_docker",
+        return_value=("docker", "unix:///var/run/docker.sock"),
+    ):
         runtime, _ = detect_runtime("auto")
     assert runtime == "podman"
 
