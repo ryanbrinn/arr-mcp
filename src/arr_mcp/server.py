@@ -66,7 +66,8 @@ def create_app(settings: Settings) -> Starlette:
         Mount("/mcp", app=mcp_server.streamable_http_app()),
         Route("/health", endpoint=health_check),
     ]
-    app = Starlette(routes=routes, lifespan=lifespan, redirect_slashes=False)
+    app = Starlette(routes=routes, lifespan=lifespan)
+    app.router.redirect_slashes = False
     app.add_middleware(APIKeyMiddleware, api_key=settings.api_key)
     return app
 
