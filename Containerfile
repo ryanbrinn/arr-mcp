@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+﻿FROM python:3.12-slim
 
 LABEL org.opencontainers.image.title="arr-mcp"
 LABEL org.opencontainers.image.description="MCP server for home media stack management"
@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml ./
 COPY src/ ./src/
 
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir .
 
 EXPOSE 8081
 
