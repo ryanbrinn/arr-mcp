@@ -52,14 +52,14 @@ async def test_file_write_and_read(settings: Settings, mock_client: MagicMock) -
     target = str(Path(settings.stacks_dir) / "test.txt")
     await server.call_tool("file_write", {"path": target, "content": "hello world"})
     result = await server.call_tool("file_read", {"path": target})
-    assert "hello world" in result[0].text
+    assert "hello world" in result[0][0].text
 
 
 async def test_directory_list_empty(settings: Settings, mock_client: MagicMock) -> None:
     server = FastMCP("test")
     register_filesystem_tools(server, settings)
     result = await server.call_tool("directory_list", {"path": settings.stacks_dir})
-    assert result[0].text == "(empty)"
+    assert result[0][0].text == "(empty)"
 
 
 async def test_directory_list_with_entries(settings: Settings, mock_client: MagicMock) -> None:
@@ -68,8 +68,8 @@ async def test_directory_list_with_entries(settings: Settings, mock_client: Magi
     (Path(settings.stacks_dir) / "mystack").mkdir()
     (Path(settings.stacks_dir) / "readme.txt").write_text("hi")
     result = await server.call_tool("directory_list", {"path": settings.stacks_dir})
-    assert "mystack" in result[0].text
-    assert "readme.txt" in result[0].text
+    assert "mystack" in result[0][0].text
+    assert "readme.txt" in result[0][0].text
 
 
 async def test_file_write_outside_allowed_fails(settings: Settings, mock_client: MagicMock) -> None:

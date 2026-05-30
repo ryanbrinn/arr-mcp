@@ -13,7 +13,7 @@ from arr_mcp.runtime.detector import detect_runtime
 def test_detect_podman_explicit(settings: Settings) -> None:
     with patch(
         "arr_mcp.runtime.detector._find_podman",
-        return_value=("podman", settings.socket_path),
+        return_value=("podman", "unix:///run/user/1000/podman/podman.sock"),
     ):
         runtime, path = detect_runtime("podman")
     assert runtime == "podman"

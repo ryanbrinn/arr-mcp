@@ -18,14 +18,14 @@ def _make_server(mock_client: MagicMock) -> FastMCP:
 async def test_container_remove_without_confirm_is_safe(mock_client: MagicMock) -> None:
     server = _make_server(mock_client)
     result = await server.call_tool("container_remove", {"name": "plex", "confirm": False})
-    assert "confirm=True" in result[0].text
+    assert "confirm=True" in result[0][0].text
     mock_client.delete.assert_not_called()
 
 
 async def test_container_remove_default_is_safe(mock_client: MagicMock) -> None:
     server = _make_server(mock_client)
     result = await server.call_tool("container_remove", {"name": "plex"})
-    assert "confirm=True" in result[0].text
+    assert "confirm=True" in result[0][0].text
     mock_client.delete.assert_not_called()
 
 
@@ -40,7 +40,7 @@ async def test_container_list_empty(mock_client: MagicMock) -> None:
     mock_client.get = AsyncMock(return_value=[])
     server = _make_server(mock_client)
     result = await server.call_tool("container_list", {})
-    assert "No containers" in result[0].text
+    assert "No containers" in result[0][0].text
 
 
 async def test_container_list_formats_output(mock_client: MagicMock) -> None:
@@ -58,7 +58,7 @@ async def test_container_list_formats_output(mock_client: MagicMock) -> None:
     ])
     server = _make_server(mock_client)
     result = await server.call_tool("container_list", {})
-    text = result[0].text
+    text = result[0][0].text
     assert "plex" in text
     assert "sonarr" in text
     assert "32400" in text
