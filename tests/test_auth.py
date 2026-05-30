@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 
 async def test_no_auth_header_returns_401(http_client) -> None:
     r = await http_client.get("/mcp")

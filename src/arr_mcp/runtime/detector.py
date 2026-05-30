@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 
 def detect_runtime(preference: str = "auto", socket_path: str = "") -> tuple[str, str]:

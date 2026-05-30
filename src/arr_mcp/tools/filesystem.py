@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 from pathlib import Path
 
@@ -34,15 +33,17 @@ def register_filesystem_tools(server: FastMCP, settings: Settings) -> None:
         """Show disk usage for a path."""
         p = _check_path(path, settings)
         total, used, free = shutil.disk_usage(str(p))
-        return [TextContent(
-            type="text",
-            text=(
-                f"Path:  {p}\n"
-                f"Total: {total / 1e9:.1f} GB\n"
-                f"Used:  {used / 1e9:.1f} GB ({used / total * 100:.1f}%)\n"
-                f"Free:  {free / 1e9:.1f} GB"
-            ),
-        )]
+        return [
+            TextContent(
+                type="text",
+                text=(
+                    f"Path:  {p}\n"
+                    f"Total: {total / 1e9:.1f} GB\n"
+                    f"Used:  {used / 1e9:.1f} GB ({used / total * 100:.1f}%)\n"
+                    f"Free:  {free / 1e9:.1f} GB"
+                ),
+            )
+        ]
 
     @server.tool()
     async def directory_list(path: str):

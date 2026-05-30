@@ -25,11 +25,14 @@ def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
         for c in data:
             name = (c.get("Names") or ["?"])[0].lstrip("/")
             status = c.get("Status", "unknown")
-            ports = ", ".join(
-                f"{p.get('PublicPort', '?')}->{p.get('PrivatePort', '?')}/{p.get('Type', '')}"
-                for p in (c.get("Ports") or [])
-                if p.get("PublicPort")
-            ) or "none"
+            ports = (
+                ", ".join(
+                    f"{p.get('PublicPort', '?')}->{p.get('PrivatePort', '?')}/{p.get('Type', '')}"
+                    for p in (c.get("Ports") or [])
+                    if p.get("PublicPort")
+                )
+                or "none"
+            )
             rows.append(f"{name:20s}  {status:30s}  ports: {ports}")
         return [TextContent(type="text", text="\n".join(rows) or "No containers found.")]
 
@@ -91,8 +94,13 @@ def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
             cid = c["Id"]
             try:
                 s = await client.get(f"{API}/containers/{cid}/stats?stream=false")
-                cpu_delta = s["cpu_stats"]["cpu_usage"]["total_usage"] - s["precpu_stats"]["cpu_usage"]["total_usage"]
-                sys_delta = s["cpu_stats"]["system_cpu_usage"] - s["precpu_stats"]["system_cpu_usage"]
+                cpu_delta = (
+                    s["cpu_stats"]["cpu_usage"]["total_usage"]
+                    - s["precpu_stats"]["cpu_usage"]["total_usage"]
+                )
+                sys_delta = (
+                    s["cpu_stats"]["system_cpu_usage"] - s["precpu_stats"]["system_cpu_usage"]
+                )
                 ncpu = s["cpu_stats"].get("online_cpus", 1)
                 cpu_pct = (cpu_delta / sys_delta) * ncpu * 100.0 if sys_delta > 0 else 0.0
                 mem = s["memory_stats"]
@@ -101,7 +109,9 @@ def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
                 nets = s.get("networks", {})
                 rx = sum(v.get("rx_bytes", 0) for v in nets.values()) / 1024
                 tx = sum(v.get("tx_bytes", 0) for v in nets.values()) / 1024
-                rows.append(f"{name:20s} {cpu_pct:6.2f}%  {used:6.1f}MB / {limit:6.1f}MB  {rx:.1f}kB / {tx:.1f}kB")
+                rows.append(
+                    f"{name:20s} {cpu_pct:6.2f}%  {used:6.1f}MB / {limit:6.1f}MB  {rx:.1f}kB / {tx:.1f}kB"
+                )
             except Exception as exc:
                 rows.append(f"{name:20s} (stats unavailable: {exc})")
         return [TextContent(type="text", text="\n".join(rows))]
