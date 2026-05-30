@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
+from mcp.server.fastmcp import FastMCP
 
 from arr_mcp.tools.containers import register_container_tools
-from mcp.server.fastmcp import FastMCP
 
 
 def _make_server(mock_client: MagicMock) -> FastMCP:

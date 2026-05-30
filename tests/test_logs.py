@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from mcp.server.fastmcp import FastMCP
 
 from arr_mcp.config import Settings
-import sys
-
 from arr_mcp.tools.logs import _check_log_path, register_log_tools
-from mcp.server.fastmcp import FastMCP
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Linux path test")
@@ -33,7 +32,9 @@ def test_log_traversal_blocked() -> None:
 async def test_log_read_missing_file(settings: Settings, mock_client: MagicMock) -> None:
     server = FastMCP("test")
     register_log_tools(server, settings)
-    result = await server.call_tool("log_read", {"path": str(Path(settings.stacks_dir) / "missing.log")})
+    result = await server.call_tool(
+        "log_read", {"path": str(Path(settings.stacks_dir) / "missing.log")}
+    )
     assert "not found" in result[0].text.lower()
 
 

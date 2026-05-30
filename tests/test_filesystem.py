@@ -6,11 +6,11 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.exceptions import ToolError
 
 from arr_mcp.config import Settings
 from arr_mcp.tools.filesystem import _check_path, register_filesystem_tools
-from mcp.server.fastmcp import FastMCP
-from mcp.server.fastmcp.exceptions import ToolError
 
 
 def test_allowed_media_path(settings: Settings) -> None:

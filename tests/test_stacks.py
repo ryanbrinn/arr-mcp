@@ -6,11 +6,11 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.exceptions import ToolError
 
 from arr_mcp.config import Settings
 from arr_mcp.tools.stacks import register_stack_tools
-from mcp.server.fastmcp import FastMCP
-from mcp.server.fastmcp.exceptions import ToolError
 
 
 def _make_server(settings: Settings, mock_client: MagicMock) -> FastMCP:
@@ -34,7 +34,9 @@ async def test_stack_list_returns_stack_names(settings: Settings, mock_client: M
     assert "monitoring" in result[0].text
 
 
-async def test_stack_down_without_confirm_is_safe(settings: Settings, mock_client: MagicMock) -> None:
+async def test_stack_down_without_confirm_is_safe(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     (Path(settings.stacks_dir) / "mystack").mkdir()
     server = _make_server(settings, mock_client)
     result = await server.call_tool("stack_down", {"name": "mystack", "confirm": False})

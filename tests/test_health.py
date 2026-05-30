@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 
 async def test_health_returns_200(http_client) -> None:
     r = await http_client.get("/health")
