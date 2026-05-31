@@ -67,6 +67,7 @@ def create_app(settings: Settings) -> Starlette:
         Route("/health", endpoint=health_check),
     ]
     app = Starlette(routes=routes, lifespan=lifespan)
+    app.router.redirect_slashes = False
     app.add_middleware(APIKeyMiddleware, api_key=settings.api_key)
     return app
 
