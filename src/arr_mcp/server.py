@@ -14,7 +14,7 @@ from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-from starlette.routing import Mount, Route
+from starlette.routing import Route
 from starlette.types import ASGIApp
 
 from arr_mcp.config import Settings
@@ -56,15 +56,23 @@ def create_app(settings: Settings) -> Starlette:
     client = ContainerClient(settings)
     mcp_server = build_mcp_server(settings, client)
 
+    # Initialise the session manager and extract the /mcp route handler.
+    # We then run session_manager.run() in our own lifespan so the task group
+    # is always initialised before requests arrive, regardless of whether the
+    # host (uvicorn or httpx test transport) calls sub-app lifespans.
+    fastmcp_app = mcp_server.streamable_http_app()
+    mcp_route = fastmcp_app.routes[0]  # Route("/mcp", endpoint=StreamableHTTPASGIApp)
+
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
         log.info("arr-mcp starting — runtime=%s port=%d", settings.container_runtime, settings.port)
-        yield
+        async with mcp_server.session_manager.run():
+            yield
         log.info("arr-mcp stopped")
 
     routes = [
         Route("/health", endpoint=health_check),
-        Mount("/", app=mcp_server.streamable_http_app()),
+        mcp_route,
     ]
     app = Starlette(routes=routes, lifespan=lifespan)
     app.add_middleware(APIKeyMiddleware, api_key=settings.api_key)
