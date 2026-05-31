@@ -44,18 +44,20 @@ async def test_container_list_empty(mock_client: MagicMock) -> None:
 
 
 async def test_container_list_formats_output(mock_client: MagicMock) -> None:
-    mock_client.get = AsyncMock(return_value=[
-        {
-            "Names": ["/plex"],
-            "Status": "Up 2 hours",
-            "Ports": [{"PublicPort": 32400, "PrivatePort": 32400, "Type": "tcp"}],
-        },
-        {
-            "Names": ["/sonarr"],
-            "Status": "Up 1 hour",
-            "Ports": [{"PublicPort": 8989, "PrivatePort": 8989, "Type": "tcp"}],
-        },
-    ])
+    mock_client.get = AsyncMock(
+        return_value=[
+            {
+                "Names": ["/plex"],
+                "Status": "Up 2 hours",
+                "Ports": [{"PublicPort": 32400, "PrivatePort": 32400, "Type": "tcp"}],
+            },
+            {
+                "Names": ["/sonarr"],
+                "Status": "Up 1 hour",
+                "Ports": [{"PublicPort": 8989, "PrivatePort": 8989, "Type": "tcp"}],
+            },
+        ]
+    )
     server = _make_server(mock_client)
     result = await server.call_tool("container_list", {})
     text = result[0][0].text

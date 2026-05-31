@@ -17,6 +17,7 @@ API = "/v1.41"
 
 
 def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
+    """Register all container lifecycle tools with the MCP server."""
 
     @server.tool()
     async def container_list() -> list[TextContent]:

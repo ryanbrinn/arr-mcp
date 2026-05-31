@@ -28,6 +28,7 @@ async def _compose(stack_path: Path, *args: str) -> str:
 
 
 def register_stack_tools(server: FastMCP, client: ContainerClient, settings: Settings) -> None:
+    """Register stack management tools (podman-compose) with the MCP server."""
     stacks_root = Path(settings.stacks_dir)
 
     def _stack_path(name: str) -> Path:

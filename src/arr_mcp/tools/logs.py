@@ -22,7 +22,11 @@ def _check_log_path(path: str, extra_roots: list[Path] | None = None) -> Path:
 
 
 def register_log_tools(server: FastMCP, settings: Settings) -> None:
-    extra_roots = [Path(settings.stacks_dir).resolve(), Path(settings.media_dir).resolve()]
+    """Register log reading and searching tools with the MCP server."""
+    extra_roots = [
+        Path(settings.stacks_dir).resolve(),
+        Path(settings.media_dir).resolve(),
+    ]
 
     @server.tool()
     async def log_read(path: str, lines: int = 100) -> list[TextContent]:

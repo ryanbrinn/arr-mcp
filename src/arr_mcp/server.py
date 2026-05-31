@@ -31,6 +31,7 @@ log = logging.getLogger(__name__)
 
 
 def build_mcp_server(settings: Settings, client: ContainerClient) -> FastMCP:
+    """Build and configure the FastMCP server with all tool registrations."""
     # Disable DNS rebinding protection — we use API key auth instead and the
     # server is accessed from external hosts (not just localhost).
     server = FastMCP(
@@ -45,7 +46,7 @@ def build_mcp_server(settings: Settings, client: ContainerClient) -> FastMCP:
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: ASGIApp , api_key: str) -> None:
+    def __init__(self, app: ASGIApp, api_key: str) -> None:
         super().__init__(app)
         self.api_key = api_key
 
@@ -53,12 +54,13 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if request.url.path == "/health":
             return await call_next(request)
         auth = request.headers.get("Authorization", "")
-        if not auth.startswith("Bearer ") or auth[len("Bearer "):] != self.api_key:
+        if not auth.startswith("Bearer ") or auth[len("Bearer ") :] != self.api_key:
             return JSONResponse({"error": "Unauthorized"}, status_code=401)
         return await call_next(request)
 
 
 def create_app(settings: Settings) -> Starlette:
+    """Build the Starlette ASGI app with auth middleware and MCP route."""
     client = ContainerClient(settings)
     mcp_server = build_mcp_server(settings, client)
 
@@ -86,10 +88,12 @@ def create_app(settings: Settings) -> Starlette:
 
 
 async def health_check(request: Request) -> JSONResponse:
+    """Return a simple liveness response."""
     return JSONResponse({"status": "ok", "service": "arr-mcp"})
 
 
 def main() -> None:
+    """Entry point: load config, configure logging, and start uvicorn."""
     settings = Settings()
     logging.basicConfig(
         level=getattr(logging, settings.log_level.upper(), logging.INFO),

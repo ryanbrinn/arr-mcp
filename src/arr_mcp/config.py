@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     stacks_dir: str = Field(default="/opt/stacks", description="podman-compose stack root")
     media_dir: str = Field(default="/media-server", description="Media storage root")
     container_runtime: str = Field(default="auto", description="auto | docker | podman")
-    
+
     socket_path: str = Field(
         default="",
         description="Explicit socket path (e.g. unix:///run/user/1000/podman/podman.sock). "

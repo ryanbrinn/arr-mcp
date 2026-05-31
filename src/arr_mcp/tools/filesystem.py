@@ -27,6 +27,7 @@ def _check_path(path: str, settings: Settings) -> Path:
 
 
 def register_filesystem_tools(server: FastMCP, settings: Settings) -> None:
+    """Register filesystem read/write tools with the MCP server."""
 
     @server.tool()
     async def disk_usage(path: str = "/media-server") -> list[TextContent]:
