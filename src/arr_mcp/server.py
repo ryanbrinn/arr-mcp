@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -30,7 +31,12 @@ log = logging.getLogger(__name__)
 
 
 def build_mcp_server(settings: Settings, client: ContainerClient) -> FastMCP:
-    server = FastMCP("arr-mcp")
+    # Disable DNS rebinding protection — we use API key auth instead and the
+    # server is accessed from external hosts (not just localhost).
+    server = FastMCP(
+        "arr-mcp",
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+    )
     register_container_tools(server, client)
     register_stack_tools(server, client, settings)
     register_filesystem_tools(server, settings)
