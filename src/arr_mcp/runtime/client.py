@@ -42,7 +42,7 @@ class ContainerClient:
         r.raise_for_status()
         try:
             return r.json()
-        except Exception:
+        except ValueError:
             return {}
 
     async def delete(self, path: str, **kwargs: Any) -> Any:
@@ -50,7 +50,7 @@ class ContainerClient:
         r.raise_for_status()
         try:
             return r.json()
-        except Exception:
+        except ValueError:
             return {}
 
     async def aclose(self) -> None:
