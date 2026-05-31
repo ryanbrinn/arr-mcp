@@ -63,11 +63,10 @@ def create_app(settings: Settings) -> Starlette:
         log.info("arr-mcp stopped")
 
     routes = [
-        Mount("/mcp", app=mcp_server.streamable_http_app()),
         Route("/health", endpoint=health_check),
+        Mount("/", app=mcp_server.streamable_http_app()),
     ]
     app = Starlette(routes=routes, lifespan=lifespan)
-    app.router.redirect_slashes = False
     app.add_middleware(APIKeyMiddleware, api_key=settings.api_key)
     return app
 
