@@ -25,19 +25,24 @@ This is a significant gap given that replacing Dockge is a core project goal.
 
 ## Decision
 
-**Option C — Host-side helper agent, communicating via a Unix socket with a JSON API.**
+**Investigating Option C — Host-side helper agent.**
 
-The helper runs on the host as the service account (e.g. `media`), exposes a Unix domain socket, and accepts a minimal set of JSON commands. arr-mcp bind-mounts the socket into the container and communicates with it over HTTP via the socket.
+Direction is set: a small host-side process running as the service account, communicating with arr-mcp via a bind-mounted Unix socket. This is an **architectural spike** — the approach is committed to, but the following implementation details are still under investigation:
 
-**Protocol choice: Unix socket + JSON over HTTP**
+- Exact API surface (which commands the helper exposes)
+- Protocol over the socket (HTTP/JSON vs lightweight custom protocol)
+- Deployment mechanism for the helper itself (quadlet, systemd unit, or packaged alongside arr-mcp)
+- How the helper handles authentication/authorisation to prevent abuse
 
-A simple HTTP/JSON API over a Unix socket was chosen over alternatives:
+**Working hypothesis: Unix socket + JSON over HTTP**
+
+A simple HTTP/JSON API over a Unix socket is the leading candidate:
 
 - **gRPC**: Well-typed but adds significant complexity and build tooling
 - **Custom binary protocol**: Minimal overhead but hard to debug and extend
 - **HTTP/JSON over Unix socket**: Familiar pattern (same as Podman/Docker API), easy to test with `curl`, straightforward to extend, no extra dependencies
 
-The API surface is intentionally minimal — no arbitrary shell execution. Only explicitly defined operations are exposed.
+This hypothesis will be validated during the spike. The API surface must be minimal — no arbitrary shell execution. Only explicitly defined operations will be exposed.
 
 ## Options considered
 
