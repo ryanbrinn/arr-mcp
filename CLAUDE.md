@@ -45,6 +45,18 @@ This document contains critical information about working with this codebase. Fo
 - NEVER ever mention a `co-authored-by` or similar aspects. In particular, never
   mention the tool used to create the commit message or PR.
 
+## Branch and PR Workflow
+
+- **One branch per issue.** Every GitHub issue gets its own branch. Name it after the issue: `fix/issue-23-short-description`, `feat/issue-17-quadlet-conversion`, etc.
+- **Never commit directly to main.** All changes go through a branch and PR.
+- **Check before pushing.** Before pushing to an existing branch, verify its PR has not already been merged:
+  ```bash
+  gh pr list --state merged --repo ryanbrinn/arr-mcp
+  ```
+  If the PR is merged, create a new branch instead.
+- **Post-merge commits are fixes.** Any commit made to a branch after its PR was merged must use `fix:` or `bugfix:` prefix in the commit message.
+- **Always add reviewer.** All PRs must request review from `ArthurClune`.
+
 ## Development Philosophy
 
 - **Simplicity**: Write simple, straightforward code
