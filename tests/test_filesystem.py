@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from mcp.server.fastmcp import FastMCP
@@ -67,7 +67,8 @@ async def test_directory_list_with_entries(settings: Settings, mock_client: Magi
     register_filesystem_tools(server, settings)
     (Path(settings.stacks_dir) / "mystack").mkdir()
     (Path(settings.stacks_dir) / "readme.txt").write_text("hi")
-    result = await server.call_tool("directory_list", {"path": settings.stacks_dir})
+    with patch("arr_mcp.tools.filesystem.is_owned_by_current_user", return_value=True):
+        result = await server.call_tool("directory_list", {"path": settings.stacks_dir})
     assert "mystack" in result[0][0].text
     assert "readme.txt" in result[0][0].text
 
@@ -77,3 +78,20 @@ async def test_file_write_outside_allowed_fails(settings: Settings, mock_client:
     register_filesystem_tools(server, settings)
     with pytest.raises(ToolError, match="not in allowed roots"):
         await server.call_tool("file_write", {"path": "/etc/evil.txt", "content": "bad"})
+
+
+async def test_directory_list_excludes_root_owned_in_stacks_dir(
+    settings: Settings, mock_client: MagicMock
+) -> None:
+    """Root-owned directories must be hidden when listing the stacks root."""
+    server = FastMCP("test")
+    register_filesystem_tools(server, settings)
+    (Path(settings.stacks_dir) / "my-stack").mkdir()
+    (Path(settings.stacks_dir) / "root-stack").mkdir()
+    with patch(
+        "arr_mcp.tools.filesystem.is_owned_by_current_user",
+        side_effect=lambda p: p.name != "root-stack",
+    ):
+        result = await server.call_tool("directory_list", {"path": settings.stacks_dir})
+    assert "my-stack" in result[0][0].text
+    assert "root-stack" not in result[0][0].text

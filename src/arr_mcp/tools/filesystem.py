@@ -9,6 +9,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent
 
 from arr_mcp.config import Settings
+from arr_mcp.tools.utils import is_owned_by_current_user
 
 # Paths that may be read/written
 _ALLOWED_ROOTS = ["/opt/stacks", "/media-server", "/var/log"]
@@ -52,9 +53,13 @@ def register_filesystem_tools(server: FastMCP, settings: Settings) -> None:
         p = _check_path(path, settings)
         if not p.exists():
             return [TextContent(type="text", text=f"Path not found: {p}")]
+        stacks_root = Path(settings.stacks_dir).resolve()
         entries = sorted(p.iterdir(), key=lambda e: (e.is_file(), e.name))
         lines = []
         for e in entries:
+            # Hide directories not owned by the current user when inside stacks_dir
+            if e.is_dir() and p == stacks_root and not is_owned_by_current_user(e):
+                continue
             kind = "DIR " if e.is_dir() else "FILE"
             size = f"{e.stat().st_size:>12,}" if e.is_file() else ""
             lines.append(f"{kind}  {size}  {e.name}")
