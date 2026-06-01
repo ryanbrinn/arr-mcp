@@ -11,6 +11,7 @@ from mcp.types import TextContent
 
 from arr_mcp.config import Settings
 from arr_mcp.runtime.client import ContainerClient
+from arr_mcp.tools.utils import is_owned_by_current_user
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ def register_stack_tools(server: FastMCP, client: ContainerClient, settings: Set
 
     def _stack_path(name: str) -> Path:
         p = stacks_root / name
-        if not p.is_dir():
+        if not p.is_dir() or not is_owned_by_current_user(p):
             raise ValueError(f"Stack not found: {name} (looked in {stacks_root})")
         return p
 
@@ -42,7 +43,11 @@ def register_stack_tools(server: FastMCP, client: ContainerClient, settings: Set
         """List all stacks in the stacks directory."""
         if not stacks_root.exists():
             return [TextContent(type="text", text=f"Stacks directory not found: {stacks_root}")]
-        stacks = [d.name for d in sorted(stacks_root.iterdir()) if d.is_dir()]
+        stacks = [
+            d.name
+            for d in sorted(stacks_root.iterdir())
+            if d.is_dir() and is_owned_by_current_user(d)
+        ]
         return [TextContent(type="text", text="\n".join(stacks) or "No stacks found.")]
 
     @server.tool()
