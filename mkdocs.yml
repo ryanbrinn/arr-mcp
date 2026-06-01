@@ -40,6 +40,7 @@ nav:
     - "ADR-0001: Filesystem Ownership Scoping": adr/0001-filesystem-ownership-scoping.md
     - "ADR-0002: Host-Side Helper Agent": adr/0002-host-side-helper-agent.md
     - "ADR-0003: Frontend Strategy": adr/0003-frontend-strategy.md
+    - "ADR-0004: Supported Runtime Configurations": adr/0004-supported-runtime-configurations.md
 
 markdown_extensions:
   - admonition

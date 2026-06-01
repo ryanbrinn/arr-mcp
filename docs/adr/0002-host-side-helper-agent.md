@@ -2,8 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Proposed |
+| **Status** | Accepted |
 | **Date** | 2026-06-01 |
+| **Decided** | 2026-06-01 |
 | **Issues** | [#12](https://github.com/ryanbrinn/arr-mcp/issues/12), [#13](https://github.com/ryanbrinn/arr-mcp/issues/13) |
 
 ## Context
@@ -24,7 +25,19 @@ This is a significant gap given that replacing Dockge is a core project goal.
 
 ## Decision
 
-_Not yet decided. This ADR captures the options under consideration._
+**Option C — Host-side helper agent, communicating via a Unix socket with a JSON API.**
+
+The helper runs on the host as the service account (e.g. `media`), exposes a Unix domain socket, and accepts a minimal set of JSON commands. arr-mcp bind-mounts the socket into the container and communicates with it over HTTP via the socket.
+
+**Protocol choice: Unix socket + JSON over HTTP**
+
+A simple HTTP/JSON API over a Unix socket was chosen over alternatives:
+
+- **gRPC**: Well-typed but adds significant complexity and build tooling
+- **Custom binary protocol**: Minimal overhead but hard to debug and extend
+- **HTTP/JSON over Unix socket**: Familiar pattern (same as Podman/Docker API), easy to test with `curl`, straightforward to extend, no extra dependencies
+
+The API surface is intentionally minimal — no arbitrary shell execution. Only explicitly defined operations are exposed.
 
 ## Options considered
 
@@ -55,7 +68,7 @@ The socket is bind-mounted into the arr-mcp container. The helper exposes a mini
 **Pros:** Solves both #12 and #13 cleanly. Keeps arr-mcp unprivileged. Minimal attack surface if the API is well-scoped. No changes to the container image.
 **Cons:** Adds a new host-side component to deploy and maintain. Requires a deployment mechanism (quadlet or systemd unit for the helper itself).
 
-## Consequences (if Option C is chosen)
+## Consequences
 
 - arr-mcp gains full stack lifecycle management on rootless Podman
 - The helper must be deployed separately alongside arr-mcp — documentation and packaging will need to cover this
