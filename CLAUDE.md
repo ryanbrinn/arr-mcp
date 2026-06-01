@@ -73,6 +73,50 @@ This document contains critical information about working with this codebase. Fo
 - **Clean logic**: Keep core logic clean and push implementation details to the edges
 - **File Organsiation**: Balance file organization with simplicity - use an appropriate number of files for the project scale
 
+## Project Phase
+
+**Current phase: Phase 1 — MVP**
+
+See `docs/roadmap.md` for the full public roadmap. This section governs how sessions should operate.
+
+### Phase definitions
+
+| Phase | Goal |
+|---|---|
+| **Phase 1 — MVP** | Solid, secure, well-tested foundation. All tools working. Dashboard. Documentation. |
+| **Phase 2 — Media Intelligence** | Plex/-arr API integrations, watched content cleanup, log monitoring, multi-user support. |
+| **Phase 3 — Installation Wizard** | Guided setup for non-technical users on a fresh machine. |
+
+### Guardrails — what NOT to build yet
+
+**In Phase 1, do not:**
+- Integrate with Plex, Sonarr, Radarr, or SABnzbd APIs
+- Build user authentication or watchlist features
+- Start installation wizard work
+- Build Phase 2/3 features even if they seem "quick"
+
+**In Phase 2, do not:**
+- Start installation wizard work
+- Implement Jellyfin support (future state — design for it, don't build it)
+
+### End-of-phase verification
+
+Before declaring a phase complete and beginning the next, verify:
+
+1. Walk through the phase verification checklist in `docs/roadmap.md` item by item
+2. All CI checks pass — ruff, mypy, pytest — with no phase-related skips
+3. All open `phase-N` security issues are resolved
+4. ADRs are up to date and reflect decisions actually made
+5. Ask: *"Has the project goal shifted?"* — if yes, update roadmap and CLAUDE.md before proceeding
+6. Ask: *"Is there technical debt to capture?"* — if yes, create issues before moving on
+
+### Updating phase status
+
+When a phase is complete, update the **Current phase** line above and commit to main with message:
+```
+chore: advance to Phase N — <phase name>
+```
+
 ## System Architecture
 
 [fill in here]
