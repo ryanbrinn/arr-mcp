@@ -8,6 +8,7 @@ Connects to Claude as an MCP tool server so you can manage your stack conversati
 
 ## Documentation
 
+- [Roadmap](roadmap.md) — project phases, goals, and verification criteria
 - [Getting Started](getting-started.md) — installation and running the server
 - [Configuration](configuration.md) — environment variables and settings
 - [Tools Reference](tools.md) — all available MCP tools
