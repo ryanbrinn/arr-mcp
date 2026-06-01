@@ -62,17 +62,48 @@ curl http://localhost:8081/health
 
 ## Connecting to Claude
 
-Add the following to your Claude MCP configuration:
+### Claude.ai (web)
+
+Claude.ai supports remote MCP servers natively. Go to **Settings → Integrations** and add:
+
+```
+http://your-server-ip:8081/mcp
+```
+
+With header:
+```
+Authorization: Bearer your-secret-key
+```
+
+### Claude Desktop
+
+Claude Desktop only supports local stdio-based MCP servers and cannot connect to remote HTTP servers directly. You need **mcpproxy** installed on your local machine to bridge the connection.
+
+1. Download mcpproxy from [github.com/sparfenyuk/mcp-proxy](https://github.com/sparfenyuk/mcp-proxy)
+2. Add the following to your Claude Desktop `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "arr-mcp": {
-      "url": "http://localhost:8081/mcp",
-      "headers": {
-        "Authorization": "Bearer your-secret-key"
-      }
+      "command": "<path-to-mcpproxy>",
+      "args": [
+        "--transport",
+        "streamablehttp",
+        "-H",
+        "Authorization",
+        "Bearer your-secret-key",
+        "http://your-server-ip:8081/mcp"
+      ]
     }
   }
 }
 ```
+
+Replace `<path-to-mcpproxy>` with the full path to the mcpproxy executable on your local machine:
+
+- **Windows**: `C:\Users\username\bin\mcpproxy.exe`
+- **macOS/Linux**: `/usr/local/bin/mcpproxy`
+
+!!! note
+    mcpproxy runs on the machine running Claude Desktop — not on the media server.
