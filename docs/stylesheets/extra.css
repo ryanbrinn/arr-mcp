@@ -2,60 +2,64 @@
 
 :root,
 [data-md-color-scheme="slate"] {
-  /* Primary: lavender violet */
   --md-primary-fg-color:              #a78bfa;
   --md-primary-fg-color--light:       #c4b0fd;
   --md-primary-fg-color--dark:        #7c5cfc;
   --md-primary-bg-color:              #0b0b14;
   --md-primary-bg-color--light:       #11101e;
 
-  /* Accent: pink */
   --md-accent-fg-color:               #f472b6;
   --md-accent-fg-color--transparent:  rgba(244,114,182,.1);
   --md-accent-bg-color:               #0b0b14;
 
-  /* Page background */
   --md-default-bg-color:              #0b0b14;
   --md-default-bg-color--light:       #11101e;
   --md-default-bg-color--lighter:     #16142a;
   --md-default-bg-color--lightest:    #1a1830;
 
-  /* Text */
   --md-default-fg-color:              #ede9f8;
   --md-default-fg-color--light:       #c4b0fd;
   --md-default-fg-color--lighter:     #6b6890;
   --md-default-fg-color--lightest:    #3d3a5c;
 
-  /* Code blocks */
   --md-code-bg-color:                 #11101e;
   --md-code-fg-color:                 #c4b0fd;
   --md-code-hl-color:                 rgba(167,139,250,.15);
 
-  /* Links */
   --md-typeset-a-color:               #a78bfa;
 
-  /* Admonitions */
   --md-admonition-bg-color:           #11101e;
 
-  /* Footer */
-  --md-footer-bg-color:               #0b0b14;
+  --md-footer-bg-color:               #07070f;
   --md-footer-bg-color--dark:         #07070f;
   --md-footer-fg-color:               #6b6890;
   --md-footer-fg-color--light:        #3d3a5c;
   --md-footer-fg-color--lighter:      #252040;
 }
 
-/* Nav header */
+/* Header */
 .md-header {
   background-color: #0b0b14;
   border-bottom: 1px solid #1a1830;
   box-shadow: none;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .md-header__title {
   font-family: ui-monospace, 'Cascadia Code', 'Fira Mono', monospace;
   font-size: .85rem;
   letter-spacing: .03em;
+  color: #ede9f8;
+}
+
+/* Keep logo the right size and don't invert it */
+.md-logo img,
+.md-logo svg {
+  width: 24px;
+  height: 24px;
+  filter: none;
 }
 
 /* Nav tabs */
@@ -82,31 +86,18 @@
   text-transform: uppercase;
 }
 
-.md-nav__link {
-  color: #6b6890;
-}
-
+.md-nav__link { color: #6b6890; }
 .md-nav__link:hover,
-.md-nav__link--active {
-  color: #a78bfa;
-}
+.md-nav__link--active { color: #a78bfa; }
+.md-nav__link--active { font-weight: 500; }
 
-.md-nav__link--active {
-  font-weight: 500;
-}
-
-/* Content */
-.md-content {
-  background-color: #0b0b14;
-}
+/* Content area */
+.md-content { background-color: #0b0b14; }
 
 .md-typeset h1 {
   color: #ede9f8;
   font-weight: 700;
   letter-spacing: -.02em;
-}
-
-.md-typeset h1 {
   border-bottom: 1px solid #1a1830;
   padding-bottom: .4em;
 }
@@ -117,13 +108,8 @@
   font-weight: 600;
 }
 
-.md-typeset a {
-  color: #a78bfa;
-}
-
-.md-typeset a:hover {
-  color: #c4b0fd;
-}
+.md-typeset a { color: #a78bfa; }
+.md-typeset a:hover { color: #c4b0fd; }
 
 /* Tables */
 .md-typeset table:not([class]) {
@@ -146,13 +132,8 @@
   color: #ede9f8;
 }
 
-.md-typeset table:not([class]) tr:nth-child(odd) td {
-  background-color: #11101e;
-}
-
-.md-typeset table:not([class]) tr:hover td {
-  background-color: #1a1830;
-}
+.md-typeset table:not([class]) tr:nth-child(odd) td { background-color: #11101e; }
+.md-typeset table:not([class]) tr:hover td { background-color: #1a1830; }
 
 /* Code */
 .md-typeset code {
@@ -164,17 +145,12 @@
   font-size: .85em;
 }
 
-.md-typeset pre > code {
-  background-color: #11101e;
-  border: 1px solid #252040;
-  border-radius: 8px;
-  color: #c4b0fd;
-}
-
+.md-typeset pre > code,
 .highlight {
   background-color: #11101e !important;
   border: 1px solid #252040;
   border-radius: 8px;
+  color: #c4b0fd;
 }
 
 /* Admonitions */
@@ -198,32 +174,22 @@
   border: 1px solid #252040;
   color: #ede9f8;
 }
+.md-search__input::placeholder { color: #3d3a5c; }
 
-.md-search__input::placeholder {
-  color: #3d3a5c;
-}
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0b0b14; }
+::-webkit-scrollbar-thumb { background: #252040; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3b2d7a; }
 
-/* Scroll bar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #0b0b14;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #252040;
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #3b2d7a;
-}
-
-/* Home page — hide the default content wrapper padding */
+/* Home page — remove the default content inner padding so our hero fills edge-to-edge */
 .md-content--home .md-content__inner {
   padding: 0;
   margin: 0;
+  max-width: 100%;
+}
+
+/* Ensure hero section clears the sticky header (header ~56px + tabs ~48px = ~104px) */
+.home-hero {
+  padding-top: 80px;
 }
