@@ -12,12 +12,22 @@
 | `container_logs(name, lines=100)` | Fetch last N log lines |
 | `container_stats()` | CPU, memory, and network stats for all running containers |
 
+---
+
 ## Stack management
 
-!!! info "Not yet available"
-    Stack management tools (`stack_up`, `stack_down`, `stack_pull`, `stack_restart`, `compose_validate`) require a host-side helper agent that is not yet implemented. See [issue #12](https://github.com/ryanbrinn/arr-mcp/issues/12) and [ADR-0002](adr/0002-host-side-helper-agent.md) for the planned solution.
+Stack management tools require the [arr-helper agent](getting-started.md#arr-helper) to be running on the host. When the helper is unavailable, these tools return a message explaining what's needed — they never silently fail.
 
-    The compose file read and write tools below work today.
+| Tool | Description |
+|---|---|
+| `stack_list()` | List all stacks in the stacks directory |
+| `stack_up(name)` | Start a stack with `podman-compose up -d` |
+| `stack_down(name, confirm=True)` | Stop a stack (requires `confirm=True`) |
+| `stack_pull(name)` | Pull latest images for a stack |
+| `stack_restart(name)` | Restart a stack (down then up) |
+| `compose_validate(name)` | Dry-run validate a stack compose file |
+
+---
 
 ## Compose files
 
@@ -25,6 +35,30 @@
 |---|---|
 | `compose_read(stack)` | Read the compose.yaml for a stack |
 | `compose_write(stack, content)` | Write/replace the compose.yaml for a stack |
+
+---
+
+## Compose ↔ Quadlet conversion
+
+Tools for migrating between Docker Compose and Podman quadlet unit files. Both tools write to staging locations and never overwrite originals — you review and install the output yourself.
+
+| Tool | Description |
+|---|---|
+| `compose_to_quadlets(stack)` | Convert `compose.yaml` → `.container` files in `/opt/stacks/<stack>/quadlets/` |
+| `quadlets_to_compose(stack)` | Convert `.container` files → `compose.from-quadlets.yaml` |
+
+**Field coverage:** `image`, `container_name`, `environment`, `volumes`, `ports`, `networks`, all four restart policies, `depends_on`, and `healthcheck`. Unsupported compose fields (e.g. `build`, `deploy`) produce warnings in the output but do not fail the conversion.
+
+**Installing generated quadlets:**
+
+```bash
+cp /opt/stacks/<stack>/quadlets/*.container ~/.config/containers/systemd/
+systemctl --user daemon-reload
+```
+
+If [arr-helper](getting-started.md#arr-helper) is running, it can install the files directly via `systemd_daemon_reload`.
+
+---
 
 ## Filesystem
 
@@ -36,6 +70,9 @@ All filesystem operations are scoped to allowed roots (`/opt/stacks`, `/media-se
 | `directory_list(path)` | List directory contents |
 | `file_read(path)` | Read a text file |
 | `file_write(path, content)` | Write a file (creates parent dirs as needed) |
+| `file_delete(path, confirm=True)` | Delete a file (requires `confirm=True`, rejects root-owned files) |
+
+---
 
 ## Logs
 

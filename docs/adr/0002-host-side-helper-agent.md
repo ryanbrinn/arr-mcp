@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Investigating |
+| **Status** | Accepted |
 | **Date** | 2026-06-01 |
 | **Decided** | 2026-06-01 |
 | **Issues** | [#12](https://github.com/ryanbrinn/arr-mcp/issues/12), [#13](https://github.com/ryanbrinn/arr-mcp/issues/13) |
@@ -25,24 +25,29 @@ This is a significant gap given that replacing Dockge is a core project goal.
 
 ## Decision
 
-**Investigating Option C — Host-side helper agent.**
+**Option C — Host-side helper agent. Implemented.**
 
-Direction is set: a small host-side process running as the service account, communicating with arr-mcp via a bind-mounted Unix socket. This is an **architectural spike** — the approach is committed to, but the following implementation details are still under investigation:
+A small host-side process (`arr-helper`) runs as the service account, exposes a Unix domain socket, and executes a minimal, well-defined set of operations on behalf of arr-mcp.
 
-- Exact API surface (which commands the helper exposes)
-- Protocol over the socket (HTTP/JSON vs lightweight custom protocol)
-- Deployment mechanism for the helper itself (quadlet, systemd unit, or packaged alongside arr-mcp)
-- How the helper handles authentication/authorisation to prevent abuse
+**Protocol: HTTP/JSON over Unix domain socket.** This was validated as the right choice:
 
-**Working hypothesis: Unix socket + JSON over HTTP**
+- Familiar pattern (same as the Podman/Docker API itself)
+- Easy to test manually with `curl --unix-socket`
+- `httpx` (already a dependency) supports UDS via `AsyncHTTPTransport(uds=path)`
+- No extra dependencies
 
-A simple HTTP/JSON API over a Unix socket is the leading candidate:
+**API surface: 14 operations**, grouped into three categories:
+- Stack: `stack_up`, `stack_down`, `stack_pull`, `stack_restart`, `compose_validate`
+- Systemd: `systemd_start`, `systemd_stop`, `systemd_restart`, `systemd_status`, `systemd_daemon_reload`
+- Quadlet: `quadlet_read`, `quadlet_write`, `quadlet_list`, `quadlet_delete`
 
-- **gRPC**: Well-typed but adds significant complexity and build tooling
-- **Custom binary protocol**: Minimal overhead but hard to debug and extend
-- **HTTP/JSON over Unix socket**: Familiar pattern (same as Podman/Docker API), easy to test with `curl`, straightforward to extend, no extra dependencies
+No arbitrary shell execution. All `op` values are matched against a fixed dispatch table; unknown ops return HTTP 400. All arguments are regex-validated before any subprocess is invoked.
 
-This hypothesis will be validated during the spike. The API surface must be minimal — no arbitrary shell execution. Only explicitly defined operations will be exposed.
+**Deployment: plain systemd user service** (`arr-helper.service`). A quadlet was considered but adds a circular dependency — arr-helper is needed to manage quadlets, so it cannot itself be a quadlet. `RuntimeDirectory=arr-helper` in the service unit creates the socket directory automatically.
+
+**Security: socket file permissions (0600).** No token auth on the socket itself — Unix file permissions are sufficient since only UID 1000 can connect. All operations are logged at INFO level for auditability.
+
+**Graceful degradation:** when the helper socket is absent, arr-mcp stack tools return a human-readable message pointing to setup docs. No exception is raised to the MCP client.
 
 ## Options considered
 

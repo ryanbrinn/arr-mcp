@@ -6,6 +6,7 @@ import logging
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import uvicorn
 from dotenv import load_dotenv
@@ -15,10 +16,12 @@ from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-from starlette.routing import Route
+from starlette.routing import Mount, Route
+from starlette.staticfiles import StaticFiles
 from starlette.types import ASGIApp
 
 from arr_mcp.config import Settings
+from arr_mcp.dashboard.routes import make_dashboard_routes
 from arr_mcp.runtime.client import ContainerClient
 from arr_mcp.tools.containers import register_container_tools
 from arr_mcp.tools.conversion import register_conversion_tools
@@ -29,6 +32,8 @@ from arr_mcp.tools.stacks import register_stack_tools
 load_dotenv()
 
 log = logging.getLogger(__name__)
+
+_STATIC_DIR = Path(__file__).parent / "dashboard" / "static"
 
 
 def build_mcp_server(settings: Settings, client: ContainerClient) -> FastMCP:
@@ -53,7 +58,11 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         self.api_key = api_key
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        if request.url.path == "/health":
+        # Health, dashboard, and static assets bypass Bearer auth —
+        # the dashboard does its own key-in-query-param check.
+        path = request.url.path
+        is_dashboard = path in ("/health", "/", "/api/status") or path.startswith("/static/")
+        if is_dashboard:
             return await call_next(request)
         auth = request.headers.get("Authorization", "")
         if not auth.startswith("Bearer ") or auth[len("Bearer ") :] != self.api_key:
@@ -65,6 +74,7 @@ def create_app(settings: Settings) -> Starlette:
     """Build the Starlette ASGI app with auth middleware and MCP route."""
     client = ContainerClient(settings)
     mcp_server = build_mcp_server(settings, client)
+    dashboard = make_dashboard_routes(client, settings)
 
     # Initialise the session manager and extract the /mcp route handler.
     # We then run session_manager.run() in our own lifespan so the task group
@@ -82,6 +92,9 @@ def create_app(settings: Settings) -> Starlette:
 
     routes = [
         Route("/health", endpoint=health_check),
+        Route("/", endpoint=dashboard["dashboard"]),
+        Route("/api/status", endpoint=dashboard["api_status"]),
+        Mount("/static", app=StaticFiles(directory=str(_STATIC_DIR)), name="static"),
         mcp_route,
     ]
     app = Starlette(routes=routes, lifespan=lifespan)
