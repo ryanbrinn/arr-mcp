@@ -131,9 +131,7 @@ async def serve(socket_path: str | None = None) -> None:
     if sock.exists():
         sock.unlink()
 
-    server = await asyncio.start_unix_server(  # type: ignore[attr-defined]
-        _handle_connection, path=path
-    )
+    server = await asyncio.start_unix_server(_handle_connection, path=path)
 
     # Restrict socket to owner only (0600)
     sock.chmod(stat.S_IRUSR | stat.S_IWUSR)
