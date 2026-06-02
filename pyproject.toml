@@ -19,6 +19,7 @@ dependencies = [
     "starlette>=0.40.0",
     "anyio>=4.0.0",
     "jinja2>=3.1.0",
+    "PyYAML>=6.0.0",
 ]
 
 [project.optional-dependencies]
@@ -29,13 +30,15 @@ dev = [
     "httpx>=0.27.0",
     "ruff>=0.4.0",
     "mypy>=1.10.0",
+    "types-PyYAML>=6.0.0",
 ]
 
 [project.scripts]
 arr-mcp = "arr_mcp.server:main"
+arr-helper = "arr_helper.__main__:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/arr_mcp"]
+packages = ["src/arr_mcp", "src/arr_helper"]
 
 [tool.ruff]
 line-length = 100
