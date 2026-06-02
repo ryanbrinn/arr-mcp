@@ -78,3 +78,28 @@ def register_filesystem_tools(server: FastMCP, settings: Settings) -> None:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content)
         return [TextContent(type="text", text=f"Written: {p} ({len(content)} bytes)")]
+
+    @server.tool()
+    async def file_delete(path: str, confirm: bool = False) -> list[TextContent]:
+        """Delete a file. Requires confirm=True to prevent accidental deletion."""
+        if not confirm:
+            return [
+                TextContent(
+                    type="text",
+                    text=f"Pass confirm=True to delete {path}.",
+                )
+            ]
+        p = _check_path(path, settings)
+        if not p.exists():
+            return [TextContent(type="text", text=f"File not found: {p}")]
+        if p.is_dir():
+            return [
+                TextContent(
+                    type="text",
+                    text="Path is a directory — use a more specific tool.",
+                )
+            ]
+        if not is_owned_by_current_user(p):
+            raise PermissionError(f"Cannot delete file not owned by current user: {p}")
+        p.unlink()
+        return [TextContent(type="text", text=f"Deleted: {p}")]
