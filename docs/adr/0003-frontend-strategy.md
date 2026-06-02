@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Proposed |
+| **Status** | Accepted |
 | **Date** | 2026-06-01 |
 | **Issue** | [#14](https://github.com/ryanbrinn/arr-mcp/issues/14) |
 
@@ -19,7 +19,17 @@ A core goal is to make media server management accessible to all household membe
 
 ## Decision
 
-_Not yet decided. This ADR captures the options under consideration._
+**Option C — Hybrid read-only dashboard + chat. Implemented.**
+
+A simple auto-refreshing dashboard is served as additional routes on the existing Starlette app. No new infrastructure, no separate deployment, no JavaScript framework.
+
+Implementation decisions:
+- **Jinja2** for server-side rendering — stays in Python, no frontend build tooling
+- **`<meta http-equiv="refresh" content="30">`** for auto-refresh — no WebSockets needed for Phase 1
+- **CSS-only disk bars** (`<div>` with inline `width` style) — no SVG, no canvas
+- **Auth: `?key=` query param**, or `DASHBOARD_PUBLIC=true` for unauthenticated LAN use — same API key as MCP, no separate credential to manage
+- **No external CDN** — the stylesheet is self-contained, the dashboard works fully offline on a LAN
+- **Read-only in Phase 1** — write actions (start/stop buttons) deferred to Phase 2
 
 ## Options considered
 

@@ -134,11 +134,104 @@ systemctl --user enable --now arr-mcp
 
 ---
 
+## arr-helper
+
+`arr-helper` is a small host-side process that gives arr-mcp access to `podman-compose`, `systemctl --user`, and quadlet files — none of which are available from inside a container. Without it, stack management tools return a message explaining what's missing; all other tools continue to work.
+
+### Installing
+
+`arr-helper` ships as part of the `arr-mcp` package. On the host machine (as the service account):
+
+```bash
+pip install arr-mcp
+# or with uv:
+uv tool install arr-mcp
+```
+
+### Running as a systemd user service
+
+Create `~/.config/systemd/user/arr-helper.service`:
+
+```ini
+[Unit]
+Description=arr-mcp host-side helper agent
+After=network.target
+
+[Service]
+ExecStart=%h/.local/bin/arr-helper
+Restart=on-failure
+RuntimeDirectory=arr-helper
+RuntimeDirectoryMode=0700
+
+[Install]
+WantedBy=default.target
+```
+
+Enable and start it:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now arr-helper
+```
+
+The socket will be created at `/run/user/<UID>/arr-helper/arr-helper.sock`.
+
+### Mounting the socket into arr-mcp
+
+Add the socket volume to your arr-mcp run command:
+
+**Docker / podman-compose:**
+
+```yaml
+volumes:
+  - /run/user/1000/arr-helper/arr-helper.sock:/run/arr-helper/arr-helper.sock:z
+```
+
+**Quadlet:**
+
+```ini
+Volume=/run/user/%U/arr-helper/arr-helper.sock:/run/arr-helper/arr-helper.sock:z
+```
+
+Replace `1000` / `%U` with the service account UID.
+
+### Verifying
+
+```bash
+# Check the helper is running
+systemctl --user status arr-helper
+
+# Ask arr-mcp if it can reach the helper (via Claude or curl)
+curl -H "Authorization: Bearer your-key" http://localhost:8081/api/status
+```
+
+If `stack_list` returns stack names rather than the "arr-helper required" message, the helper is connected.
+
+---
+
 ## Health check
 
 ```bash
 curl http://localhost:8081/health
 ```
+
+## Dashboard
+
+The read-only status dashboard is served at `GET /`. Open it in a browser:
+
+```
+http://your-server-ip:8081/?key=your-secret-key
+```
+
+It shows container status, disk usage, and stack health, and auto-refreshes every 30 seconds.
+
+To make the dashboard available without a key (suitable for LAN-only deployments):
+
+```bash
+-e ARR_MCP_DASHBOARD_PUBLIC=true
+```
+
+See [Configuration](configuration.md#dashboard) for the full auth options.
 
 ## Connecting to Claude
 
