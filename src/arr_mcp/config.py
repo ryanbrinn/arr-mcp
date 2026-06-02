@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     api_key: str = Field(default="changeme", description="Bearer token for HTTP auth")
     port: int = Field(default=8081, description="HTTP listen port")
-    stacks_dir: str = Field(default="/opt/stacks", description="podman-compose stack root")
+    stacks_dir: str = Field(default="/opt/stacks", description="Stack root directory")
     media_dir: str = Field(default="/media-server", description="Media storage root")
     container_runtime: str = Field(default="auto", description="auto | docker | podman")
 
