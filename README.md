@@ -32,11 +32,15 @@ This project was co-authored with [Claude](https://claude.ai) (Anthropic). The a
 
 ### Podman
 
+Replace `<MEDIA_UID>` with your service account UID (`id media`).
+
 ```bash
+MEDIA_UID=$(id -u media)
+
 podman run -d --name arr-mcp \
   -e ARR_MCP_API_KEY=your-secret-key \
   -e ARR_MCP_CONTAINER_RUNTIME=podman \
-  -v /run/user/$(id -u)/podman/podman.sock:/run/user/1000/podman/podman.sock:z \
+  -v /run/user/${MEDIA_UID}/podman/podman.sock:/run/user/${MEDIA_UID}/podman/podman.sock:z \
   -v /opt/stacks:/opt/stacks:z \
   -v /media-server:/media-server:z \
   -p 8081:8081 \
@@ -70,8 +74,8 @@ services:
       ARR_MCP_API_KEY: your-secret-key
       ARR_MCP_CONTAINER_RUNTIME: podman  # or docker
     volumes:
-      # Podman rootless socket — adjust UID if not 1000
-      - /run/user/1000/podman/podman.sock:/run/user/1000/podman/podman.sock:z
+      # Podman rootless socket — replace 1001 with your service account UID (run: id media)
+      - /run/user/1001/podman/podman.sock:/run/user/1001/podman/podman.sock:z
       # Docker: use /var/run/docker.sock:/var/run/docker.sock instead
       - /opt/stacks:/opt/stacks:z
       - /media-server:/media-server:z
@@ -150,8 +154,8 @@ Authorization: Bearer <your-key>
 
 Designed for:
 - **OS**: Debian/Ubuntu
-- **Runtime**: Rootless Podman under a dedicated `media` service account (UID 1000)
-- **Socket**: `/run/user/1000/podman/podman.sock`
+- **Runtime**: Rootless Podman under a dedicated service account (e.g. `media`)
+- **Socket**: `/run/user/<UID>/podman/podman.sock` — use `id media` to find the UID
 - **Stacks**: `/opt/stacks/`
 - **Media**: `/media-server/`
 

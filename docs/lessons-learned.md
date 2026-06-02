@@ -26,10 +26,11 @@ The host directory appears correctly owned (`drwxr-xr-x media media`) but the co
 
 ### The fix
 
-Use `podman unshare` to chown inside the user namespace:
+Use `podman unshare` to chown inside the user namespace, running as the service account:
 
 ```bash
-podman unshare chown -R 1000:1000 /path/to/config
+# Run as the service account (e.g. su - media)
+podman unshare chown -R $(id -u):$(id -g) /path/to/config
 ```
 
 ### What does NOT fix it
@@ -52,7 +53,7 @@ linuxserver images can be identified by:
 The installation wizard must:
 
 1. Detect whether each image is a linuxserver image
-2. For non-linuxserver images, run `podman unshare chown -R 1000:1000 <config_dir>` after directory creation and before first container start
+2. For non-linuxserver images, run `podman unshare chown -R $(id -u):$(id -g) <config_dir>` (as the service account) after directory creation and before first container start
 3. Verify the container can write to its config directory after first start as part of validation
 4. Explain to the user what is being done and why
 
