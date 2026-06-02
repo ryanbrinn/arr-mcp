@@ -20,8 +20,8 @@ Claude (MCP client)
 ## Target environment
 
 - **OS**: Debian/Ubuntu
-- **Runtime**: Rootless Podman under a dedicated `media` service account (UID 1000)
-- **Socket**: `/run/user/1000/podman/podman.sock`
+- **Runtime**: Rootless Podman under a dedicated service account (e.g. `media`)
+- **Socket**: `/run/user/<UID>/podman/podman.sock` — where `<UID>` is the service account UID (`id media`)
 - **Stacks**: `/opt/stacks/<stack-name>/compose.yaml`
 - **Media**: `/media-server/`
 

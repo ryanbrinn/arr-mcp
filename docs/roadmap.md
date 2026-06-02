@@ -12,26 +12,25 @@ arr-mcp is built in three phases, each with a clear architectural goal, defined 
 gantt
     title arr-mcp Roadmap
     dateFormat YYYY-MM
-    axisFormat %b %Y
 
-    section Phase 1 · MVP
-        Security: ownership scoping (#10)       :done,    p1a, 2026-05, 2026-06
-        Code quality + CLAUDE.md (#8)           :done,    p1b, 2026-05, 2026-06
-        MkDocs + ADRs (#16)                     :active,  p1c, 2026-06, 2026-06
-        file_delete tool (#11)                  :         p1d, 2026-06, 2026-06
-        Stack mgmt / host-side helper (#12,#13) :         p1e, 2026-06, 2026-08
-        Compose ↔ Quadlet conversion (#17)      :         p1f, 2026-07, 2026-08
-        Dashboard - read only (#14)             :         p1g, 2026-08, 2026-09
+    section Phase 1 - MVP
+        Security and ownership scoping          :done,    p1a, 2026-05, 2026-06
+        Code quality and CLAUDE.md              :done,    p1b, 2026-05, 2026-06
+        MkDocs and ADRs                         :done,    p1c, 2026-06, 2026-07
+        file_delete tool                        :         p1d, 2026-06, 2026-07
+        Stack mgmt and host-side helper         :         p1e, 2026-06, 2026-08
+        Compose and Quadlet conversion          :         p1f, 2026-07, 2026-08
+        Read-only dashboard                     :         p1g, 2026-08, 2026-09
 
-    section Phase 2 · Media Intelligence
-        -arr + Plex API integrations            :         p2a, 2026-09, 2026-11
+    section Phase 2 - Media Intelligence
+        arr and Plex API integrations           :         p2a, 2026-09, 2026-11
         Watched content cleanup                 :         p2b, 2026-10, 2026-11
-        Log monitoring + alerting               :         p2c, 2026-10, 2026-12
-        Plex auth + per-user watchlists         :         p2d, 2026-11, 2027-01
+        Log monitoring and alerting             :         p2c, 2026-10, 2026-12
+        Plex auth and per-user watchlists       :         p2d, 2026-11, 2027-01
 
-    section Phase 3 · Installation Wizard
-        System check + runtime setup            :         p3a, 2027-01, 2027-03
-        Stack scaffolding + config wizard       :         p3b, 2027-03, 2027-05
+    section Phase 3 - Installation Wizard
+        System check and runtime setup          :         p3a, 2027-01, 2027-03
+        Stack scaffolding and config wizard     :         p3b, 2027-03, 2027-05
         First-run validation                    :         p3c, 2027-05, 2027-06
 ```
 
