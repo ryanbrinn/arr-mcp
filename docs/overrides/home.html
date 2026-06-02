@@ -1,0 +1,443 @@
+{% extends "main.html" %}
+
+{% block styles %}
+{{ super() }}
+<style>
+.home-hero {
+  padding: 80px 48px 72px;
+  max-width: 960px;
+  margin: 0 auto;
+  text-align: center;
+}
+.home-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #1e1540;
+  border: 1px solid #3b2d7a;
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 12px;
+  color: #a78bfa;
+  margin-bottom: 28px;
+  letter-spacing: .3px;
+}
+.home-badge-dot {
+  width: 6px;
+  height: 6px;
+  background: #a78bfa;
+  border-radius: 50%;
+  display: inline-block;
+}
+.home-hero h1 {
+  font-size: 46px !important;
+  font-weight: 700 !important;
+  line-height: 1.15 !important;
+  letter-spacing: -.5px !important;
+  margin-bottom: 18px !important;
+  border: none !important;
+  padding: 0 !important;
+  color: #ede9f8 !important;
+}
+.home-hero h1 em {
+  font-style: normal;
+  background: linear-gradient(135deg, #a78bfa, #f472b6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.home-hero-sub {
+  font-size: 17px;
+  color: #6b6890;
+  max-width: 560px;
+  margin: 0 auto 36px;
+  line-height: 1.7;
+}
+.home-ctas {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 0;
+}
+.home-btn-primary {
+  background: #a78bfa;
+  color: #0b0b14 !important;
+  padding: 10px 22px;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none !important;
+  transition: background .15s;
+  display: inline-block;
+}
+.home-btn-primary:hover {
+  background: #c4b0fd;
+  color: #0b0b14 !important;
+}
+.home-btn-secondary {
+  background: transparent;
+  color: #ede9f8 !important;
+  padding: 10px 22px;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid #252040;
+  text-decoration: none !important;
+  transition: all .15s;
+  display: inline-block;
+}
+.home-btn-secondary:hover {
+  border-color: #6b6890;
+  color: #ede9f8 !important;
+}
+.home-terminal {
+  margin: 52px auto 0;
+  max-width: 660px;
+  background: #11101e;
+  border: 1px solid #252040;
+  border-radius: 10px;
+  overflow: hidden;
+  text-align: left;
+}
+.home-terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 16px;
+  background: #16142a;
+  border-bottom: 1px solid #252040;
+}
+.home-terminal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.home-terminal-title {
+  font-size: 12px;
+  color: #6b6890;
+  margin-left: auto;
+  font-family: ui-monospace, monospace;
+}
+.home-terminal-body {
+  padding: 18px 20px;
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Mono', monospace;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.home-divider {
+  height: 1px;
+  background: #1a1830;
+  margin: 0 48px;
+}
+.home-section {
+  padding: 64px 48px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+.home-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: #a78bfa;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.home-section h2 {
+  font-size: 28px !important;
+  font-weight: 600 !important;
+  margin-bottom: 12px !important;
+  letter-spacing: -.3px !important;
+  border: none !important;
+  padding: 0 !important;
+  color: #ede9f8 !important;
+}
+.home-section .home-lead {
+  color: #6b6890;
+  font-size: 15.5px;
+  max-width: 580px;
+  line-height: 1.7;
+  margin-bottom: 40px;
+}
+.home-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.home-feature-card {
+  background: #11101e;
+  border: 1px solid #1e1c38;
+  border-radius: 10px;
+  padding: 22px 22px 24px;
+  transition: border-color .2s;
+}
+.home-feature-card:hover {
+  border-color: #a78bfa;
+}
+.home-feature-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.fi-purple { background: #1e1540; }
+.fi-pink   { background: #2d1428; }
+.home-feature-card h3 {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  margin-bottom: 6px !important;
+  color: #ede9f8 !important;
+}
+.home-feature-card p {
+  font-size: 13px;
+  color: #6b6890;
+  line-height: 1.6;
+  margin: 0;
+}
+.home-tools {
+  background: #11101e;
+  border: 1px solid #1e1c38;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.home-tool-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid #1a1830;
+}
+.home-tool-row:last-child { border-bottom: none; }
+.home-tool-name {
+  padding: 11px 20px;
+  font-family: ui-monospace, monospace;
+  font-size: 12.5px;
+  color: #c4b0fd;
+  border-right: 1px solid #1a1830;
+}
+.home-tool-desc {
+  padding: 11px 20px;
+  font-size: 13px;
+  color: #6b6890;
+}
+.home-runtime-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 36px;
+}
+.home-runtime-card {
+  background: #11101e;
+  border: 1px solid #1e1c38;
+  border-radius: 8px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.home-badge-green {
+  background: #122b1f;
+  color: #4ade80;
+  border: 1px solid #1a4a30;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.home-runtime-name {
+  font-size: 13px;
+  color: #c4c0d8;
+  font-weight: 500;
+}
+.home-steps { display: flex; flex-direction: column; }
+.home-step {
+  display: flex;
+  gap: 20px;
+  padding: 20px 0;
+  border-bottom: 1px solid #1a1830;
+}
+.home-step:last-child { border-bottom: none; }
+.home-step-num {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  background: #1e1540;
+  border: 1px solid #3b2d7a;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #a78bfa;
+  margin-top: 2px;
+}
+.home-step h3 {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  margin-bottom: 4px !important;
+  color: #ede9f8 !important;
+  border: none !important;
+}
+.home-step p {
+  font-size: 13px;
+  color: #6b6890;
+  line-height: 1.6;
+  margin: 0;
+}
+.home-code-pill {
+  display: inline-block;
+  background: #16142a;
+  border: 1px solid #252040;
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: #c4b0fd;
+  margin-top: 7px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="home-hero">
+  <div class="home-badge"><span class="home-badge-dot"></span> MCP server &middot; Docker &amp; Podman</div>
+  <h1>Talk to your<br><em>media server stack</em></h1>
+  <p class="home-hero-sub">Natural language management for Plex, Sonarr, Radarr, SABnzbd &mdash; via Claude. No dashboards, no SSH.</p>
+  <div class="home-ctas">
+    <a href="getting-started/" class="home-btn-primary">Get started</a>
+    <a href="tools/" class="home-btn-secondary">Tools reference &rarr;</a>
+  </div>
+
+  <div class="home-terminal">
+    <div class="home-terminal-bar">
+      <div class="home-terminal-dot" style="background:#ff5f57"></div>
+      <div class="home-terminal-dot" style="background:#febc2e"></div>
+      <div class="home-terminal-dot" style="background:#28c840"></div>
+      <span class="home-terminal-title">Claude &middot; arr-mcp</span>
+    </div>
+    <div class="home-terminal-body">
+      <div><span style="color:#a78bfa">you</span>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#ede9f8">Which containers are using the most memory?</span></div>
+      <div style="margin-top:8px"><span style="color:#f472b6">arr-mcp</span> <span style="color:#c4b0fd">Running container_stats()&hellip;</span></div>
+      <div style="margin-top:6px;color:#ede9f8">Top by memory:</div>
+      <div style="padding-left:12px;color:#6b6890">plex&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#a78bfa">1.8 GB</span>&nbsp; (of 4 GB limit)</div>
+      <div style="padding-left:12px;color:#6b6890">sabnzbd&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#f472b6">312 MB</span></div>
+      <div style="padding-left:12px;color:#6b6890">sonarr&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#f472b6">188 MB</span></div>
+      <div style="margin-top:10px"><span style="color:#a78bfa">you</span>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#ede9f8">Restart sabnzbd and tail its logs</span></div>
+      <div style="margin-top:8px"><span style="color:#f472b6">arr-mcp</span> <span style="color:#c4b0fd">container_restart(&ldquo;sabnzbd&rdquo;) &rarr; ok &middot; fetching logs&hellip;</span></div>
+      <div style="padding-left:12px;color:#3d3a5c;font-size:12px">[2026-06-02 14:32:01] SABnzbd 4.3.2 starting&hellip;</div>
+      <div style="padding-left:12px;color:#3d3a5c;font-size:12px">[2026-06-02 14:32:03] Web interface on port 8080</div>
+    </div>
+  </div>
+</div>
+
+<div class="home-divider"></div>
+
+<div class="home-section">
+  <div class="home-section-label">What it does</div>
+  <h2>Everything your stack needs, in plain English</h2>
+  <p class="home-lead">arr-mcp exposes your container runtime and media server config as MCP tools, so Claude can act on your behalf.</p>
+  <div class="home-features">
+    <div class="home-feature-card">
+      <div class="home-feature-icon fi-purple">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#a78bfa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M7 10h6M7 7h6M7 13h4"/></svg>
+      </div>
+      <h3>Container lifecycle</h3>
+      <p>List, start, stop, restart and remove containers. Check CPU, memory and network stats across your whole stack.</p>
+    </div>
+    <div class="home-feature-card">
+      <div class="home-feature-icon fi-pink">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#f472b6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M4 10h8M4 14h5"/><path d="M14 12l4 2-4 2"/></svg>
+      </div>
+      <h3>Compose files</h3>
+      <p>Read and write compose.yaml for any stack. Claude can propose changes and apply them in one turn.</p>
+    </div>
+    <div class="home-feature-card">
+      <div class="home-feature-icon fi-purple">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#a78bfa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v3H3V5z"/><path d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+      </div>
+      <h3>Filesystem ops</h3>
+      <p>Scoped to allowed roots. List directories, read and write config files, check disk usage &mdash; all sandboxed.</p>
+    </div>
+    <div class="home-feature-card">
+      <div class="home-feature-icon fi-pink">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#f472b6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15V9m4 6V5m4 10v-4m4 4V7"/></svg>
+      </div>
+      <h3>Log tailing &amp; search</h3>
+      <p>Tail the last N lines from any log file, or search them case-insensitively. Diagnose issues without SSH.</p>
+    </div>
+    <div class="home-feature-card">
+      <div class="home-feature-icon fi-purple">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#a78bfa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 3"/></svg>
+      </div>
+      <h3>Docker &amp; Podman</h3>
+      <p>Runs against Docker Engine, Docker Compose, or rootless Podman with Quadlets &mdash; including systemd.</p>
+    </div>
+    <div class="home-feature-card">
+      <div class="home-feature-icon fi-pink">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#f472b6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15l-3-3 3-3M8 12h8"/><rect x="2" y="3" width="12" height="14" rx="2"/></svg>
+      </div>
+      <h3>Connects to Claude</h3>
+      <p>Works with Claude.ai remote MCP or Claude Desktop via mcpproxy. Add it to your integrations in minutes.</p>
+    </div>
+  </div>
+</div>
+
+<div class="home-divider"></div>
+
+<div class="home-section">
+  <div class="home-section-label">Tools reference</div>
+  <h2>Available tools</h2>
+  <p class="home-lead">All tools available today &mdash; more coming with the host-side helper agent.</p>
+  <div class="home-tools">
+    <div class="home-tool-row"><div class="home-tool-name">container_list()</div><div class="home-tool-desc">All containers with status, uptime, and ports</div></div>
+    <div class="home-tool-row"><div class="home-tool-name">container_start(name)</div><div class="home-tool-desc">Start a stopped container</div></div>
+    <div class="home-tool-row"><div class="home-tool-name">container_stop(name)</div><div class="home-tool-desc">Stop a running container</div></div>
+    <div class="home-tool-row"><div class="home-tool-name">container_restart(name)</div><div class="home-tool-desc">Restart a container</div></div>
+    <div class="home-tool-row"><div class="home-tool-name">container_remove(name, confirm)</div><div class="home-tool-desc">Remove a container &mdash; requires confirm=True</div></div>
+    <div class="home-tool-row"><div class="home-tool-name">container_logs(name, lines)</div><div class="home-tool-desc">Fetch last N log lines from a container</div></div>
+    <div class="home-tool-row"><div class="home-tool-name">container_stats()</div><div class="home-tool-desc">CPU, memory, and network stats for all running containers</div></div>
+  </div>
+</div>
+
+<div class="home-divider"></div>
+
+<div class="home-section">
+  <div class="home-section-label">Getting started</div>
+  <h2>Up in three steps</h2>
+  <p class="home-lead">Supports Docker Engine, Docker Compose, and rootless Podman with Quadlets.</p>
+  <div class="home-runtime-grid">
+    <div class="home-runtime-card"><span class="home-badge-green">&check;</span><span class="home-runtime-name">Docker Engine</span></div>
+    <div class="home-runtime-card"><span class="home-badge-green">&check;</span><span class="home-runtime-name">Docker Compose</span></div>
+    <div class="home-runtime-card"><span class="home-badge-green">&check;</span><span class="home-runtime-name">Podman + Quadlets</span></div>
+  </div>
+  <div class="home-steps">
+    <div class="home-step">
+      <div class="home-step-num">1</div>
+      <div>
+        <h3>Run the container</h3>
+        <p>Pull and start arr-mcp with your API key and container socket mounted. Exposes port 8081.</p>
+        <span class="home-code-pill">ghcr.io/ryanbrinn/arr-mcp:latest</span>
+      </div>
+    </div>
+    <div class="home-step">
+      <div class="home-step-num">2</div>
+      <div>
+        <h3>Verify the health endpoint</h3>
+        <p>Confirm the server is running and reachable before connecting Claude.</p>
+        <span class="home-code-pill">curl http://localhost:8081/health</span>
+      </div>
+    </div>
+    <div class="home-step">
+      <div class="home-step-num">3</div>
+      <div>
+        <h3>Connect Claude</h3>
+        <p>On Claude.ai go to Settings &rarr; Integrations and add your server URL with a Bearer token. For Claude Desktop, bridge via mcpproxy.</p>
+        <span class="home-code-pill">http://your-server-ip:8081/mcp</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
