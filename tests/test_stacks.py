@@ -55,12 +55,34 @@ async def test_stack_down_default_is_safe(settings: Settings, mock_client: Magic
 async def test_stack_down_with_confirm_runs(settings: Settings, mock_client: MagicMock) -> None:
     (Path(settings.stacks_dir) / "mystack").mkdir()
     server = _make_server(settings, mock_client)
+    from arr_mcp.helper.client import HelperResponse
+
     with (
-        patch("arr_mcp.tools.stacks._compose", new=AsyncMock(return_value="done")),
+        patch(
+            "arr_mcp.tools.stacks.HelperClient.call",
+            new=AsyncMock(return_value=HelperResponse(ok=True, output="done", exit_code=0)),
+        ),
         patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True),
     ):
         result = await server.call_tool("stack_down", {"name": "mystack", "confirm": True})
         assert "done" in result[0][0].text
+
+
+async def test_stack_tools_degrade_gracefully(settings: Settings, mock_client: MagicMock) -> None:
+    """Stack tools return a helpful message when the helper is unavailable."""
+    (Path(settings.stacks_dir) / "mystack").mkdir()
+    server = _make_server(settings, mock_client)
+    from arr_mcp.helper.client import HelperUnavailableError
+
+    with (
+        patch(
+            "arr_mcp.tools.stacks.HelperClient.call",
+            side_effect=HelperUnavailableError("/run/arr-helper/arr-helper.sock"),
+        ),
+        patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True),
+    ):
+        result = await server.call_tool("stack_up", {"name": "mystack"})
+    assert "arr-helper" in result[0][0].text
 
 
 async def test_stack_up_nonexistent_raises(settings: Settings, mock_client: MagicMock) -> None:

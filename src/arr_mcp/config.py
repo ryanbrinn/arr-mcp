@@ -24,4 +24,9 @@ class Settings(BaseSettings):
         description="Explicit socket path (e.g. unix:///run/user/1000/podman/podman.sock). "
         "When set, skips runtime auto-detection. Required when running inside a container.",
     )
+    helper_socket: str = Field(
+        default="/run/arr-helper/arr-helper.sock",
+        description="Path to the arr-helper Unix socket. "
+        "Override with HELPER_SOCKET env var if the socket is mounted elsewhere.",
+    )
     log_level: str = Field(default="info", description="Logging level")
