@@ -21,6 +21,7 @@ from starlette.types import ASGIApp
 from arr_mcp.config import Settings
 from arr_mcp.runtime.client import ContainerClient
 from arr_mcp.tools.containers import register_container_tools
+from arr_mcp.tools.conversion import register_conversion_tools
 from arr_mcp.tools.filesystem import register_filesystem_tools
 from arr_mcp.tools.logs import register_log_tools
 from arr_mcp.tools.stacks import register_stack_tools
@@ -42,6 +43,7 @@ def build_mcp_server(settings: Settings, client: ContainerClient) -> FastMCP:
     register_stack_tools(server, client, settings)
     register_filesystem_tools(server, settings)
     register_log_tools(server, settings)
+    register_conversion_tools(server, settings)
     return server
 
 
