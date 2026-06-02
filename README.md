@@ -30,24 +30,9 @@ This project was co-authored with [Claude](https://claude.ai) (Anthropic). The a
 
 ## Quick start
 
-### Podman
+See the [full Getting Started guide](https://ryanbrinn.github.io/arr-mcp/getting-started/) for all supported configurations.
 
-Replace `<MEDIA_UID>` with your service account UID (`id media`).
-
-```bash
-MEDIA_UID=$(id -u media)
-
-podman run -d --name arr-mcp \
-  -e ARR_MCP_API_KEY=your-secret-key \
-  -e ARR_MCP_CONTAINER_RUNTIME=podman \
-  -v /run/user/${MEDIA_UID}/podman/podman.sock:/run/user/${MEDIA_UID}/podman/podman.sock:z \
-  -v /opt/stacks:/opt/stacks:z \
-  -v /media-server:/media-server:z \
-  -p 8081:8081 \
-  ghcr.io/ryanbrinn/arr-mcp:latest
-```
-
-### Docker
+### Docker Engine
 
 ```bash
 docker run -d --name arr-mcp \
@@ -60,7 +45,7 @@ docker run -d --name arr-mcp \
   ghcr.io/ryanbrinn/arr-mcp:latest
 ```
 
-### Docker Compose / Podman Compose
+### Docker Compose
 
 ```yaml
 services:
@@ -72,13 +57,28 @@ services:
       - "8081:8081"
     environment:
       ARR_MCP_API_KEY: your-secret-key
-      ARR_MCP_CONTAINER_RUNTIME: podman  # or docker
+      ARR_MCP_CONTAINER_RUNTIME: docker
     volumes:
-      # Podman rootless socket — replace 1001 with your service account UID (run: id media)
-      - /run/user/1001/podman/podman.sock:/run/user/1001/podman/podman.sock:z
-      # Docker: use /var/run/docker.sock:/var/run/docker.sock instead
-      - /opt/stacks:/opt/stacks:z
-      - /media-server:/media-server:z
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/stacks:/opt/stacks
+      - /media-server:/media-server
+```
+
+### Podman (rootless) with Quadlets
+
+Replace `<MEDIA_UID>` with your service account UID (`id media`):
+
+```bash
+MEDIA_UID=$(id -u media)
+
+podman run -d --name arr-mcp \
+  -e ARR_MCP_API_KEY=your-secret-key \
+  -e ARR_MCP_CONTAINER_RUNTIME=podman \
+  -v /run/user/${MEDIA_UID}/podman/podman.sock:/run/user/${MEDIA_UID}/podman/podman.sock:z \
+  -v /opt/stacks:/opt/stacks:z \
+  -v /media-server:/media-server:z \
+  -p 8081:8081 \
+  ghcr.io/ryanbrinn/arr-mcp:latest
 ```
 
 The server listens on `http://localhost:8081`.
@@ -150,14 +150,17 @@ Authorization: Bearer <your-key>
 | `log_read(path, lines)` | Tail a log file |
 | `log_search(path, query)` | Search a log file |
 
-## Server environment
+## Supported configurations
 
-Designed for:
-- **OS**: Debian/Ubuntu
-- **Runtime**: Rootless Podman under a dedicated service account (e.g. `media`)
-- **Socket**: `/run/user/<UID>/podman/podman.sock` — use `id media` to find the UID
-- **Stacks**: `/opt/stacks/`
-- **Media**: `/media-server/`
+| Configuration | Supported |
+|---|---|
+| Docker Engine | ✅ |
+| Docker with Docker Compose | ✅ |
+| Podman (rootless) with Quadlets | ✅ |
+| Podman with podman-compose | ❌ |
+| Podman (rooted) | ❌ |
+
+See [ADR-0004](https://ryanbrinn.github.io/arr-mcp/adr/0004-supported-runtime-configurations/) for rationale.
 
 ## License
 
