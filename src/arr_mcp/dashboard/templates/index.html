@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="30">
+  <title>arr-mcp</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <span class="logo">arr-mcp</span>
+    <span class="updated">Last updated: {{ status.generated_at | replace("T", " ") | replace("Z", " UTC") }}</span>
+    <a class="btn-claude" href="{{ claude_url }}" target="_blank" rel="noopener">Open in Claude</a>
+  </header>
+
+  <main>
+
+    <!-- Disk Usage -->
+    {% if status.disk %}
+    <section>
+      <h2>Disk Usage</h2>
+      <table class="disk-table">
+        {% for d in status.disk %}
+        <tr>
+          <td class="path">{{ d.path }}</td>
+          <td class="bar-cell">
+            <div class="bar-track">
+              <div class="bar-fill {% if d.used_pct > 90 %}bar-danger{% elif d.used_pct > 75 %}bar-warn{% endif %}"
+                   style="width: {{ d.used_pct }}%"></div>
+            </div>
+          </td>
+          <td class="pct">{{ d.used_pct }}%</td>
+          <td class="detail">{{ d.used_gb }} / {{ d.total_gb }} GB</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </section>
+    {% endif %}
+
+    <!-- Containers -->
+    <section>
+      <h2>Containers</h2>
+      {% if status.containers %}
+      <table class="container-table">
+        <thead>
+          <tr><th>Name</th><th>Image</th><th>Status</th><th>Health</th><th>Uptime</th></tr>
+        </thead>
+        <tbody>
+          {% for c in status.containers %}
+          <tr>
+            <td>
+              {% if c.status == "running" %}
+                <span class="dot dot-green">●</span>
+              {% else %}
+                <span class="dot dot-red">✕</span>
+              {% endif %}
+              {{ c.name }}
+            </td>
+            <td class="image">{{ c.image }}</td>
+            <td>{{ c.status }}</td>
+            <td>{{ c.health or "—" }}</td>
+            <td>{{ c.uptime_seconds | uptime if c.uptime_seconds else "—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty">No containers found.</p>
+      {% endif %}
+    </section>
+
+    <!-- Stacks -->
+    {% if status.stacks %}
+    <section>
+      <h2>Stacks</h2>
+      <table class="stack-table">
+        <thead>
+          <tr><th>Name</th><th>Running</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for s in status.stacks %}
+          <tr>
+            <td>
+              {% if s.status == "healthy" %}
+                <span class="dot dot-green">●</span>
+              {% elif s.status == "degraded" %}
+                <span class="dot dot-yellow">◐</span>
+              {% else %}
+                <span class="dot dot-red">✕</span>
+              {% endif %}
+              {{ s.name }}
+            </td>
+            <td>{{ s.running_count }} / {{ s.container_count }}</td>
+            <td>{{ s.status }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endif %}
+
+  </main>
+</body>
+</html>

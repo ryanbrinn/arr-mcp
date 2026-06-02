@@ -24,4 +24,12 @@ class Settings(BaseSettings):
         description="Explicit socket path (e.g. unix:///run/user/1000/podman/podman.sock). "
         "When set, skips runtime auto-detection. Required when running inside a container.",
     )
+    dashboard_public: bool = Field(
+        default=False,
+        description="Serve dashboard without auth (safe for LAN-only deployments)",
+    )
+    public_url: str = Field(
+        default="",
+        description="Public URL used in the 'Open in Claude' button",
+    )
     log_level: str = Field(default="info", description="Logging level")
