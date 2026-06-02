@@ -14,16 +14,10 @@
 
 ## Stack management
 
-!!! warning
-    Stack up/down/pull/restart require `podman-compose` or `docker-compose` on the host. These tools are currently non-functional when arr-mcp runs inside a container. See [issue #12](https://github.com/ryanbrinn/arr-mcp/issues/12).
+!!! info "Not yet available"
+    Stack management tools (`stack_up`, `stack_down`, `stack_pull`, `stack_restart`, `compose_validate`) require a host-side helper agent that is not yet implemented. See [issue #12](https://github.com/ryanbrinn/arr-mcp/issues/12) and [ADR-0002](adr/0002-host-side-helper-agent.md) for the planned solution.
 
-| Tool | Description |
-|---|---|
-| `stack_list()` | List all stacks owned by the current user |
-| `stack_up(name)` | `podman-compose up -d` |
-| `stack_down(name, confirm=True)` | `podman-compose down` (requires `confirm=True`) |
-| `stack_pull(name)` | Pull latest images |
-| `stack_restart(name)` | Down then up |
+    The compose file read and write tools below work today.
 
 ## Compose files
 
@@ -31,7 +25,6 @@
 |---|---|
 | `compose_read(stack)` | Read the compose.yaml for a stack |
 | `compose_write(stack, content)` | Write/replace the compose.yaml for a stack |
-| `compose_validate(stack)` | Dry-run validate a stack's compose file |
 
 ## Filesystem
 
