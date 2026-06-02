@@ -2,8 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Proposed |
+| **Status** | Investigating |
 | **Date** | 2026-06-01 |
+| **Decided** | 2026-06-01 |
 | **Issues** | [#12](https://github.com/ryanbrinn/arr-mcp/issues/12), [#13](https://github.com/ryanbrinn/arr-mcp/issues/13) |
 
 ## Context
@@ -24,7 +25,24 @@ This is a significant gap given that replacing Dockge is a core project goal.
 
 ## Decision
 
-_Not yet decided. This ADR captures the options under consideration._
+**Investigating Option C — Host-side helper agent.**
+
+Direction is set: a small host-side process running as the service account, communicating with arr-mcp via a bind-mounted Unix socket. This is an **architectural spike** — the approach is committed to, but the following implementation details are still under investigation:
+
+- Exact API surface (which commands the helper exposes)
+- Protocol over the socket (HTTP/JSON vs lightweight custom protocol)
+- Deployment mechanism for the helper itself (quadlet, systemd unit, or packaged alongside arr-mcp)
+- How the helper handles authentication/authorisation to prevent abuse
+
+**Working hypothesis: Unix socket + JSON over HTTP**
+
+A simple HTTP/JSON API over a Unix socket is the leading candidate:
+
+- **gRPC**: Well-typed but adds significant complexity and build tooling
+- **Custom binary protocol**: Minimal overhead but hard to debug and extend
+- **HTTP/JSON over Unix socket**: Familiar pattern (same as Podman/Docker API), easy to test with `curl`, straightforward to extend, no extra dependencies
+
+This hypothesis will be validated during the spike. The API surface must be minimal — no arbitrary shell execution. Only explicitly defined operations will be exposed.
 
 ## Options considered
 
@@ -55,7 +73,7 @@ The socket is bind-mounted into the arr-mcp container. The helper exposes a mini
 **Pros:** Solves both #12 and #13 cleanly. Keeps arr-mcp unprivileged. Minimal attack surface if the API is well-scoped. No changes to the container image.
 **Cons:** Adds a new host-side component to deploy and maintain. Requires a deployment mechanism (quadlet or systemd unit for the helper itself).
 
-## Consequences (if Option C is chosen)
+## Consequences
 
 - arr-mcp gains full stack lifecycle management on rootless Podman
 - The helper must be deployed separately alongside arr-mcp — documentation and packaging will need to cover this
