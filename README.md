@@ -1,100 +1,123 @@
 # arr-mcp
 
-![Beta](https://img.shields.io/badge/status-beta-orange)
-![Version](https://img.shields.io/badge/version-0.1.0--beta.1-blue)
+![Version](https://img.shields.io/pypi/v/arr-mcp?label=version)
 ![License](https://img.shields.io/badge/license-MIT-green)
-
-> **Work in progress.** This project is in active development. APIs and configuration may change between releases.
+![CI](https://github.com/ryanbrinn/arr-mcp/actions/workflows/ci.yaml/badge.svg)
 
 MCP server for natural language management of a home media server stack — Plex, Sonarr, Radarr, SABnzbd, and more — via Podman or Docker.
 
-Replaces Dockge. Connects to Claude as an MCP tool server so you can manage your stack conversationally.
+Talk to your media server through Claude instead of SSH. Ask it to restart a stuck container, check disk usage, pull the latest images for a stack, or migrate a compose file to Podman quadlets. A read-only status dashboard is also included for household members who don't need Claude.
 
 ---
 
 ## AI Disclosure
 
-This project was co-authored with [Claude](https://claude.ai) (Anthropic). The architecture, code, and documentation were developed collaboratively between the project author and Claude in an interactive session. All code has been reviewed by the author and is maintained as a human-owned open source project.
+This project was co-authored with [Claude](https://claude.ai) (Anthropic). The architecture, code, and documentation were developed collaboratively. All code has been reviewed by the author and is maintained as a human-owned open source project.
+
+---
+
+## Quick start
+
+The easiest way to install on a Podman (rootless) server — run this as your service account:
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/ryanbrinn/arr-mcp/main/scripts/install.sh)
+```
+
+This installs `arr-helper` on the host, generates a quadlet for `arr-mcp`, and starts both services. It asks five questions (media directory, API key, etc.) and takes about a minute.
+
+**Requirements:** rootless Podman, `uv`, active systemd user session (`sudo loginctl enable-linger $(whoami)`).
+
+For Docker or manual setup, see the [Getting Started guide](https://ryanbrinn.github.io/arr-mcp/getting-started/).
+
+---
+
+## What it does
+
+### Talk to your server through Claude
+
+Connect arr-mcp to Claude as an MCP server and manage your stack conversationally:
+
+```
+"Restart the radarr container"
+"How much disk space is left on /media-server?"
+"Pull the latest images for my media stack and bring it back up"
+"Convert my compose.yaml to quadlet files"
+```
+
+### Status dashboard
+
+A read-only dashboard is served at `http://your-server:8081/` — no Claude required. Shows container status, disk usage, and stack health with auto-refresh every 30 seconds. Useful for household members who just want to see if things are running.
 
 ---
 
 ## Features
 
-- **Container lifecycle** — list, start, stop, restart, remove, logs, stats
-- **Stack management** — `podman-compose` up/down/pull/restart for every stack in `/opt/stacks`
-- **Compose files** — read, write, and dry-run validate compose files
-- **Filesystem** — disk usage, directory listing, file read/write (scoped to allowed paths)
-- **Logs** — tail and search any log file under `/var/log`, `/opt/stacks`, or `/media-server`
-- **Runtime auto-detection** — prefers rootless Podman socket, falls back to Docker
-- **Bearer token auth** — static API key via `Authorization: Bearer` header
+| Category | Tools |
+|---|---|
+| **Containers** | list, start, stop, restart, remove, logs, stats |
+| **Stacks** | up, down, pull, restart, validate (via arr-helper) |
+| **Compose files** | read, write, validate |
+| **Conversion** | compose → quadlets, quadlets → compose |
+| **Filesystem** | disk usage, directory list, file read, write, delete |
+| **Logs** | tail and search any log file |
 
-## Quick start
+All filesystem operations are ownership-scoped — arr-mcp cannot touch files owned by root or other users. See [Security](https://ryanbrinn.github.io/arr-mcp/security/).
 
-See the [full Getting Started guide](https://ryanbrinn.github.io/arr-mcp/getting-started/) for all supported configurations.
+---
 
-### Docker Engine
-
-```bash
-docker run -d --name arr-mcp \
-  -e ARR_MCP_API_KEY=your-secret-key \
-  -e ARR_MCP_CONTAINER_RUNTIME=docker \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /opt/stacks:/opt/stacks \
-  -v /media-server:/media-server \
-  -p 8081:8081 \
-  ghcr.io/ryanbrinn/arr-mcp:latest
-```
-
-### Docker Compose
-
-```yaml
-services:
-  arr-mcp:
-    image: ghcr.io/ryanbrinn/arr-mcp:latest
-    container_name: arr-mcp
-    restart: unless-stopped
-    ports:
-      - "8081:8081"
-    environment:
-      ARR_MCP_API_KEY: your-secret-key
-      ARR_MCP_CONTAINER_RUNTIME: docker
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /opt/stacks:/opt/stacks
-      - /media-server:/media-server
-```
-
-### Podman (rootless) with Quadlets
-
-Replace `<MEDIA_UID>` with your service account UID (`id media`):
-
-```bash
-MEDIA_UID=$(id -u media)
-
-podman run -d --name arr-mcp \
-  -e ARR_MCP_API_KEY=your-secret-key \
-  -e ARR_MCP_CONTAINER_RUNTIME=podman \
-  -v /run/user/${MEDIA_UID}/podman/podman.sock:/run/user/${MEDIA_UID}/podman/podman.sock:z \
-  -v /opt/stacks:/opt/stacks:z \
-  -v /media-server:/media-server:z \
-  -p 8081:8081 \
-  ghcr.io/ryanbrinn/arr-mcp:latest
-```
-
-The server listens on `http://localhost:8081`.
-
-### Health check
-
-```bash
-curl http://localhost:8081/health
-```
-
-### MCP endpoint
+## Architecture
 
 ```
-http://localhost:8081/mcp
-Authorization: Bearer <your-key>
+Claude / Browser
+      │
+      ▼
+ arr-mcp (container)          ← MCP tools + dashboard
+      │  Podman socket
+      ▼
+ Container runtime             ← your media stack
+
+ arr-helper (host process)    ← podman-compose, systemctl, quadlets
+      │  Unix socket (bind-mounted into arr-mcp)
+      ▼
+ arr-mcp container
 ```
+
+`arr-helper` is a small host-side process that gives arr-mcp access to `podman-compose`, `systemctl --user`, and quadlet files — things that aren't available from inside a container. The install script sets it up automatically.
+
+---
+
+## Connecting to Claude
+
+### Claude.ai
+
+Go to **Settings → Integrations** and add a remote MCP server:
+
+```
+URL:    http://your-server-ip:8081/mcp
+Header: Authorization: Bearer your-api-key
+```
+
+### Claude Desktop
+
+Claude Desktop requires a local bridge. Install [mcpproxy](https://github.com/sparfenyuk/mcp-proxy) on your local machine, then add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "arr-mcp": {
+      "command": "/usr/local/bin/mcpproxy",
+      "args": [
+        "--transport", "streamablehttp",
+        "-H", "Authorization", "Bearer your-api-key",
+        "http://your-server-ip:8081/mcp"
+      ]
+    }
+  }
+}
+```
+
+---
 
 ## Configuration
 
@@ -102,65 +125,53 @@ Authorization: Bearer <your-key>
 |---|---|---|
 | `ARR_MCP_API_KEY` | `changeme` | Bearer token — **change this** |
 | `ARR_MCP_PORT` | `8081` | HTTP listen port |
-| `ARR_MCP_STACKS_DIR` | `/opt/stacks` | podman-compose stack root |
+| `ARR_MCP_STACKS_DIR` | `/opt/stacks` | Compose stack root |
 | `ARR_MCP_MEDIA_DIR` | `/media-server` | Media storage root |
 | `ARR_MCP_CONTAINER_RUNTIME` | `auto` | `auto` / `podman` / `docker` |
+| `ARR_MCP_SOCKET_PATH` | `` | Explicit runtime socket path (required in containers) |
+| `ARR_MCP_HELPER_SOCKET` | `/run/arr-helper/arr-helper.sock` | arr-helper socket path |
+| `ARR_MCP_DASHBOARD_PUBLIC` | `false` | Skip dashboard auth (for LAN-only deployments) |
+| `ARR_MCP_PUBLIC_URL` | `` | Public URL shown in the "Open in Claude" button |
 | `ARR_MCP_LOG_LEVEL` | `info` | `debug` / `info` / `warning` / `error` |
 
-## Tools
+Full reference: [docs/configuration](https://ryanbrinn.github.io/arr-mcp/configuration/).
 
-### Container lifecycle
-| Tool | Description |
-|---|---|
-| `container_list()` | All containers with status, uptime, ports |
-| `container_start(name)` | Start a stopped container |
-| `container_stop(name)` | Stop a running container |
-| `container_restart(name)` | Restart a container |
-| `container_remove(name, confirm=True)` | Remove a container (requires confirm) |
-| `container_logs(name, lines)` | Fetch last N log lines |
-| `container_stats()` | CPU, memory, network per container |
+---
 
-### Stack management
-| Tool | Description |
-|---|---|
-| `stack_list()` | List all stacks in stacks dir |
-| `stack_up(name)` | `podman-compose up -d` |
-| `stack_down(name, confirm=True)` | `podman-compose down` (requires confirm) |
-| `stack_pull(name)` | Pull latest images |
-| `stack_restart(name)` | Down then up |
-
-### Compose files
-| Tool | Description |
-|---|---|
-| `compose_read(stack)` | Read compose.yaml |
-| `compose_write(stack, content)` | Write compose.yaml |
-| `compose_validate(stack)` | Dry-run validate |
-
-### Filesystem
-| Tool | Description |
-|---|---|
-| `disk_usage(path)` | Disk usage for a path |
-| `directory_list(path)` | List directory contents |
-| `file_read(path)` | Read a text file |
-| `file_write(path, content)` | Write a file |
-
-### Logs
-| Tool | Description |
-|---|---|
-| `log_read(path, lines)` | Tail a log file |
-| `log_search(path, query)` | Search a log file |
-
-## Supported configurations
+## Supported runtimes
 
 | Configuration | Supported |
 |---|---|
 | Docker Engine | ✅ |
 | Docker with Docker Compose | ✅ |
 | Podman (rootless) with Quadlets | ✅ |
-| Podman with podman-compose | ❌ |
 | Podman (rooted) | ❌ |
 
-See [ADR-0004](https://ryanbrinn.github.io/arr-mcp/adr/0004-supported-runtime-configurations/) for rationale.
+---
+
+## Documentation
+
+- [Getting Started](https://ryanbrinn.github.io/arr-mcp/getting-started/)
+- [Tools Reference](https://ryanbrinn.github.io/arr-mcp/tools/)
+- [Configuration](https://ryanbrinn.github.io/arr-mcp/configuration/)
+- [Security](https://ryanbrinn.github.io/arr-mcp/security/)
+- [Architecture](https://ryanbrinn.github.io/arr-mcp/architecture/)
+- [Roadmap](https://ryanbrinn.github.io/arr-mcp/roadmap/)
+
+---
+
+## Contributing
+
+```bash
+git clone https://github.com/ryanbrinn/arr-mcp
+cd arr-mcp
+uv sync --extra dev
+uv run pytest
+```
+
+See [CLAUDE.md](CLAUDE.md) for development guidelines.
+
+---
 
 ## License
 
