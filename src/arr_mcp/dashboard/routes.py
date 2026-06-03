@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from starlette.requests import Request
@@ -50,26 +49,6 @@ def _check_auth(request: Request, settings: Settings) -> bool:
     return key == settings.api_key
 
 
-def _open_claude_url(status: dict[str, Any], settings: Settings, request: Request) -> str:
-    """Build the 'Open in Claude' link URL."""
-    host = settings.public_url or str(request.base_url).rstrip("/")
-    containers = status.get("containers", [])
-    disk = status.get("disk", [])
-
-    running = sum(1 for c in containers if c["status"] == "running")
-    total = len(containers)
-    disk_summary = ""
-    if disk:
-        d = disk[0]
-        disk_summary = f", {d['used_gb']} GB of {d['total_gb']} GB used"
-
-    prompt = (
-        f"I'm managing my home media server with arr-mcp at {host}. "
-        f"Current status: {running}/{total} containers running{disk_summary}."
-    )
-    return f"https://claude.ai/new?q={quote(prompt)}"
-
-
 def make_dashboard_routes(client: ContainerClient, settings: Settings) -> dict[str, Any]:
     """Return the two dashboard route handlers as a dict."""
     jinja = _get_jinja_env()
@@ -84,9 +63,8 @@ def make_dashboard_routes(client: ContainerClient, settings: Settings) -> dict[s
             log.exception("Error building dashboard status")
             return HTMLResponse(f"<h1>Error</h1><pre>{exc}</pre>", status_code=500)
 
-        claude_url = _open_claude_url(status, settings, request)
         template = jinja.get_template("index.html")
-        html = template.render(status=status, claude_url=claude_url, settings=settings)
+        html = template.render(status=status, settings=settings)
         return HTMLResponse(html)
 
     async def handle_api_status(request: Request) -> Response:

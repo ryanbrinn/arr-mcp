@@ -22,17 +22,6 @@ header {
 .logo { font-weight: 700; font-size: 1.1rem; color: #818cf8; }
 .updated { color: #64748b; font-size: 0.85rem; flex: 1; }
 
-.btn-claude {
-  background: #6366f1;
-  color: #fff;
-  padding: 0.35rem 0.85rem;
-  border-radius: 6px;
-  text-decoration: none;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-.btn-claude:hover { background: #4f46e5; }
-
 main { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
 
 section {
