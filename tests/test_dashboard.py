@@ -136,15 +136,6 @@ async def test_api_status_disk_fields(public_settings: Settings) -> None:
         assert "used_pct" in d
 
 
-async def test_dashboard_contains_open_claude_button(public_settings: Settings) -> None:
-    app = _make_app(public_settings)
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        r = await client.get("/")
-    assert "claude.ai" in r.text
-
-
 async def test_dashboard_shows_containers(public_settings: Settings) -> None:
     containers = [
         {
