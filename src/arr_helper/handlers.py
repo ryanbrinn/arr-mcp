@@ -53,7 +53,7 @@ async def handle_stack_restart(args: dict[str, str]) -> tuple[int, str]:
 async def handle_compose_validate(args: dict[str, str]) -> tuple[int, str]:
     """Dry-run validate a stack compose file."""
     stack = validate_stack_name(args.get("stack", ""))
-    return await run_command("podman-compose", "-f", _compose_file(stack), "up", "--dry-run")
+    return await run_command("podman-compose", "-f", _compose_file(stack), "config")
 
 
 async def handle_systemd_start(args: dict[str, str]) -> tuple[int, str]:
