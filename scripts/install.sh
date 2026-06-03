@@ -108,8 +108,8 @@ collect_config() {
 install_helper() {
     header "Installing arr-agent"
 
-    info "Running: uv tool install arr-mcp"
-    uv tool install arr-mcp --quiet
+    info "Running: uv tool install arr-mcp-server"
+    uv tool install arr-mcp-server --quiet
 
     # `uv tool dir` (no args) returns the parent tools directory; each tool
     # gets a subdirectory named after the package containing its virtualenv.

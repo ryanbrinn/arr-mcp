@@ -1,6 +1,6 @@
 # arr-mcp
 
-![Version](https://img.shields.io/pypi/v/arr-mcp?label=version)
+![Version](https://img.shields.io/pypi/v/arr-mcp-server?label=version)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![CI](https://github.com/ryanbrinn/arr-mcp/actions/workflows/ci.yaml/badge.svg)
 
