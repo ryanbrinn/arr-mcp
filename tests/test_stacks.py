@@ -132,46 +132,59 @@ async def test_stack_path_rejects_root_owned(settings: Settings, mock_client: Ma
             await server.call_tool("stack_up", {"name": "root-stack"})
 
 
-async def test_compose_read_returns_quadlet_message(
-    settings: Settings, mock_client: MagicMock
-) -> None:
-    """compose_read returns a helpful message when the stack is quadlet-managed."""
-    (Path(settings.stacks_dir) / "plex").mkdir()
+async def test_stack_list_respects_allowlist(tmp_path: Path, mock_client: MagicMock) -> None:
+    """stack_list only shows allowed stacks when allowed_stacks is configured."""
+    stacks = tmp_path / "stacks"
+    stacks.mkdir()
+    (stacks / "media").mkdir()
+    (stacks / "nginx").mkdir()
+    settings = Settings(
+        api_key="k",
+        compose_dir=str(stacks),
+        media_dir=str(tmp_path),
+        allowed_stacks=["media"],
+    )
     server = _make_server(settings, mock_client)
-    with (
-        patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True),
-        patch("arr_mcp.tools.stacks._has_quadlet_for", return_value=True),
-    ):
-        result = await server.call_tool("compose_read", {"stack": "plex"})
-    assert "quadlet" in result[0][0].text.lower()
-    assert "quadlet_read" in result[0][0].text
+    with patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True):
+        result = await server.call_tool("stack_list", {})
+    assert "media" in result[0][0].text
+    assert "nginx" not in result[0][0].text
 
 
-async def test_compose_write_returns_quadlet_message(
-    settings: Settings, mock_client: MagicMock
-) -> None:
-    """compose_write returns a helpful message when the stack is quadlet-managed."""
-    (Path(settings.stacks_dir) / "plex").mkdir()
+async def test_stack_up_blocked_by_allowlist(tmp_path: Path, mock_client: MagicMock) -> None:
+    """stack_up raises for stacks not in the allowlist."""
+    stacks = tmp_path / "stacks"
+    stacks.mkdir()
+    (stacks / "nginx").mkdir()
+    settings = Settings(
+        api_key="k",
+        compose_dir=str(stacks),
+        media_dir=str(tmp_path),
+        allowed_stacks=["media"],
+    )
     server = _make_server(settings, mock_client)
-    with (
-        patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True),
-        patch("arr_mcp.tools.stacks._has_quadlet_for", return_value=True),
-    ):
-        result = await server.call_tool(
-            "compose_write", {"stack": "plex", "content": "services: {}"}
-        )
-    assert "quadlet" in result[0][0].text.lower()
+    with pytest.raises(ToolError, match="not in the allowed stacks"):
+        await server.call_tool("stack_up", {"name": "nginx"})
 
 
-async def test_compose_validate_returns_quadlet_message(
-    settings: Settings, mock_client: MagicMock
-) -> None:
-    """compose_validate returns a helpful message when the stack is quadlet-managed."""
-    (Path(settings.stacks_dir) / "plex").mkdir()
+async def test_stack_allowlist_empty_allows_all(tmp_path: Path, mock_client: MagicMock) -> None:
+    """When allowed_stacks is empty all stacks are accessible."""
+    stacks = tmp_path / "stacks"
+    stacks.mkdir()
+    (stacks / "nginx").mkdir()
+    settings = Settings(
+        api_key="k",
+        compose_dir=str(stacks),
+        media_dir=str(tmp_path),
+        allowed_stacks=[],
+    )
     server = _make_server(settings, mock_client)
-    with (
-        patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True),
-        patch("arr_mcp.tools.stacks._has_quadlet_for", return_value=True),
-    ):
-        result = await server.call_tool("compose_validate", {"stack": "plex"})
-    assert "quadlet" in result[0][0].text.lower()
+    with patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True):
+        result = await server.call_tool("stack_list", {})
+    assert "nginx" in result[0][0].text
+
+
+def test_allowed_stacks_parsed_from_comma_string() -> None:
+    """ARR_MCP_ALLOWED_STACKS comma string is parsed into a list."""
+    s = Settings(api_key="k", allowed_stacks="media,downloads, plex")  # type: ignore[arg-type]
+    assert s.allowed_stacks == ["media", "downloads", "plex"]

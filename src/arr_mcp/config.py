@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -69,4 +69,20 @@ class Settings(BaseSettings):
         default=False,
         description="Serve dashboard without auth (safe for LAN-only deployments)",
     )
+    allowed_stacks: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Comma-separated list of stack names the MCP server is permitted to operate on. "
+            "When empty (default) all stacks under compose_dir are allowed. "
+            "Set ARR_MCP_ALLOWED_STACKS=media,downloads to restrict to specific stacks."
+        ),
+    )
     log_level: str = Field(default="info", description="Logging level")
+
+    @field_validator("allowed_stacks", mode="before")
+    @classmethod
+    def _parse_allowed_stacks(cls, v: object) -> list[str]:
+        """Accept a comma-separated string or a list."""
+        if isinstance(v, str):
+            return [s.strip() for s in v.split(",") if s.strip()]
+        return v  # type: ignore[return-value]
