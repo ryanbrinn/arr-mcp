@@ -110,7 +110,15 @@ install_helper() {
 
     info "Running: uv tool install arr-mcp"
     uv tool install arr-mcp --quiet
-    info "arr-helper installed at $(command -v arr-helper)"
+
+    # uv installs tool binaries to its own bin dir; make sure we can find them
+    local helper_bin
+    helper_bin=$(PATH="$HOME/.local/bin:$PATH" command -v arr-helper 2>/dev/null || true)
+    if [[ -z "$helper_bin" ]]; then
+        error "arr-helper binary not found after install. Check 'uv tool list'."
+        exit 1
+    fi
+    info "arr-helper installed at $helper_bin"
 
     # systemd user unit
     local unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
@@ -122,7 +130,7 @@ Description=arr-mcp host-side helper agent
 After=network.target
 
 [Service]
-ExecStart=$(command -v arr-helper)
+ExecStart=${helper_bin}
 Restart=on-failure
 RuntimeDirectory=arr-helper
 RuntimeDirectoryMode=0700
@@ -178,7 +186,7 @@ EOF
     info "Wrote ${quadlet_dir}/arr-mcp.container"
 
     systemctl --user daemon-reload
-    systemctl --user enable --now arr-mcp
+    systemctl --user start arr-mcp
     info "arr-mcp started"
 }
 
