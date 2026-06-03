@@ -9,9 +9,11 @@
 </head>
 <body>
   <header>
-    <span class="logo">arr-mcp</span>
+    <span class="logo-wrap">
+      <img class="logo-img" src="/static/logo.svg" alt="arr-mcp logo">
+      <span class="logo">arr-mcp</span>
+    </span>
     <span class="updated">Last updated: {{ status.generated_at | replace("T", " ") | replace("Z", " UTC") }}</span>
-    <a class="btn-claude" href="{{ claude_url }}" target="_blank" rel="noopener">Open in Claude</a>
   </header>
 
   <main>
@@ -50,12 +52,11 @@
           {% for c in status.containers %}
           <tr>
             <td>
-              {% if c.status == "running" %}
-                <span class="dot dot-green">●</span>
-              {% else %}
-                <span class="dot dot-red">✕</span>
-              {% endif %}
-              {{ c.name }}
+              <span class="name-cell">
+                <span class="dot {% if c.status == 'running' %}dot-green{% elif c.status in ('restarting', 'paused') %}dot-amber{% else %}dot-red{% endif %}"></span>
+                <span class="svc-icon">{{ c.name | service_icon }}</span>
+                {{ c.name }}
+              </span>
             </td>
             <td class="image">{{ c.image }}</td>
             <td>{{ c.status }}</td>
@@ -82,14 +83,10 @@
           {% for s in status.stacks %}
           <tr>
             <td>
-              {% if s.status == "healthy" %}
-                <span class="dot dot-green">●</span>
-              {% elif s.status == "degraded" %}
-                <span class="dot dot-yellow">◐</span>
-              {% else %}
-                <span class="dot dot-red">✕</span>
-              {% endif %}
-              {{ s.name }}
+              <span class="name-cell">
+                <span class="dot {% if s.status == 'healthy' %}dot-green{% elif s.status == 'degraded' %}dot-amber{% else %}dot-red{% endif %}"></span>
+                {{ s.name }}
+              </span>
             </td>
             <td>{{ s.running_count }} / {{ s.container_count }}</td>
             <td>{{ s.status }}</td>

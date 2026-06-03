@@ -33,8 +33,4 @@ class Settings(BaseSettings):
         default=False,
         description="Serve dashboard without auth (safe for LAN-only deployments)",
     )
-    public_url: str = Field(
-        default="",
-        description="Public URL used in the 'Open in Claude' button",
-    )
     log_level: str = Field(default="info", description="Logging level")
