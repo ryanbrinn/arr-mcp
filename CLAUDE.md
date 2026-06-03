@@ -45,6 +45,12 @@ This document contains critical information about working with this codebase. Fo
 - NEVER ever mention a `co-authored-by` or similar aspects. In particular, never
   mention the tool used to create the commit message or PR.
 
+## Session Discipline
+
+- **One issue per session.** Once the issue being worked on is identified, treat that issue as the session boundary.
+- **Rename the session.** Acknowledge the issue at the start with the key and a short description (e.g. "Working on **#42 — fix install script**").
+- **Flag scope creep.** If work is heading somewhere that warrants its own issue, say so explicitly before proceeding: "This feels out of scope for #N — should I open a new issue for it?"
+
 ## Branch and PR Workflow
 
 - **One branch per issue.** Every GitHub issue gets its own branch. Name it after the issue: `fix/issue-23-short-description`, `feat/issue-17-quadlet-conversion`, etc.
