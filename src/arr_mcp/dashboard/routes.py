@@ -18,6 +18,44 @@ log = logging.getLogger(__name__)
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
+# Known service name fragments → short label shown in the icon badge.
+# Matched case-insensitively against the container name.
+_SERVICE_LABELS: dict[str, str] = {
+    "sonarr": "SN",
+    "radarr": "RD",
+    "prowlarr": "PR",
+    "bazarr": "BZ",
+    "lidarr": "LI",
+    "readarr": "RE",
+    "overseerr": "OV",
+    "jellyseerr": "JS",
+    "plex": "PX",
+    "jellyfin": "JF",
+    "emby": "EM",
+    "sabnzbd": "SAB",
+    "nzbget": "NZB",
+    "qbittorrent": "QB",
+    "deluge": "DL",
+    "transmission": "TR",
+    "nginx": "NX",
+    "traefik": "TK",
+    "certbot": "CB",
+    "fail2ban": "F2B",
+    "portainer": "PT",
+    "watchtower": "WT",
+    "arr-mcp": "MCP",
+    "arr-agent": "AG",
+}
+
+
+def _service_icon(name: str) -> str:
+    """Return a short label for a known service, or the first two chars of the name."""
+    lower = name.lower()
+    for fragment, label in _SERVICE_LABELS.items():
+        if fragment in lower:
+            return label
+    return name[:2].upper() if name else "?"
+
 
 def _fmt_uptime(seconds: int) -> str:
     """Format uptime seconds into a human-readable string."""
@@ -38,6 +76,7 @@ def _get_jinja_env() -> Environment:
         autoescape=select_autoescape(["html"]),
     )
     env.filters["uptime"] = _fmt_uptime
+    env.filters["service_icon"] = _service_icon
     return env
 
 
