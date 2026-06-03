@@ -9,13 +9,25 @@ All settings are loaded from environment variables or a `.env` file in the worki
 | `ARR_MCP_API_KEY` | `changeme` | Bearer token for MCP endpoint auth — **change this** |
 | `ARR_MCP_PORT` | `8081` | HTTP listen port |
 | `ARR_MCP_STACKS_DIR` | `/opt/stacks` | Root directory for compose stacks |
-| `ARR_MCP_MEDIA_DIR` | `/media-server` | Media storage root |
+| `ARR_MCP_MEDIA_DIR` | `/media-server` | Root directory of your media library. Override if your media is on a mounted drive at a different path (e.g. `/media-server/library`) |
 | `ARR_MCP_CONTAINER_RUNTIME` | `auto` | `auto` / `podman` / `docker` |
 | `ARR_MCP_SOCKET_PATH` | `` | Explicit socket path — required when running inside a container |
 | `ARR_MCP_HELPER_SOCKET` | `/run/arr-helper/arr-helper.sock` | Path to the arr-helper Unix socket |
 | `ARR_MCP_DASHBOARD_PUBLIC` | `false` | Serve dashboard without auth (set `true` for LAN-only deployments) |
-| `ARR_MCP_PUBLIC_URL` | `` | Public URL shown in the "Open in Claude" dashboard button |
 | `ARR_MCP_LOG_LEVEL` | `info` | `debug` / `info` / `warning` / `error` |
+
+## Media library path
+
+By default arr-mcp looks for your media at `/media-server`. If your library is on a mounted external drive or lives at a different path, set `ARR_MCP_MEDIA_DIR`:
+
+```bash
+-e ARR_MCP_MEDIA_DIR=/media-server/library
+```
+
+This path is used for:
+
+- Disk usage reporting on the dashboard
+- Scoping `file_read`, `file_write`, and `log_read` to your owned paths
 
 ## arr-helper settings
 
@@ -72,12 +84,3 @@ http://your-server:8081/?key=your-secret-key
 -e ARR_MCP_DASHBOARD_PUBLIC=true
 ```
 
-**"Open in Claude" button:**
-
-Set `ARR_MCP_PUBLIC_URL` to the address Claude should reference in its context prompt:
-
-```bash
--e ARR_MCP_PUBLIC_URL=http://mediaserver.local:8081
-```
-
-If unset, arr-mcp uses the request's `Host` header.
