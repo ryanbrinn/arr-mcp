@@ -35,7 +35,7 @@ dev = [
 
 [project.scripts]
 arr-mcp = "arr_mcp.server:main"
-arr-helper = "arr_helper.__main__:main"
+arr-agent = "arr_helper.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/arr_mcp", "src/arr_helper"]
