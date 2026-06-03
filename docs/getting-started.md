@@ -1,5 +1,29 @@
 # Getting Started
 
+## One-command install (Podman + quadlets)
+
+The fastest way to get started on a rootless Podman server:
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/ryanbrinn/arr-mcp/main/scripts/install.sh)
+```
+
+The script asks five questions, installs `arr-helper` on the host, generates a quadlet for `arr-mcp`, and starts both services. Takes about a minute.
+
+**Requirements:** rootless Podman, `uv`, active systemd user session.
+
+```bash
+# If you don't have uv:
+curl -sSL https://astral.sh/uv/install.sh | sh
+
+# If you haven't enabled linger for your service account:
+sudo loginctl enable-linger $(whoami)
+```
+
+For Docker, or if you prefer to set things up manually, see the sections below.
+
+---
+
 ## Requirements
 
 - A supported container runtime — see [ADR-0004](adr/0004-supported-runtime-configurations.md) for the full list
@@ -138,13 +162,14 @@ systemctl --user enable --now arr-mcp
 
 `arr-helper` is a small host-side process that gives arr-mcp access to `podman-compose`, `systemctl --user`, and quadlet files — none of which are available from inside a container. Without it, stack management tools return a message explaining what's missing; all other tools continue to work.
 
+!!! tip
+    The [one-command installer](#one-command-install-podman-quadlets) handles arr-helper setup automatically. The steps below are for manual installs only.
+
 ### Installing
 
 `arr-helper` ships as part of the `arr-mcp` package. On the host machine (as the service account):
 
 ```bash
-pip install arr-mcp
-# or with uv:
 uv tool install arr-mcp
 ```
 
