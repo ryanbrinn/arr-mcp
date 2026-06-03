@@ -1,7 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "mcp__arr-mcp__container_list",
+      "mcp__arr-mcp__directory_list",
+      "mcp__arr-mcp__container_logs",
+      "mcp__arr-mcp__compose_read",
+      "mcp__arr-mcp__file_read",
+      "mcp__github__get_file_contents",
+      "mcp__arr-mcp__disk_usage",
+      "mcp__github__get_pull_request_status"
     ]
   }
 }
