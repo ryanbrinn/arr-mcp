@@ -130,3 +130,48 @@ async def test_stack_path_rejects_root_owned(settings: Settings, mock_client: Ma
     with patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=False):
         with pytest.raises(ToolError, match="Stack not found"):
             await server.call_tool("stack_up", {"name": "root-stack"})
+
+
+async def test_compose_read_returns_quadlet_message(
+    settings: Settings, mock_client: MagicMock
+) -> None:
+    """compose_read returns a helpful message when the stack is quadlet-managed."""
+    (Path(settings.stacks_dir) / "plex").mkdir()
+    server = _make_server(settings, mock_client)
+    with (
+        patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True),
+        patch("arr_mcp.tools.stacks._has_quadlet_for", return_value=True),
+    ):
+        result = await server.call_tool("compose_read", {"stack": "plex"})
+    assert "quadlet" in result[0][0].text.lower()
+    assert "quadlet_read" in result[0][0].text
+
+
+async def test_compose_write_returns_quadlet_message(
+    settings: Settings, mock_client: MagicMock
+) -> None:
+    """compose_write returns a helpful message when the stack is quadlet-managed."""
+    (Path(settings.stacks_dir) / "plex").mkdir()
+    server = _make_server(settings, mock_client)
+    with (
+        patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True),
+        patch("arr_mcp.tools.stacks._has_quadlet_for", return_value=True),
+    ):
+        result = await server.call_tool(
+            "compose_write", {"stack": "plex", "content": "services: {}"}
+        )
+    assert "quadlet" in result[0][0].text.lower()
+
+
+async def test_compose_validate_returns_quadlet_message(
+    settings: Settings, mock_client: MagicMock
+) -> None:
+    """compose_validate returns a helpful message when the stack is quadlet-managed."""
+    (Path(settings.stacks_dir) / "plex").mkdir()
+    server = _make_server(settings, mock_client)
+    with (
+        patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True),
+        patch("arr_mcp.tools.stacks._has_quadlet_for", return_value=True),
+    ):
+        result = await server.call_tool("compose_validate", {"stack": "plex"})
+    assert "quadlet" in result[0][0].text.lower()
