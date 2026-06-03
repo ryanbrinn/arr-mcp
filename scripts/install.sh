@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # arr-mcp installer
-# Installs arr-helper on the host and sets up the arr-mcp container.
+# Installs arr-agent on the host and sets up the arr-mcp container.
 # Run as the service account (e.g. media), not as root.
 #
 # Usage:
@@ -100,61 +100,61 @@ collect_config() {
     # Derived values
     USER_UID=$(id -u)
     PODMAN_SOCK="/run/user/${USER_UID}/podman/podman.sock"
-    HELPER_SOCK_HOST="/run/user/${USER_UID}/arr-helper/arr-helper.sock"
-    HELPER_SOCK_CONTAINER="/run/arr-helper/arr-helper.sock"
+    HELPER_SOCK_HOST="/run/user/${USER_UID}/arr-agent/arr-agent.sock"
+    HELPER_SOCK_CONTAINER="/run/arr-agent/arr-agent.sock"
 }
 
-# ── Install arr-helper ────────────────────────────────────────────────────────
+# ── Install arr-agent ─────────────────────────────────────────────────────────
 install_helper() {
-    header "Installing arr-helper"
+    header "Installing arr-agent"
 
     info "Running: uv tool install arr-mcp"
     uv tool install arr-mcp --quiet
 
     # `uv tool dir` (no args) returns the parent tools directory; each tool
     # gets a subdirectory named after the package containing its virtualenv.
-    local helper_bin
+    local agent_bin
     local tools_dir
     tools_dir=$(uv tool dir 2>/dev/null || true)
-    if [[ -x "${tools_dir}/arr-mcp/bin/arr-helper" ]]; then
-        helper_bin="${tools_dir}/arr-mcp/bin/arr-helper"
+    if [[ -x "${tools_dir}/arr-mcp/bin/arr-agent" ]]; then
+        agent_bin="${tools_dir}/arr-mcp/bin/arr-agent"
     else
         # Fall back to PATH search (covers UV_TOOL_BIN_DIR symlinks)
-        helper_bin=$(command -v arr-helper 2>/dev/null || true)
+        agent_bin=$(command -v arr-agent 2>/dev/null || true)
     fi
-    if [[ -z "$helper_bin" ]]; then
-        error "arr-helper binary not found after install."
-        error "  uv tool dir = $(uv tool dir 2>/dev/null)"
-        error "  uv tool list:"
+    if [[ -z "$agent_bin" ]]; then
+        error "arr-agent binary not found after install."
+        error "Expected it at: ${tools_dir}/arr-mcp/bin/arr-agent"
+        error "Installed tools:"
         uv tool list 2>/dev/null >&2 || true
         exit 1
     fi
-    info "arr-helper installed at $helper_bin"
+    info "arr-agent installed at $agent_bin"
 
     # systemd user unit
     local unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
     mkdir -p "$unit_dir"
 
-    cat > "${unit_dir}/arr-helper.service" <<EOF
+    cat > "${unit_dir}/arr-agent.service" <<EOF
 [Unit]
-Description=arr-mcp host-side helper agent
+Description=arr-mcp host-side agent
 After=network.target
 
 [Service]
-ExecStart=${helper_bin}
+ExecStart=${agent_bin}
 Restart=on-failure
-RuntimeDirectory=arr-helper
+RuntimeDirectory=arr-agent
 RuntimeDirectoryMode=0700
 
 [Install]
 WantedBy=default.target
 EOF
 
-    info "Wrote ${unit_dir}/arr-helper.service"
+    info "Wrote ${unit_dir}/arr-agent.service"
 
     systemctl --user daemon-reload
-    systemctl --user enable --now arr-helper
-    info "arr-helper started"
+    systemctl --user enable --now arr-agent
+    info "arr-agent started"
 }
 
 # ── Write arr-mcp quadlet ─────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ write_quadlet() {
     cat > "${quadlet_dir}/arr-mcp.container" <<EOF
 [Unit]
 Description=arr-mcp MCP server
-After=network-online.target arr-helper.service
+After=network-online.target arr-agent.service
 Wants=network-online.target
 
 [Container]
@@ -220,7 +220,7 @@ verify() {
     else
         warn "Health check failed after ${retries} attempts — check logs:"
         warn "  journalctl --user -u arr-mcp -n 30"
-        warn "  journalctl --user -u arr-helper -n 20"
+        warn "  journalctl --user -u arr-agent -n 20"
     fi
 }
 
@@ -249,7 +249,7 @@ print_summary() {
     echo ""
     echo -e "  ${BOLD}Useful commands${RESET}"
     echo "  journalctl --user -u arr-mcp -f      # arr-mcp logs"
-    echo "  journalctl --user -u arr-helper -f    # arr-helper logs"
+    echo "  journalctl --user -u arr-agent -f     # arr-agent logs"
     echo "  systemctl --user status arr-mcp       # service status"
     echo ""
 }
