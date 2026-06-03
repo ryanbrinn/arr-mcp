@@ -111,20 +111,22 @@ install_helper() {
     info "Running: uv tool install arr-mcp"
     uv tool install arr-mcp --quiet
 
-    # Locate the binary via the tool's own virtualenv — more reliable than
-    # searching PATH, since UV_TOOL_BIN_DIR may differ across installations.
+    # `uv tool dir` (no args) returns the parent tools directory; each tool
+    # gets a subdirectory named after the package containing its virtualenv.
     local helper_bin
-    local tool_venv
-    tool_venv=$(uv tool dir arr-mcp 2>/dev/null || true)
-    if [[ -x "${tool_venv}/bin/arr-helper" ]]; then
-        helper_bin="${tool_venv}/bin/arr-helper"
+    local tools_dir
+    tools_dir=$(uv tool dir 2>/dev/null || true)
+    if [[ -x "${tools_dir}/arr-mcp/bin/arr-helper" ]]; then
+        helper_bin="${tools_dir}/arr-mcp/bin/arr-helper"
     else
-        # Fall back to PATH search (covers ~/.local/bin and custom UV_TOOL_BIN_DIR)
+        # Fall back to PATH search (covers UV_TOOL_BIN_DIR symlinks)
         helper_bin=$(command -v arr-helper 2>/dev/null || true)
     fi
     if [[ -z "$helper_bin" ]]; then
         error "arr-helper binary not found after install."
-        error "Run 'uv tool list' and 'uv tool dir arr-mcp' to diagnose."
+        error "  uv tool dir = $(uv tool dir 2>/dev/null)"
+        error "  uv tool list:"
+        uv tool list 2>/dev/null >&2 || true
         exit 1
     fi
     info "arr-helper installed at $helper_bin"
