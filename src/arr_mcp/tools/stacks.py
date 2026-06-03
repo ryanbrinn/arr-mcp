@@ -1,4 +1,4 @@
-"""Stack management tools — delegates to arr-helper when available."""
+"""Stack management tools — delegates to arr-agent when available."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def register_stack_tools(server: FastMCP, client: ContainerClient, settings: Set
             result = await helper.call(op, **args)
             return [TextContent(type="text", text=result.output)]
         except HelperUnavailableError:
-            log.warning("arr-helper unavailable for op=%s", op)
+            log.warning("arr-agent unavailable for op=%s", op)
             return [TextContent(type="text", text=unavailable_message())]
 
     @server.tool()

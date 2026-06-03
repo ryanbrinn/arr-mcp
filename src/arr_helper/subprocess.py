@@ -1,4 +1,4 @@
-"""Safe subprocess execution for arr-helper."""
+"""Safe subprocess execution for arr-agent."""
 
 from __future__ import annotations
 

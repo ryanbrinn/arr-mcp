@@ -1,4 +1,4 @@
-"""Unix socket HTTP server for arr-helper."""
+"""Unix socket HTTP server for arr-agent."""
 
 from __future__ import annotations
 
@@ -15,12 +15,15 @@ from arr_helper.handlers import HANDLERS
 
 log = logging.getLogger(__name__)
 
-# Default socket path — overridden by HELPER_SOCKET env var
-DEFAULT_SOCKET = "/run/arr-helper/arr-helper.sock"
+SOCKET_FILENAME = "arr-agent/arr-agent.sock"
 
 
 def _socket_path() -> str:
-    return os.environ.get("HELPER_SOCKET", DEFAULT_SOCKET)
+    """Return socket path, respecting HELPER_SOCKET env var or XDG_RUNTIME_DIR."""
+    if explicit := os.environ.get("HELPER_SOCKET"):
+        return explicit
+    runtime_dir = os.environ.get("XDG_RUNTIME_DIR", "/run/user/1000")
+    return f"{runtime_dir}/{SOCKET_FILENAME}"
 
 
 def _json_response(data: dict[str, Any]) -> bytes:
@@ -136,6 +139,6 @@ async def serve(socket_path: str | None = None) -> None:
     # Restrict socket to owner only (0600)
     sock.chmod(stat.S_IRUSR | stat.S_IWUSR)
 
-    log.info("arr-helper listening on %s", path)
+    log.info("arr-agent listening on %s", path)
     async with server:
         await server.serve_forever()

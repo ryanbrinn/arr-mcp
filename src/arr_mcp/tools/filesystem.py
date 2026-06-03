@@ -16,7 +16,10 @@ _ALLOWED_ROOTS = ["/opt/stacks", "/media-server", "/var/log"]
 
 
 def _check_path(path: str, settings: Settings) -> Path:
-    p = Path(path).resolve()
+    try:
+        p = Path(path).resolve()
+    except ValueError as exc:
+        raise PermissionError(f"Invalid path: {exc}") from exc
     allowed = [
         Path(settings.stacks_dir).resolve(),
         Path(settings.media_dir).resolve(),
