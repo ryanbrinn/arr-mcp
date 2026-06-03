@@ -61,7 +61,6 @@ This document contains critical information about working with this codebase. Fo
   ```
   If the PR is merged, create a new branch instead.
 - **Post-merge commits are fixes.** Any commit made to a branch after its PR was merged must use `fix:` or `bugfix:` prefix in the commit message.
-- **Always add reviewer.** All PRs must request review from `ArthurClune`.
 
 ## Development Philosophy
 
@@ -160,8 +159,6 @@ All three must pass clean before the PR is opened.
 - Create a detailed message of what changed. Focus on the high level description of
   the problem it tries to solve, and how it is solved. Don't go into the specifics of the
   code unless it adds clarity.
-
-- Always add `ArthurClune` as reviewer.
 
 - NEVER ever mention a `co-authored-by` or similar aspects. In particular, never
   mention the tool used to create the commit message or PR.
