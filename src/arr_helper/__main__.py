@@ -1,4 +1,4 @@
-"""Entry point for arr-helper."""
+"""Entry point for arr-agent."""
 
 from __future__ import annotations
 

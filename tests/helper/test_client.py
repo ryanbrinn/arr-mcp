@@ -48,5 +48,5 @@ async def test_call_raises_helper_unavailable_on_connect_error(tmp_path: Path) -
 async def test_unavailable_message_is_helpful() -> None:
     """unavailable_message() returns a non-empty string with setup guidance."""
     msg = unavailable_message()
-    assert "arr-helper" in msg
+    assert "arr-agent" in msg
     assert len(msg) > 20

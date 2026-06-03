@@ -25,9 +25,9 @@ class Settings(BaseSettings):
         "When set, skips runtime auto-detection. Required when running inside a container.",
     )
     helper_socket: str = Field(
-        default="/run/arr-helper/arr-helper.sock",
-        description="Path to the arr-helper Unix socket. "
-        "Override with HELPER_SOCKET env var if the socket is mounted elsewhere.",
+        default="/run/arr-agent/arr-agent.sock",
+        description="Path to the arr-agent Unix socket. "
+        "Override with ARR_MCP_HELPER_SOCKET env var if the socket is mounted elsewhere.",
     )
     dashboard_public: bool = Field(
         default=False,

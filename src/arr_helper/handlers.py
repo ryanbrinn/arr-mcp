@@ -1,4 +1,4 @@
-"""Operation handlers for arr-helper."""
+"""Operation handlers for arr-agent."""
 
 from __future__ import annotations
 

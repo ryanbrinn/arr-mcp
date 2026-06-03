@@ -1,4 +1,4 @@
-"""Tests for arr-helper input validation."""
+"""Tests for arr-agent input validation."""
 
 from __future__ import annotations
 

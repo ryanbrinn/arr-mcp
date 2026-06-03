@@ -12,7 +12,10 @@ from arr_mcp.config import Settings
 
 
 def _check_log_path(path: str, extra_roots: list[Path] | None = None) -> Path:
-    p = Path(path).resolve()
+    try:
+        p = Path(path).resolve()
+    except ValueError as exc:
+        raise PermissionError(f"Invalid path: {exc}") from exc
     allowed = [Path("/var/log"), Path("/media-server"), Path("/opt/stacks")]
     if extra_roots:
         allowed.extend(extra_roots)

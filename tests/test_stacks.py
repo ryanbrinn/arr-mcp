@@ -77,12 +77,12 @@ async def test_stack_tools_degrade_gracefully(settings: Settings, mock_client: M
     with (
         patch(
             "arr_mcp.tools.stacks.HelperClient.call",
-            side_effect=HelperUnavailableError("/run/arr-helper/arr-helper.sock"),
+            side_effect=HelperUnavailableError("/run/arr-agent/arr-agent.sock"),
         ),
         patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True),
     ):
         result = await server.call_tool("stack_up", {"name": "mystack"})
-    assert "arr-helper" in result[0][0].text
+    assert "arr-agent" in result[0][0].text
 
 
 async def test_stack_up_nonexistent_raises(settings: Settings, mock_client: MagicMock) -> None:

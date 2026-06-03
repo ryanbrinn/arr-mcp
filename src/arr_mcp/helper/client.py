@@ -1,4 +1,4 @@
-"""Async client for communicating with the arr-helper Unix socket agent."""
+"""Async client for communicating with the arr-agent Unix socket agent."""
 
 from __future__ import annotations
 
@@ -11,14 +11,14 @@ import httpx
 log = logging.getLogger(__name__)
 
 _UNAVAILABLE_MSG = (
-    "Stack management requires the arr-helper agent running on the host. "
+    "Stack management requires the arr-agent agent running on the host. "
     "See docs/setup.md for installation instructions."
 )
 
 
 @dataclass
 class HelperResponse:
-    """Response from the arr-helper agent."""
+    """Response from the arr-agent agent."""
 
     ok: bool
     output: str
@@ -26,7 +26,7 @@ class HelperResponse:
 
 
 class HelperClient:
-    """Thin async client over the arr-helper Unix domain socket."""
+    """Thin async client over the arr-agent Unix domain socket."""
 
     def __init__(self, socket_path: str) -> None:
         self._socket_path = socket_path
@@ -74,7 +74,7 @@ class HelperUnavailableError(Exception):
     """Raised when the helper socket is unreachable."""
 
     def __init__(self, socket_path: str) -> None:
-        super().__init__(f"arr-helper socket not reachable: {socket_path}")
+        super().__init__(f"arr-agent socket not reachable: {socket_path}")
         self.socket_path = socket_path
 
 
