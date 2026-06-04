@@ -38,6 +38,27 @@ def _decode_log_stream(raw: bytes) -> str:
     return "".join(lines_out)
 
 
+def _calc_cpu_pct(stats: dict[str, Any]) -> str:
+    """Return a CPU% string from a container stats response.
+
+    Rootless Podman omits system_cpu_usage, so we fall back to 'N/A' for CPU%
+    while still allowing the caller to display memory and network stats.
+    """
+    cpu = stats.get("cpu_stats", {})
+    precpu = stats.get("precpu_stats", {})
+    cpu_delta = cpu.get("cpu_usage", {}).get("total_usage", 0) - precpu.get("cpu_usage", {}).get(
+        "total_usage", 0
+    )
+    sys_usage = cpu.get("system_cpu_usage")
+    prev_sys_usage = precpu.get("system_cpu_usage")
+    if sys_usage is None or prev_sys_usage is None:
+        return "  N/A "
+    sys_delta = sys_usage - prev_sys_usage
+    ncpu = cpu.get("online_cpus", 1)
+    pct = (cpu_delta / sys_delta) * ncpu * 100.0 if sys_delta > 0 else 0.0
+    return f"{pct:6.2f}%"
+
+
 def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
     """Register all container lifecycle tools with the MCP server."""
 
@@ -111,25 +132,15 @@ def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
             cid = c["Id"]
             try:
                 s = await client.get(f"{API}/containers/{cid}/stats?stream=false")
-                cpu_delta = (
-                    s["cpu_stats"]["cpu_usage"]["total_usage"]
-                    - s["precpu_stats"]["cpu_usage"]["total_usage"]
-                )
-                sys_delta = (
-                    s["cpu_stats"]["system_cpu_usage"] - s["precpu_stats"]["system_cpu_usage"]
-                )
-                ncpu = s["cpu_stats"].get("online_cpus", 1)
-                cpu_pct = (cpu_delta / sys_delta) * ncpu * 100.0 if sys_delta > 0 else 0.0
-                mem = s["memory_stats"]
+                cpu_str = _calc_cpu_pct(s)
+                mem = s.get("memory_stats", {})
                 used = mem.get("usage", 0) / 1024 / 1024
                 limit = mem.get("limit", 0) / 1024 / 1024
                 nets = s.get("networks", {})
                 rx = sum(v.get("rx_bytes", 0) for v in nets.values()) / 1024
                 tx = sum(v.get("tx_bytes", 0) for v in nets.values()) / 1024
                 rows.append(
-                    f"{name:20s} {cpu_pct:6.2f}%  "
-                    f"{used:6.1f}MB / {limit:6.1f}MB  "
-                    f"{rx:.1f}kB / {tx:.1f}kB"
+                    f"{name:20s} {cpu_str}  {used:6.1f}MB / {limit:6.1f}MB  {rx:.1f}kB / {tx:.1f}kB"
                 )
             except Exception as exc:
                 rows.append(f"{name:20s} (stats unavailable: {exc})")
