@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 def register_stack_tools(server: FastMCP, client: ContainerClient, settings: Settings) -> None:
     """Register stack management tools with the MCP server."""
-    stacks_root = Path(settings.stacks_dir)
+    stacks_root = Path(settings.compose_dir)
     helper = HelperClient(settings.helper_socket)
 
     def _stack_path(name: str) -> Path:

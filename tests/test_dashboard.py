@@ -28,7 +28,7 @@ def public_settings(tmp_path):
     return Settings(
         api_key="test-key",
         port=8081,
-        stacks_dir=str(stacks),
+        compose_dir=str(stacks),
         media_dir=str(media),
         container_runtime="podman",
         log_level="debug",
@@ -45,7 +45,7 @@ def private_settings(tmp_path):
     return Settings(
         api_key="test-key",
         port=8081,
-        stacks_dir=str(stacks),
+        compose_dir=str(stacks),
         media_dir=str(media),
         container_runtime="podman",
         log_level="debug",
@@ -119,6 +119,7 @@ async def test_api_status_shape(public_settings: Settings) -> None:
     assert "containers" in data
     assert "stacks" in data
     assert "disk" in data
+    assert "runtime" in data
 
 
 async def test_api_status_disk_fields(public_settings: Settings) -> None:
@@ -152,3 +153,62 @@ async def test_dashboard_shows_containers(public_settings: Settings) -> None:
     ) as client:
         r = await client.get("/")
     assert "plex" in r.text
+
+
+async def test_stacks_absent_for_non_compose_runtime(tmp_path) -> None:
+    """Stacks section must be empty when runtime is not docker-compose."""
+    media = tmp_path / "media"
+    media.mkdir()
+    settings = Settings(
+        api_key="test-key",
+        port=8081,
+        media_dir=str(media),
+        container_runtime="podman",
+        dashboard_public=True,
+    )
+    containers = [
+        {
+            "Id": "abc123",
+            "Names": ["/sonarr"],
+            "Image": "linuxserver/sonarr",
+            "State": "running",
+            "Status": "Up 1 hour",
+        }
+    ]
+    app = _make_app(settings, containers=containers)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get("/api/status")
+    assert r.json()["stacks"] == []
+
+
+async def test_stacks_present_for_compose_runtime(tmp_path) -> None:
+    """Stacks section must be populated when runtime is docker-compose."""
+    compose = tmp_path / "compose"
+    compose.mkdir()
+    media = tmp_path / "media"
+    media.mkdir()
+    settings = Settings(
+        api_key="test-key",
+        port=8081,
+        compose_dir=str(compose),
+        media_dir=str(media),
+        container_runtime="docker-compose",
+        dashboard_public=True,
+    )
+    containers = [
+        {
+            "Id": "abc123",
+            "Names": ["/sonarr"],
+            "Image": "linuxserver/sonarr",
+            "State": "running",
+            "Status": "Up 1 hour",
+        }
+    ]
+    app = _make_app(settings, containers=containers)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get("/api/status")
+    assert len(r.json()["stacks"]) > 0

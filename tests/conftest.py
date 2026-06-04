@@ -14,8 +14,8 @@ from arr_mcp.server import create_app
 
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
-    stacks = tmp_path / "stacks"
-    stacks.mkdir()
+    compose = tmp_path / "compose"
+    compose.mkdir()
     services = tmp_path / "services"
     services.mkdir()
     media = tmp_path / "media"
@@ -23,10 +23,10 @@ def settings(tmp_path: Path) -> Settings:
     return Settings(
         api_key="test-key",
         port=8081,
-        stacks_dir=str(stacks),
+        compose_dir=str(compose),
         services_dir=str(services),
         media_dir=str(media),
-        container_runtime="podman",
+        container_runtime="docker-compose",
         log_level="debug",
     )
 

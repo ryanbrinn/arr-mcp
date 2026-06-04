@@ -109,28 +109,31 @@ _SAFE_LOOKING_ENCODED = [
 def _settings(tmp_path: Path) -> Settings:
     stacks = tmp_path / "stacks"
     stacks.mkdir()
+    services = tmp_path / "services"
+    services.mkdir()
     media = tmp_path / "media"
     media.mkdir()
     return Settings(
         api_key="x",
-        stacks_dir=str(stacks),
+        compose_dir=str(stacks),
+        services_dir=str(services),
         media_dir=str(media),
-        container_runtime="docker",
+        container_runtime="docker-compose",
         socket_path="unix:///fake.sock",
     )
 
 
 @pytest.mark.parametrize("case", _TRAVERSAL_CASES, ids=lambda c: c.label)
 def test_check_path_blocks_traversal(_settings: Settings, case: _TraversalCase) -> None:
-    path = case.path.replace("{root}", _settings.stacks_dir)
+    path = case.path.replace("{root}", _settings.compose_dir)
     with pytest.raises(PermissionError):
         _check_path(path, _settings)
 
 
 @pytest.mark.parametrize("case", _TRAVERSAL_CASES, ids=lambda c: c.label)
 def test_check_log_path_blocks_traversal(_settings: Settings, case: _TraversalCase) -> None:
-    path = case.path.replace("{root}", _settings.stacks_dir)
-    extra_roots = [Path(_settings.stacks_dir), Path(_settings.media_dir)]
+    path = case.path.replace("{root}", _settings.compose_dir)
+    extra_roots = [Path(_settings.compose_dir), Path(_settings.media_dir)]
     with pytest.raises(PermissionError):
         _check_log_path(path, extra_roots)
 
@@ -139,10 +142,10 @@ def test_check_log_path_blocks_traversal(_settings: Settings, case: _TraversalCa
 def test_url_encoded_dots_are_not_traversal(_settings: Settings, case: _TraversalCase) -> None:
     """Percent-encoded dots (%2e%2e) are literal path components, not ".." — they
     stay inside the allowed root and must NOT be treated as traversal."""
-    path = case.path.replace("{root}", _settings.stacks_dir)
+    path = case.path.replace("{root}", _settings.compose_dir)
     # Should not raise — the resolved path is still under the stacks root.
     resolved = _check_path(path, _settings)
-    assert str(resolved).startswith(_settings.stacks_dir)
+    assert str(resolved).startswith(_settings.compose_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -211,7 +214,7 @@ async def test_container_remove_explicit_false_refuses(_mcp: FastMCP) -> None:
 
 
 async def test_stack_down_default_refuses(_mcp: FastMCP, _settings: Settings) -> None:
-    stacks_root = Path(_settings.stacks_dir)
+    stacks_root = Path(_settings.compose_dir)
     (stacks_root / "media").mkdir()
     with patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True):
         result = await _mcp.call_tool("stack_down", {"name": "media"})
@@ -219,7 +222,7 @@ async def test_stack_down_default_refuses(_mcp: FastMCP, _settings: Settings) ->
 
 
 async def test_stack_down_explicit_false_refuses(_mcp: FastMCP, _settings: Settings) -> None:
-    stacks_root = Path(_settings.stacks_dir)
+    stacks_root = Path(_settings.compose_dir)
     (stacks_root / "media").mkdir()
     with patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True):
         result = await _mcp.call_tool("stack_down", {"name": "media", "confirm": False})
@@ -232,7 +235,7 @@ async def test_stack_down_explicit_false_refuses(_mcp: FastMCP, _settings: Setti
 
 
 async def test_stack_not_owned_by_user_is_hidden(_mcp: FastMCP, _settings: Settings) -> None:
-    stacks_root = Path(_settings.stacks_dir)
+    stacks_root = Path(_settings.compose_dir)
     (stacks_root / "root-stack").mkdir()
     with patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=False):
         result = await _mcp.call_tool("stack_list", {})
@@ -240,7 +243,7 @@ async def test_stack_not_owned_by_user_is_hidden(_mcp: FastMCP, _settings: Setti
 
 
 async def test_stack_not_owned_by_user_raises_on_access(_mcp: FastMCP, _settings: Settings) -> None:
-    stacks_root = Path(_settings.stacks_dir)
+    stacks_root = Path(_settings.compose_dir)
     (stacks_root / "root-stack").mkdir()
     with patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=False):
         with pytest.raises(ToolError, match="Stack not found"):
@@ -250,14 +253,14 @@ async def test_stack_not_owned_by_user_raises_on_access(_mcp: FastMCP, _settings
 async def test_directory_list_hides_unowned_dirs_in_stacks_root(
     _mcp: FastMCP, _settings: Settings
 ) -> None:
-    stacks_root = Path(_settings.stacks_dir)
+    stacks_root = Path(_settings.compose_dir)
     (stacks_root / "mine").mkdir()
     (stacks_root / "not-mine").mkdir()
     with patch(
         "arr_mcp.tools.filesystem.is_owned_by_current_user",
         side_effect=lambda p: p.name != "not-mine",
     ):
-        result = await _mcp.call_tool("directory_list", {"path": _settings.stacks_dir})
+        result = await _mcp.call_tool("directory_list", {"path": _settings.compose_dir})
     assert "mine" in result[0][0].text
     assert "not-mine" not in result[0][0].text
 
@@ -271,7 +274,7 @@ async def test_compose_write_with_shell_injection_content_is_stored_verbatim(
     _mcp: FastMCP, _settings: Settings
 ) -> None:
     """Malicious compose content must be stored as-is — no shell expansion."""
-    stacks_root = Path(_settings.stacks_dir)
+    stacks_root = Path(_settings.compose_dir)
     stack_dir = stacks_root / "target"
     stack_dir.mkdir()
     evil_content = "services:\n  x:\n    command: rm -rf / --no-preserve-root\n"
@@ -286,7 +289,7 @@ async def test_log_search_with_regex_special_chars_does_not_crash(
     _mcp: FastMCP, _settings: Settings
 ) -> None:
     """Regex-like query characters must not blow up the search."""
-    log_file = Path(_settings.stacks_dir) / "app.log"
+    log_file = Path(_settings.compose_dir) / "app.log"
     log_file.write_text("normal log line\n")
     # These would crash if the query were passed to re.search() unsanitised
     for evil_query in ["[invalid regex", ".*+?{}", "(unclosed", "\\"]:
@@ -299,7 +302,7 @@ async def test_file_write_with_large_content_is_accepted(
     _mcp: FastMCP, _settings: Settings
 ) -> None:
     """No artificial size limits — but write must complete cleanly."""
-    target = str(Path(_settings.stacks_dir) / "big.txt")
+    target = str(Path(_settings.compose_dir) / "big.txt")
     content = "x" * (1024 * 1024)  # 1 MB
     result = await _mcp.call_tool("file_write", {"path": target, "content": content})
     assert "Written" in result[0][0].text

@@ -33,7 +33,7 @@ async def test_log_read_missing_file(settings: Settings, mock_client: MagicMock)
     server = FastMCP("test")
     register_log_tools(server, settings)
     result = await server.call_tool(
-        "log_read", {"path": str(Path(settings.stacks_dir) / "missing.log")}
+        "log_read", {"path": str(Path(settings.compose_dir) / "missing.log")}
     )
     assert "not found" in result[0][0].text.lower()
 
@@ -52,7 +52,7 @@ async def test_log_read_services_dir(settings: Settings, mock_client: MagicMock)
 async def test_log_read_returns_last_n_lines(settings: Settings, mock_client: MagicMock) -> None:
     server = FastMCP("test")
     register_log_tools(server, settings)
-    log_file = Path(settings.stacks_dir) / "test.log"
+    log_file = Path(settings.compose_dir) / "test.log"
     log_file.write_text("\n".join(f"line {i}" for i in range(1, 21)))
     result = await server.call_tool("log_read", {"path": str(log_file), "lines": 5})
     text = result[0][0].text
@@ -64,7 +64,7 @@ async def test_log_read_returns_last_n_lines(settings: Settings, mock_client: Ma
 async def test_log_search_finds_matches(settings: Settings, mock_client: MagicMock) -> None:
     server = FastMCP("test")
     register_log_tools(server, settings)
-    log_file = Path(settings.stacks_dir) / "app.log"
+    log_file = Path(settings.compose_dir) / "app.log"
     log_file.write_text("INFO starting\nERROR something broke\nINFO running\nERROR disk full\n")
     result = await server.call_tool("log_search", {"path": str(log_file), "query": "error"})
     text = result[0][0].text
@@ -76,7 +76,7 @@ async def test_log_search_finds_matches(settings: Settings, mock_client: MagicMo
 async def test_log_search_case_insensitive(settings: Settings, mock_client: MagicMock) -> None:
     server = FastMCP("test")
     register_log_tools(server, settings)
-    log_file = Path(settings.stacks_dir) / "app.log"
+    log_file = Path(settings.compose_dir) / "app.log"
     log_file.write_text("ERROR big problem\nerror small problem\nINFO fine\n")
     result = await server.call_tool("log_search", {"path": str(log_file), "query": "ERROR"})
     text = result[0][0].text
@@ -89,6 +89,6 @@ async def test_log_search_missing_file(settings: Settings, mock_client: MagicMoc
     register_log_tools(server, settings)
     result = await server.call_tool(
         "log_search",
-        {"path": str(Path(settings.stacks_dir) / "nope.log"), "query": "error"},
+        {"path": str(Path(settings.compose_dir) / "nope.log"), "query": "error"},
     )
     assert "not found" in result[0][0].text.lower()

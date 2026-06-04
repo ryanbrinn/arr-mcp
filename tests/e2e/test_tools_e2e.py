@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from mcp.server.fastmcp import FastMCP
 
 from .fake_docker_api import FakeDockerTransport
@@ -100,23 +101,32 @@ async def test_container_stats_shows_cpu_and_memory(
 # ---------------------------------------------------------------------------
 
 
+def _require_compose(e2e_settings) -> None:
+    """Skip if the runtime doesn't support stack tools."""
+    if not e2e_settings.is_compose:
+        pytest.skip("stack tools only available for docker-compose runtime")
+
+
 async def test_stack_list_shows_owned_stacks(
     mcp: FastMCP, e2e_settings, fake_docker: FakeDockerTransport
 ) -> None:
-    stacks_root = Path(e2e_settings.stacks_dir)
+    _require_compose(e2e_settings)
+    stacks_root = Path(e2e_settings.compose_dir)
     (stacks_root / "mystack").mkdir()
     with patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True):
         result = await mcp.call_tool("stack_list", {})
     assert "mystack" in result[0][0].text
 
 
-async def test_stack_list_empty(mcp: FastMCP) -> None:
+async def test_stack_list_empty(mcp: FastMCP, e2e_settings) -> None:
+    _require_compose(e2e_settings)
     result = await mcp.call_tool("stack_list", {})
     assert "No stacks found" in result[0][0].text
 
 
 async def test_stack_down_without_confirm_is_refused(mcp: FastMCP, e2e_settings) -> None:
-    stacks_root = Path(e2e_settings.stacks_dir)
+    _require_compose(e2e_settings)
+    stacks_root = Path(e2e_settings.compose_dir)
     (stacks_root / "arr").mkdir()
     with patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True):
         result = await mcp.call_tool("stack_down", {"name": "arr"})
@@ -124,7 +134,8 @@ async def test_stack_down_without_confirm_is_refused(mcp: FastMCP, e2e_settings)
 
 
 async def test_compose_read_returns_file_contents(mcp: FastMCP, e2e_settings) -> None:
-    stacks_root = Path(e2e_settings.stacks_dir)
+    _require_compose(e2e_settings)
+    stacks_root = Path(e2e_settings.compose_dir)
     stack_dir = stacks_root / "media"
     stack_dir.mkdir()
     (stack_dir / "compose.yaml").write_text("services:\n  plex:\n    image: plexinc/pms-docker\n")
@@ -135,7 +146,8 @@ async def test_compose_read_returns_file_contents(mcp: FastMCP, e2e_settings) ->
 
 
 async def test_compose_write_creates_file(mcp: FastMCP, e2e_settings) -> None:
-    stacks_root = Path(e2e_settings.stacks_dir)
+    _require_compose(e2e_settings)
+    stacks_root = Path(e2e_settings.compose_dir)
     stack_dir = stacks_root / "newstack"
     stack_dir.mkdir()
     content = "services:\n  sonarr:\n    image: linuxserver/sonarr\n"
@@ -170,7 +182,7 @@ async def test_directory_list_shows_entries(mcp: FastMCP, e2e_settings) -> None:
 
 
 async def test_file_write_then_read_roundtrip(mcp: FastMCP, e2e_settings) -> None:
-    target = str(Path(e2e_settings.stacks_dir) / "notes.txt")
+    target = str(Path(e2e_settings.compose_dir) / "notes.txt")
     await mcp.call_tool("file_write", {"path": target, "content": "roundtrip check"})
     result = await mcp.call_tool("file_read", {"path": target})
     assert "roundtrip check" in result[0][0].text
@@ -182,7 +194,7 @@ async def test_file_write_then_read_roundtrip(mcp: FastMCP, e2e_settings) -> Non
 
 
 async def test_log_read_returns_tail(mcp: FastMCP, e2e_settings) -> None:
-    log_file = Path(e2e_settings.stacks_dir) / "service.log"
+    log_file = Path(e2e_settings.compose_dir) / "service.log"
     log_file.write_text("line1\nline2\nline3\n")
     result = await mcp.call_tool("log_read", {"path": str(log_file), "lines": 2})
     text = result[0][0].text
@@ -191,7 +203,7 @@ async def test_log_read_returns_tail(mcp: FastMCP, e2e_settings) -> None:
 
 
 async def test_log_search_finds_matching_lines(mcp: FastMCP, e2e_settings) -> None:
-    log_file = Path(e2e_settings.stacks_dir) / "app.log"
+    log_file = Path(e2e_settings.compose_dir) / "app.log"
     log_file.write_text("INFO startup ok\nERROR disk full\nINFO shutdown\n")
     result = await mcp.call_tool("log_search", {"path": str(log_file), "query": "error"})
     text = result[0][0].text
@@ -200,7 +212,7 @@ async def test_log_search_finds_matching_lines(mcp: FastMCP, e2e_settings) -> No
 
 
 async def test_log_search_is_case_insensitive(mcp: FastMCP, e2e_settings) -> None:
-    log_file = Path(e2e_settings.stacks_dir) / "mixed.log"
+    log_file = Path(e2e_settings.compose_dir) / "mixed.log"
     log_file.write_text("WARNING: low memory\nwarning: cpu spike\n")
     result = await mcp.call_tool("log_search", {"path": str(log_file), "query": "WARNING"})
     text = result[0][0].text

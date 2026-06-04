@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # arr-mcp installer
-# Installs arr-agent on the host and sets up the arr-mcp container.
+# Sets up arr-mcp and (for Podman) the arr-agent host service.
 # Run as the service account (e.g. media), not as root.
 #
 # Usage:
@@ -32,19 +32,30 @@ check_prereqs() {
         missing=1
     fi
 
-    if command -v podman &>/dev/null; then
-        info "podman $(podman --version | cut -d' ' -f3)"
-    else
-        error "podman not found. Install rootless Podman before running this script."
-        missing=1
+    if [[ "$CONTAINER_RUNTIME" == "podman" ]]; then
+        if command -v podman &>/dev/null; then
+            info "podman $(podman --version | cut -d' ' -f3)"
+        else
+            error "podman not found. Install rootless Podman before running this script."
+            missing=1
+        fi
+
+        if command -v systemctl &>/dev/null && systemctl --user status &>/dev/null 2>&1; then
+            info "systemd user session active"
+        else
+            error "systemd user session not available. Enable linger for this account:"
+            error "  sudo loginctl enable-linger $(whoami)"
+            missing=1
+        fi
     fi
 
-    if command -v systemctl &>/dev/null && systemctl --user status &>/dev/null 2>&1; then
-        info "systemd user session active"
-    else
-        error "systemd user session not available. Enable linger for this account:"
-        error "  sudo loginctl enable-linger $(whoami)"
-        missing=1
+    if [[ "$CONTAINER_RUNTIME" == "docker-compose" || "$CONTAINER_RUNTIME" == "docker" ]]; then
+        if command -v docker &>/dev/null; then
+            info "docker $(docker --version | cut -d' ' -f3 | tr -d ',')"
+        else
+            error "docker not found. Install Docker before running this script."
+            missing=1
+        fi
     fi
 
     if [[ $missing -ne 0 ]]; then
@@ -52,6 +63,30 @@ check_prereqs() {
         error "One or more prerequisites are missing. Fix the above and re-run."
         exit 1
     fi
+}
+
+# ── Runtime selection ─────────────────────────────────────────────────────────
+select_runtime() {
+    header "Container runtime"
+    echo ""
+    echo "  1) Docker Compose  — stack management + full dashboard (default)"
+    echo "  2) Docker Engine   — container management only"
+    echo "  3) Podman          — rootless containers via arr-agent"
+    echo ""
+    prompt "Select [1]:"
+    read -r RUNTIME_CHOICE
+    RUNTIME_CHOICE="${RUNTIME_CHOICE:-1}"
+
+    case "$RUNTIME_CHOICE" in
+        1) CONTAINER_RUNTIME="docker-compose" ;;
+        2) CONTAINER_RUNTIME="docker"         ;;
+        3) CONTAINER_RUNTIME="podman"         ;;
+        *)
+            error "Invalid selection: $RUNTIME_CHOICE"
+            exit 1
+            ;;
+    esac
+    info "Runtime: $CONTAINER_RUNTIME"
 }
 
 # ── Config questions ──────────────────────────────────────────────────────────
@@ -82,10 +117,15 @@ collect_config() {
     MEDIA_DIR="${MEDIA_DIR:-/media-server/library}"
     info "Media directory: $MEDIA_DIR"
 
-    prompt "Stacks directory [/opt/stacks]:"
-    read -r STACKS_DIR
-    STACKS_DIR="${STACKS_DIR:-/opt/stacks}"
-    info "Stacks directory: $STACKS_DIR"
+    if [[ "$CONTAINER_RUNTIME" == "docker-compose" ]]; then
+        prompt "Compose projects directory []:"
+        read -r COMPOSE_DIR
+        if [[ -z "$COMPOSE_DIR" ]]; then
+            error "Compose directory is required for Docker Compose."
+            exit 1
+        fi
+        info "Compose directory: $COMPOSE_DIR"
+    fi
 
     prompt "Port [8081]:"
     read -r PORT
@@ -104,28 +144,26 @@ collect_config() {
 
     # Derived values
     USER_UID=$(id -u)
-    PODMAN_SOCK="/run/user/${USER_UID}/podman/podman.sock"
-    HELPER_SOCK_HOST="/run/user/${USER_UID}/arr-agent/arr-agent.sock"
-    HELPER_SOCK_CONTAINER="/run/arr-agent/arr-agent.sock"
-    SERVICES_DIR="${SERVICES_DIR:-/media-server}"
+    if [[ "$CONTAINER_RUNTIME" == "podman" ]]; then
+        PODMAN_SOCK="/run/user/${USER_UID}/podman/podman.sock"
+        HELPER_SOCK_HOST="/run/user/${USER_UID}/arr-agent/arr-agent.sock"
+        HELPER_SOCK_CONTAINER="/run/arr-agent/arr-agent.sock"
+    fi
 }
 
-# ── Install arr-agent ─────────────────────────────────────────────────────────
+# ── Install arr-agent (Podman only) ──────────────────────────────────────────
 install_helper() {
     header "Installing arr-agent"
 
     info "Running: uv tool install arr-mcp-server"
     uv tool install arr-mcp-server --quiet
 
-    # `uv tool dir` (no args) returns the parent tools directory; each tool
-    # gets a subdirectory named after the package containing its virtualenv.
     local agent_bin
     local tools_dir
     tools_dir=$(uv tool dir 2>/dev/null || true)
     if [[ -x "${tools_dir}/arr-mcp/bin/arr-agent" ]]; then
         agent_bin="${tools_dir}/arr-mcp/bin/arr-agent"
     else
-        # Fall back to PATH search (covers UV_TOOL_BIN_DIR symlinks)
         agent_bin=$(command -v arr-agent 2>/dev/null || true)
     fi
     if [[ -z "$agent_bin" ]]; then
@@ -137,7 +175,6 @@ install_helper() {
     fi
     info "arr-agent installed at $agent_bin"
 
-    # systemd user unit
     local unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
     mkdir -p "$unit_dir"
 
@@ -163,8 +200,8 @@ EOF
     info "arr-agent started"
 }
 
-# ── Write arr-mcp quadlet ─────────────────────────────────────────────────────
-write_quadlet() {
+# ── Write arr-mcp quadlet (Podman) ────────────────────────────────────────────
+write_podman_quadlet() {
     header "Writing arr-mcp quadlet"
 
     local quadlet_dir="${XDG_CONFIG_HOME:-$HOME/.config}/containers/systemd"
@@ -181,7 +218,6 @@ Image=ghcr.io/ryanbrinn/arr-mcp:latest
 ContainerName=arr-mcp
 Environment=ARR_MCP_API_KEY=${API_KEY}
 Environment=ARR_MCP_CONTAINER_RUNTIME=podman
-Environment=ARR_MCP_STACKS_DIR=${STACKS_DIR}
 Environment=ARR_MCP_SERVICES_DIR=${SERVICES_DIR}
 Environment=ARR_MCP_MEDIA_DIR=${MEDIA_DIR}
 Environment=ARR_MCP_PORT=${PORT}
@@ -189,7 +225,6 @@ Environment=ARR_MCP_SOCKET_PATH=unix://${PODMAN_SOCK}
 Environment=ARR_MCP_HELPER_SOCKET=${HELPER_SOCK_CONTAINER}
 Environment=ARR_MCP_DASHBOARD_PUBLIC=${DASHBOARD_PUBLIC}
 Volume=${PODMAN_SOCK}:${PODMAN_SOCK}:z
-Volume=${STACKS_DIR}:${STACKS_DIR}:z
 Volume=${SERVICES_DIR}:${SERVICES_DIR}:z
 Volume=${MEDIA_DIR}:${MEDIA_DIR}:z
 Volume=${HELPER_SOCK_HOST}:${HELPER_SOCK_CONTAINER}:z
@@ -206,6 +241,48 @@ EOF
 
     systemctl --user daemon-reload
     systemctl --user start arr-mcp
+    info "arr-mcp started"
+}
+
+# ── Write docker-compose.yaml (Docker Compose / Docker Engine) ────────────────
+write_compose_stack() {
+    header "Writing arr-mcp compose file"
+
+    local compose_file="${COMPOSE_DIR:-$HOME}/arr-mcp/docker-compose.yaml"
+    mkdir -p "$(dirname "$compose_file")"
+
+    local runtime_env=""
+    if [[ "$CONTAINER_RUNTIME" == "docker-compose" ]]; then
+        runtime_env="      - ARR_MCP_CONTAINER_RUNTIME=docker-compose
+      - ARR_MCP_COMPOSE_DIR=${COMPOSE_DIR}"
+    else
+        runtime_env="      - ARR_MCP_CONTAINER_RUNTIME=docker"
+    fi
+
+    cat > "$compose_file" <<EOF
+services:
+  arr-mcp:
+    image: ghcr.io/ryanbrinn/arr-mcp:latest
+    container_name: arr-mcp
+    restart: unless-stopped
+    ports:
+      - "${PORT}:${PORT}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${SERVICES_DIR}:${SERVICES_DIR}:ro
+      - ${MEDIA_DIR}:${MEDIA_DIR}:ro
+$(if [[ "$CONTAINER_RUNTIME" == "docker-compose" ]]; then echo "      - ${COMPOSE_DIR}:${COMPOSE_DIR}:rw"; fi)
+    environment:
+      - ARR_MCP_API_KEY=${API_KEY}
+${runtime_env}
+      - ARR_MCP_SERVICES_DIR=${SERVICES_DIR}
+      - ARR_MCP_MEDIA_DIR=${MEDIA_DIR}
+      - ARR_MCP_PORT=${PORT}
+      - ARR_MCP_DASHBOARD_PUBLIC=${DASHBOARD_PUBLIC}
+EOF
+
+    info "Wrote $compose_file"
+    docker compose -f "$compose_file" up -d
     info "arr-mcp started"
 }
 
@@ -227,8 +304,12 @@ verify() {
         info "Health check passed"
     else
         warn "Health check failed after ${retries} attempts — check logs:"
-        warn "  journalctl --user -u arr-mcp -n 30"
-        warn "  journalctl --user -u arr-agent -n 20"
+        if [[ "$CONTAINER_RUNTIME" == "podman" ]]; then
+            warn "  journalctl --user -u arr-mcp -n 30"
+            warn "  journalctl --user -u arr-agent -n 20"
+        else
+            warn "  docker logs arr-mcp"
+        fi
     fi
 }
 
@@ -241,6 +322,8 @@ print_summary() {
     echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo -e "${GREEN}${BOLD}  arr-mcp is running!${RESET}"
     echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo ""
+    echo -e "  ${BOLD}Runtime${RESET}    $CONTAINER_RUNTIME"
     echo ""
     echo -e "  ${BOLD}Dashboard${RESET}"
 
@@ -256,9 +339,17 @@ print_summary() {
     echo "  Authorization: Bearer ${API_KEY}"
     echo ""
     echo -e "  ${BOLD}Useful commands${RESET}"
-    echo "  journalctl --user -u arr-mcp -f      # arr-mcp logs"
-    echo "  journalctl --user -u arr-agent -f     # arr-agent logs"
-    echo "  systemctl --user status arr-mcp       # service status"
+    if [[ "$CONTAINER_RUNTIME" == "podman" ]]; then
+        echo "  journalctl --user -u arr-mcp -f      # arr-mcp logs"
+        echo "  journalctl --user -u arr-agent -f     # arr-agent logs"
+        echo "  systemctl --user status arr-mcp       # service status"
+    else
+        echo "  docker logs -f arr-mcp               # arr-mcp logs"
+        echo "  docker ps                            # container status"
+    fi
+    echo ""
+    echo -e "  ${BOLD}To uninstall${RESET}"
+    echo "  curl -sSL https://raw.githubusercontent.com/ryanbrinn/arr-mcp/main/scripts/uninstall.sh | bash"
     echo ""
 }
 
@@ -268,10 +359,20 @@ main() {
     echo -e "${BOLD}  arr-mcp installer${RESET}"
     echo -e "  ──────────────────────────────────────────"
 
+    select_runtime
     check_prereqs
     collect_config
-    install_helper
-    write_quadlet
+
+    case "$CONTAINER_RUNTIME" in
+        podman)
+            install_helper
+            write_podman_quadlet
+            ;;
+        docker-compose|docker)
+            write_compose_stack
+            ;;
+    esac
+
     verify
     print_summary
 }

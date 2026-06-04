@@ -29,7 +29,7 @@ wheels = [
 ]
 
 [[package]]
-name = "arr-mcp"
+name = "arr-mcp-server"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
