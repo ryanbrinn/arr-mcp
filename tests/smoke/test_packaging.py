@@ -86,7 +86,9 @@ def test_version_matches_pyproject(
     ])
     assert result.returncode == 0, result.stderr
     installed = result.stdout.strip()
-    assert installed == expected, f"Version mismatch: installed={installed!r}, pyproject={expected!r}"
+    assert installed == expected, (
+        f"Version mismatch: installed={installed!r}, pyproject={expected!r}"
+    )
 
 
 def test_uninstall_clean(installed_package: dict[str, Path | str]) -> None:

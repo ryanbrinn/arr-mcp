@@ -25,7 +25,7 @@ import sys
 import time
 import venv
 from pathlib import Path
-from typing import Generator
+from collections.abc import Generator
 
 import httpx
 import pytest
