@@ -24,8 +24,8 @@ import subprocess
 import sys
 import time
 import venv
-from pathlib import Path
 from collections.abc import Generator
+from pathlib import Path
 
 import httpx
 import pytest
