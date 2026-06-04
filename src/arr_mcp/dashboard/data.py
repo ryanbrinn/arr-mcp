@@ -13,7 +13,7 @@ from arr_mcp.runtime.client import ContainerClient
 async def get_status(client: ContainerClient, settings: Settings) -> dict[str, Any]:
     """Build the status dict for the dashboard and /api/status endpoint."""
     containers = await _get_containers(client)
-    stacks = _derive_stacks(containers)
+    stacks = _derive_stacks(containers) if settings.is_compose else []
     disk = _get_disk(settings)
 
     return {
@@ -21,6 +21,7 @@ async def get_status(client: ContainerClient, settings: Settings) -> dict[str, A
         "containers": containers,
         "stacks": stacks,
         "disk": disk,
+        "runtime": settings.container_runtime,
     }
 
 
@@ -109,7 +110,9 @@ def _derive_stacks(containers: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _get_disk(settings: Settings) -> list[dict[str, Any]]:
     """Get disk usage for configured paths."""
-    paths = [settings.media_dir, settings.stacks_dir]
+    paths = [settings.media_dir]
+    if settings.is_compose and settings.compose_dir:
+        paths.append(settings.compose_dir)
     results = []
     for path in paths:
         try:

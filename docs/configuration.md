@@ -8,26 +8,40 @@ All settings are loaded from environment variables or a `.env` file in the worki
 |---|---|---|
 | `ARR_MCP_API_KEY` | `changeme` | Bearer token for MCP endpoint auth — **change this** |
 | `ARR_MCP_PORT` | `8081` | HTTP listen port |
-| `ARR_MCP_STACKS_DIR` | `/opt/stacks` | Root directory for compose stacks |
 | `ARR_MCP_SERVICES_DIR` | `/media-server` | Root directory where your arr services live (configs, logs, data) — read-only |
 | `ARR_MCP_MEDIA_DIR` | `/media-server/library` | Root directory of your media library |
-| `ARR_MCP_CONTAINER_RUNTIME` | `auto` | `auto` / `podman` / `docker` |
+| `ARR_MCP_COMPOSE_DIR` | `` | Root directory for Docker Compose projects — required for `docker-compose` runtime |
+| `ARR_MCP_QUADLETS_DIR` | `~/.config/containers/systemd` | Podman quadlet unit files directory — only used for `podman` runtime |
+| `ARR_MCP_CONTAINER_RUNTIME` | `docker-compose` | `docker-compose` / `docker` / `podman` / `auto` |
 | `ARR_MCP_SOCKET_PATH` | `` | Explicit socket path — required when running inside a container |
 | `ARR_MCP_HELPER_SOCKET` | `/run/arr-helper/arr-helper.sock` | Path to the arr-helper Unix socket |
 | `ARR_MCP_DASHBOARD_PUBLIC` | `false` | Serve dashboard without auth (set `true` for LAN-only deployments) |
 | `ARR_MCP_LOG_LEVEL` | `info` | `debug` / `info` / `warning` / `error` |
 
+## Runtime modes
+
+The `ARR_MCP_CONTAINER_RUNTIME` setting controls which tools and dashboard sections are available:
+
+| Runtime | Stack tools | Dashboard stacks | Use case |
+|---|---|---|---|
+| `docker-compose` | ✅ | ✅ | Docker with Compose files (default) |
+| `docker` | ❌ | ❌ | Docker Engine, container management only |
+| `podman` | ❌ | ❌ | Rootless Podman via arr-agent |
+
+Stack tools (`stack_up`, `stack_down`, `stack_list`, etc.) and the dashboard stacks view are only available when running Docker Compose.
+
 ## Directory paths
 
-arr-mcp works with three distinct directory roots:
+arr-mcp works with up to four directory roots depending on your runtime:
 
-| Purpose | Variable | What lives here |
-|---|---|---|
-| Compose / quadlet files | `ARR_MCP_STACKS_DIR` | Stack definitions managed by arr-mcp |
-| arr service data | `ARR_MCP_SERVICES_DIR` | Sonarr, Radarr, SABnzbd configs, logs, databases |
-| Media library | `ARR_MCP_MEDIA_DIR` | Your actual media files |
+| Purpose | Variable | Runtime | What lives here |
+|---|---|---|---|
+| arr service data | `ARR_MCP_SERVICES_DIR` | all | Sonarr, Radarr, SABnzbd configs, logs, databases |
+| Media library | `ARR_MCP_MEDIA_DIR` | all | Your actual media files |
+| Compose projects | `ARR_MCP_COMPOSE_DIR` | `docker-compose` only | Docker Compose project directories |
+| Quadlet units | `ARR_MCP_QUADLETS_DIR` | `podman` only | Systemd quadlet unit files |
 
-These can all be under the same root (e.g. all under `/media-server`) or on separate mounts — configure each independently to match your setup.
+These can share a common root (e.g. all under `/media-server`) or live on separate mounts — configure each independently.
 
 **`ARR_MCP_SERVICES_DIR` is read-only.** arr-mcp will never write to your service directories. Additionally, `config.xml` and database files (`*.db`, `*.db-shm`, `*.db-wal`) are blocked from read access to protect credentials and prevent database corruption.
 

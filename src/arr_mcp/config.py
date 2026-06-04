@@ -15,7 +15,20 @@ class Settings(BaseSettings):
 
     api_key: str = Field(default="changeme", description="Bearer token for HTTP auth")
     port: int = Field(default=8081, description="HTTP listen port")
-    stacks_dir: str = Field(default="/opt/stacks", description="Stack root directory")
+    compose_dir: str = Field(
+        default="",
+        description=(
+            "Root directory for Docker Compose projects. "
+            "Only used when ARR_MCP_CONTAINER_RUNTIME=docker-compose."
+        ),
+    )
+    quadlets_dir: str = Field(
+        default="~/.config/containers/systemd",
+        description=(
+            "Directory where Podman quadlet unit files live. "
+            "Only used when ARR_MCP_CONTAINER_RUNTIME=podman."
+        ),
+    )
     services_dir: str = Field(
         default="/media-server",
         description=(
@@ -32,7 +45,15 @@ class Settings(BaseSettings):
             "(e.g. a separate mount at /mnt/nas/media)."
         ),
     )
-    container_runtime: str = Field(default="auto", description="auto | docker | podman")
+    container_runtime: str = Field(
+        default="docker-compose",
+        description="docker-compose | docker | podman | auto",
+    )
+
+    @property
+    def is_compose(self) -> bool:
+        """True when running Docker Compose — enables stack tools and dashboard stacks view."""
+        return self.container_runtime == "docker-compose"
 
     socket_path: str = Field(
         default="",

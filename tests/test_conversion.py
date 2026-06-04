@@ -206,7 +206,7 @@ services:
 
 
 async def test_compose_to_quadlets_writes_files(settings: Settings) -> None:
-    stack_dir = Path(settings.stacks_dir) / "mystack"
+    stack_dir = Path(settings.compose_dir) / "mystack"
     stack_dir.mkdir()
     (stack_dir / "compose.yaml").write_text(SIMPLE_COMPOSE)
 
@@ -224,7 +224,7 @@ async def test_compose_to_quadlets_writes_files(settings: Settings) -> None:
 
 
 async def test_compose_to_quadlets_content_correct(settings: Settings) -> None:
-    stack_dir = Path(settings.stacks_dir) / "mystack"
+    stack_dir = Path(settings.compose_dir) / "mystack"
     stack_dir.mkdir()
     (stack_dir / "compose.yaml").write_text(SIMPLE_COMPOSE)
 
@@ -242,7 +242,7 @@ async def test_compose_to_quadlets_content_correct(settings: Settings) -> None:
 
 async def test_compose_to_quadlets_idempotent(settings: Settings) -> None:
     """Running twice should overwrite staging files without error."""
-    stack_dir = Path(settings.stacks_dir) / "mystack"
+    stack_dir = Path(settings.compose_dir) / "mystack"
     stack_dir.mkdir()
     (stack_dir / "compose.yaml").write_text(SIMPLE_COMPOSE)
 
@@ -265,7 +265,7 @@ async def test_compose_to_quadlets_stack_not_found(settings: Settings) -> None:
 
 
 async def test_compose_to_quadlets_invalid_yaml(settings: Settings) -> None:
-    stack_dir = Path(settings.stacks_dir) / "mystack"
+    stack_dir = Path(settings.compose_dir) / "mystack"
     stack_dir.mkdir()
     (stack_dir / "compose.yaml").write_text("{ bad yaml: [}")
 
@@ -278,7 +278,7 @@ async def test_compose_to_quadlets_invalid_yaml(settings: Settings) -> None:
 
 
 async def test_compose_to_quadlets_no_compose_file(settings: Settings) -> None:
-    stack_dir = Path(settings.stacks_dir) / "mystack"
+    stack_dir = Path(settings.compose_dir) / "mystack"
     stack_dir.mkdir()
 
     server = FastMCP("test")
@@ -290,7 +290,7 @@ async def test_compose_to_quadlets_no_compose_file(settings: Settings) -> None:
 
 
 async def test_quadlets_to_compose_writes_file(settings: Settings) -> None:
-    stack_dir = Path(settings.stacks_dir) / "mystack"
+    stack_dir = Path(settings.compose_dir) / "mystack"
     quadlets_dir = stack_dir / "quadlets"
     quadlets_dir.mkdir(parents=True)
     (quadlets_dir / "web.container").write_text(
@@ -312,7 +312,7 @@ async def test_quadlets_to_compose_writes_file(settings: Settings) -> None:
 
 
 async def test_quadlets_to_compose_no_files(settings: Settings) -> None:
-    stack_dir = Path(settings.stacks_dir) / "mystack"
+    stack_dir = Path(settings.compose_dir) / "mystack"
     (stack_dir / "quadlets").mkdir(parents=True)
 
     server = FastMCP("test")
@@ -334,7 +334,7 @@ async def test_quadlets_to_compose_stack_not_found(settings: Settings) -> None:
 
 async def test_roundtrip(settings: Settings) -> None:
     """compose → quadlets → compose should preserve service images."""
-    stack_dir = Path(settings.stacks_dir) / "mystack"
+    stack_dir = Path(settings.compose_dir) / "mystack"
     stack_dir.mkdir()
     (stack_dir / "compose.yaml").write_text(SIMPLE_COMPOSE)
 

@@ -45,7 +45,8 @@ def build_mcp_server(settings: Settings, client: ContainerClient) -> FastMCP:
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
     )
     register_container_tools(server, client)
-    register_stack_tools(server, client, settings)
+    if settings.is_compose:
+        register_stack_tools(server, client, settings)
     register_filesystem_tools(server, settings)
     register_log_tools(server, settings)
     register_conversion_tools(server, settings)

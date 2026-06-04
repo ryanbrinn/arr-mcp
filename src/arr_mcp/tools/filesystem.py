@@ -27,14 +27,15 @@ def _check_path(path: str, settings: Settings, *, write: bool = False) -> Path:
         raise PermissionError(f"Invalid path: {exc}") from exc
 
     services_root = Path(settings.services_dir).resolve()
-    stacks_root = Path(settings.stacks_dir).resolve()
     media_root = Path(settings.media_dir).resolve()
 
     in_services = str(p).startswith(str(services_root))
-    in_stacks = str(p).startswith(str(stacks_root))
     in_media = str(p).startswith(str(media_root))
+    in_compose = bool(settings.compose_dir) and str(p).startswith(
+        str(Path(settings.compose_dir).resolve())
+    )
 
-    if not (in_services or in_stacks or in_media):
+    if not (in_services or in_media or in_compose):
         raise PermissionError(f"Path not in allowed roots: {p}")
 
     if in_services:
@@ -72,7 +73,7 @@ def register_filesystem_tools(server: FastMCP, settings: Settings) -> None:
         p = _check_path(path, settings)
         if not p.exists():
             return [TextContent(type="text", text=f"Path not found: {p}")]
-        stacks_root = Path(settings.stacks_dir).resolve()
+        stacks_root = Path(settings.compose_dir).resolve()
         entries = sorted(p.iterdir(), key=lambda e: (e.is_file(), e.name))
         lines = []
         for e in entries:

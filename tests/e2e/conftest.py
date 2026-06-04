@@ -32,6 +32,7 @@ _FAKE_SOCK = "unix:///fake/docker.sock"
 # ------------------------------------------------------------------
 
 _RUNTIMES = [
+    pytest.param("docker-compose", id="docker-compose"),
     pytest.param("docker", id="docker"),
     pytest.param("podman", id="podman"),
     pytest.param("auto", id="auto"),
@@ -59,12 +60,15 @@ def e2e_settings(tmp_path: Path, runtime: str) -> Settings:
     """Settings wired to tmp dirs and the fake socket, for every runtime."""
     stacks = tmp_path / "stacks"
     stacks.mkdir()
+    services = tmp_path / "services"
+    services.mkdir()
     media = tmp_path / "media"
     media.mkdir()
     return Settings(
         api_key="e2e-test-key",
         port=8082,
-        stacks_dir=str(stacks),
+        compose_dir=str(stacks),
+        services_dir=str(services),
         media_dir=str(media),
         container_runtime=runtime,
         socket_path=_FAKE_SOCK,
@@ -123,11 +127,14 @@ def app_settings(tmp_path: Path) -> Settings:
     """Settings for HTTP-level tests — runtime config is irrelevant here."""
     stacks = tmp_path / "stacks"
     stacks.mkdir()
+    services = tmp_path / "services"
+    services.mkdir()
     media = tmp_path / "media"
     media.mkdir()
     return Settings(
         api_key="http-test-key",
-        stacks_dir=str(stacks),
+        compose_dir=str(stacks),
+        services_dir=str(services),
         media_dir=str(media),
         container_runtime="docker",
         socket_path=_FAKE_SOCK,

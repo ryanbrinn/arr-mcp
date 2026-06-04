@@ -242,7 +242,7 @@ def quadlet_to_service(quadlet: dict[str, Any]) -> tuple[str, dict[str, Any]]:
 
 def register_conversion_tools(server: FastMCP, settings: Settings) -> None:
     """Register compose ↔ quadlet conversion tools with the MCP server."""
-    stacks_root = Path(settings.stacks_dir)
+    stacks_root = Path(settings.compose_dir)
 
     def _stack_path(name: str) -> Path:
         p = stacks_root / name
