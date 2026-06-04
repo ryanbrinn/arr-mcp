@@ -16,6 +16,28 @@ log = logging.getLogger(__name__)
 API = "/v1.41"
 
 
+def _decode_log_stream(raw: bytes) -> str:
+    """Decode a Docker/Podman multiplexed log stream into plain text.
+
+    Each frame has an 8-byte header: 1 byte stream type, 3 bytes padding,
+    4 bytes big-endian payload length.  Plain-text responses (some Podman
+    versions omit framing) are returned as-is when the header parse yields
+    nothing.
+    """
+    lines_out: list[str] = []
+    i = 0
+    while i < len(raw):
+        if i + 8 > len(raw):
+            break
+        size = int.from_bytes(raw[i + 4 : i + 8], "big")
+        chunk = raw[i + 8 : i + 8 + size].decode("utf-8", errors="replace")
+        lines_out.append(chunk)
+        i += 8 + size
+    if not lines_out and raw:
+        return raw.decode("utf-8", errors="replace")
+    return "".join(lines_out)
+
+
 def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
     """Register all container lifecycle tools with the MCP server."""
 
@@ -71,18 +93,13 @@ def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
         transport = httpx.AsyncHTTPTransport(uds=uds)
         async with httpx.AsyncClient(transport=transport, base_url="http://localhost") as c:
             r = await c.get(f"{API}/containers/{name}/logs?stdout=true&stderr=true&tail={lines}")
-        # Docker/Podman multiplex stream — strip 8-byte header per frame
-        raw = r.content
-        lines_out: list[str] = []
-        i = 0
-        while i < len(raw):
-            if i + 8 > len(raw):
-                break
-            size = int.from_bytes(raw[i + 4 : i + 8], "big")
-            chunk = raw[i + 8 : i + 8 + size].decode("utf-8", errors="replace")
-            lines_out.append(chunk)
-            i += 8 + size
-        return [TextContent(type="text", text="".join(lines_out) or "(no logs)")]
+        if r.status_code != 200:
+            msg = r.text.strip() or f"HTTP {r.status_code}"
+            # Podman with journald log driver returns 500 and "configured logging driver
+            # does not support reading" — surface that clearly rather than empty output.
+            return [TextContent(type="text", text=f"(logs unavailable: {msg})")]
+        text = _decode_log_stream(r.content)
+        return [TextContent(type="text", text=text or "(no logs)")]
 
     @server.tool()
     async def container_stats() -> list[TextContent]:
