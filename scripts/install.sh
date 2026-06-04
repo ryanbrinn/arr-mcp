@@ -239,6 +239,9 @@ EOF
 
     info "Wrote ${quadlet_dir}/arr-mcp.container"
 
+    info "Pulling latest arr-mcp image"
+    podman pull ghcr.io/ryanbrinn/arr-mcp:latest
+
     systemctl --user daemon-reload
     systemctl --user start arr-mcp
     info "arr-mcp started"
@@ -282,6 +285,7 @@ ${runtime_env}
 EOF
 
     info "Wrote $compose_file"
+    docker compose -f "$compose_file" pull
     docker compose -f "$compose_file" up -d
     info "arr-mcp started"
 }
