@@ -218,7 +218,7 @@ def parse_ini_config(path: Path) -> dict[str, dict[str, str]]:
 def parse_json_config(path: Path) -> dict[str, object]:
     """Parse a JSON config file and return a dict."""
     try:
-        return json.loads(path.read_text(errors="replace"))  # type: ignore[return-value]
+        return json.loads(path.read_text(errors="replace"))  # type: ignore[no-any-return]
     except json.JSONDecodeError as exc:
         raise ValueError(f"Malformed JSON in {path.name}: {exc}") from exc
 
