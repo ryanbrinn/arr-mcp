@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from mcp.server.fastmcp import FastMCP
 
-from arr_mcp.tools.containers import _calc_cpu_pct, register_container_tools
+from arr_mcp.tools.containers import _calc_cpu_pct, _decode_log_stream, register_container_tools
 
 
 def _make_server(mock_client: MagicMock) -> FastMCP:
@@ -145,3 +145,35 @@ async def test_container_stats_podman_shows_mem_when_cpu_na(mock_client: MagicMo
     assert "sonarr" in text
     assert "N/A" in text
     assert "256.0MB" in text
+
+
+# --- _decode_log_stream unit tests ---
+
+
+def _make_frame(payload: bytes, stream: int = 1) -> bytes:
+    """Build a single Docker/Podman multiplex log frame."""
+    header = bytes([stream, 0, 0, 0]) + len(payload).to_bytes(4, "big")
+    return header + payload
+
+
+def test_decode_log_stream_single_frame() -> None:
+    raw = _make_frame(b"hello world\n")
+    assert _decode_log_stream(raw) == "hello world\n"
+
+
+def test_decode_log_stream_multiple_frames() -> None:
+    raw = _make_frame(b"line one\n") + _make_frame(b"line two\n", stream=2)
+    result = _decode_log_stream(raw)
+    assert "line one\n" in result
+    assert "line two\n" in result
+
+
+def test_decode_log_stream_empty_bytes() -> None:
+    assert _decode_log_stream(b"") == ""
+
+
+def test_decode_log_stream_plain_text_fallback() -> None:
+    """Non-framed responses (some Podman versions) must be returned as plain text."""
+    plain = b"2024-01-01 sonarr started\n2024-01-01 ready\n"
+    result = _decode_log_stream(plain)
+    assert "sonarr started" in result
