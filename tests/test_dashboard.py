@@ -155,6 +155,45 @@ async def test_dashboard_shows_containers(public_settings: Settings) -> None:
     assert "plex" in r.text
 
 
+async def test_dashboard_shows_service_icon_badge(public_settings: Settings) -> None:
+    """Service icon badge must render for known containers."""
+    containers = [
+        {
+            "Id": "abc123def456",
+            "Names": ["/sonarr"],
+            "Image": "linuxserver/sonarr:latest",
+            "State": "running",
+            "Status": "Up 1 hour",
+        }
+    ]
+    app = _make_app(public_settings, containers=containers)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get("/")
+    assert 'class="svc-icon"' in r.text
+    assert ">SN<" in r.text
+
+
+async def test_dashboard_service_icon_fallback(public_settings: Settings) -> None:
+    """Unknown containers fall back to first two characters of the name."""
+    containers = [
+        {
+            "Id": "abc123def456",
+            "Names": ["/myapp"],
+            "Image": "myapp:latest",
+            "State": "running",
+            "Status": "Up 5 minutes",
+        }
+    ]
+    app = _make_app(public_settings, containers=containers)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get("/")
+    assert ">MY<" in r.text
+
+
 async def test_stacks_absent_for_non_compose_runtime(tmp_path) -> None:
     """Stacks section must be empty when runtime is not docker-compose."""
     media = tmp_path / "media"

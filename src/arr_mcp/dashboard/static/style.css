@@ -121,17 +121,18 @@ h2 {
 }
 
 .svc-icon {
-  width: 18px;
+  width: 22px;
   height: 18px;
   border-radius: 4px;
   flex-shrink: 0;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  background: var(--bg-row);
-  color: var(--violet);
+  font-size: 10px;
+  background: var(--violet-dk);
+  color: #fff;
   font-weight: 700;
+  letter-spacing: 0.02em;
   overflow: hidden;
 }
 
