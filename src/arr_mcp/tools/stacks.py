@@ -36,7 +36,14 @@ def register_stack_tools(server: FastMCP, client: ContainerClient, settings: Set
     stacks_root = Path(settings.compose_dir)
     helper = HelperClient(settings.helper_socket)
 
+    allowed = settings.allowed_stacks
+
     def _stack_path(name: str) -> Path:
+        if allowed and name not in allowed:
+            raise ValueError(
+                f"Stack '{name}' is not in the allowed stacks list. "
+                f"Allowed: {', '.join(sorted(allowed))}"
+            )
         p = stacks_root / name
         if not p.is_dir() or not is_owned_by_current_user(p):
             raise ValueError(f"Stack not found: {name} (looked in {stacks_root})")
@@ -59,7 +66,7 @@ def register_stack_tools(server: FastMCP, client: ContainerClient, settings: Set
         stacks = [
             d.name
             for d in sorted(stacks_root.iterdir())
-            if d.is_dir() and is_owned_by_current_user(d)
+            if d.is_dir() and is_owned_by_current_user(d) and (not allowed or d.name in allowed)
         ]
         return [TextContent(type="text", text="\n".join(stacks) or "No stacks found.")]
 
