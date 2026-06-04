@@ -51,6 +51,14 @@ This document contains critical information about working with this codebase. Fo
 - **Rename the session.** Acknowledge the issue at the start with the key and a short description (e.g. "Working on **#42 — fix install script**").
 - **Flag scope creep.** If work is heading somewhere that warrants its own issue, say so explicitly before proceeding: "This feels out of scope for #N — should I open a new issue for it?"
 
+## Roadmap and Gantt Discipline
+
+- **Keep the Gantt in sync.** `docs/roadmap.md` contains a Mermaid Gantt chart that tracks phase items. It must stay accurate:
+  - **When opening a new GitHub issue** for a planned feature or task: if it corresponds to a Gantt item, confirm the item exists (add it if not).
+  - **When closing / merging a PR** that completes a Gantt item: mark it `:done` in the same PR.
+  - **When changing the roadmap** — adding, removing, or re-scoping a phase item, or adding a new planning item of significance — update the Gantt in the same commit.
+  - Never let the Gantt fall more than one PR behind reality.
+
 ## Branch and PR Workflow
 
 - **One branch per issue.** Every GitHub issue gets its own branch. Name it after the issue: `fix/issue-23-short-description`, `feat/issue-17-quadlet-conversion`, etc.
