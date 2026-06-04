@@ -14,7 +14,7 @@ from arr_mcp.tools.filesystem import _check_path, register_filesystem_tools
 
 
 def test_allowed_media_path(settings: Settings) -> None:
-    p = str(Path(settings.media_dir) / "plex" / "config")
+    p = str(Path(settings.media_dir) / "movies" / "Inception")
     result = _check_path(p, settings)
     assert str(result).startswith(settings.media_dir)
 
@@ -23,6 +23,36 @@ def test_allowed_stacks_path(settings: Settings) -> None:
     p = str(Path(settings.stacks_dir) / "mystack" / "compose.yaml")
     result = _check_path(p, settings)
     assert str(result).startswith(settings.stacks_dir)
+
+
+def test_allowed_services_path(settings: Settings) -> None:
+    p = str(Path(settings.services_dir) / "radarr" / "logs" / "radarr.txt")
+    result = _check_path(p, settings)
+    assert str(result).startswith(settings.services_dir)
+
+
+def test_services_write_blocked(settings: Settings) -> None:
+    p = str(Path(settings.services_dir) / "radarr" / "config.yaml")
+    with pytest.raises(PermissionError, match="Write access is not permitted"):
+        _check_path(p, settings, write=True)
+
+
+def test_services_config_xml_blocked(settings: Settings) -> None:
+    p = str(Path(settings.services_dir) / "radarr" / "config.xml")
+    with pytest.raises(PermissionError, match="blocked"):
+        _check_path(p, settings)
+
+
+def test_services_db_blocked(settings: Settings) -> None:
+    p = str(Path(settings.services_dir) / "radarr" / "radarr.db")
+    with pytest.raises(PermissionError, match="blocked"):
+        _check_path(p, settings)
+
+
+def test_services_db_wal_blocked(settings: Settings) -> None:
+    p = str(Path(settings.services_dir) / "radarr" / "radarr.db-wal")
+    with pytest.raises(PermissionError, match="blocked"):
+        _check_path(p, settings)
 
 
 def test_path_traversal_blocked(settings: Settings) -> None:

@@ -11,22 +11,38 @@ from mcp.types import TextContent
 from arr_mcp.config import Settings
 from arr_mcp.tools.utils import is_owned_by_current_user
 
-# Paths that may be read/written
-_ALLOWED_ROOTS = ["/opt/stacks", "/media-server", "/var/log"]
+# Filename patterns blocked from read access within services_dir
+_SERVICES_BLOCKLIST = {"config.xml"}
+_SERVICES_BLOCKED_SUFFIXES = {".db", ".db-shm", ".db-wal"}
 
 
-def _check_path(path: str, settings: Settings) -> Path:
+def _is_services_blocked(p: Path) -> bool:
+    return p.name in _SERVICES_BLOCKLIST or p.suffix in _SERVICES_BLOCKED_SUFFIXES
+
+
+def _check_path(path: str, settings: Settings, *, write: bool = False) -> Path:
     try:
         p = Path(path).resolve()
     except ValueError as exc:
         raise PermissionError(f"Invalid path: {exc}") from exc
-    allowed = [
-        Path(settings.stacks_dir).resolve(),
-        Path(settings.media_dir).resolve(),
-        Path("/var/log").resolve(),
-    ]
-    if not any(str(p).startswith(str(a)) for a in allowed):
+
+    services_root = Path(settings.services_dir).resolve()
+    stacks_root = Path(settings.stacks_dir).resolve()
+    media_root = Path(settings.media_dir).resolve()
+
+    in_services = str(p).startswith(str(services_root))
+    in_stacks = str(p).startswith(str(stacks_root))
+    in_media = str(p).startswith(str(media_root))
+
+    if not (in_services or in_stacks or in_media):
         raise PermissionError(f"Path not in allowed roots: {p}")
+
+    if in_services:
+        if write:
+            raise PermissionError(f"Write access is not permitted in services_dir: {p}")
+        if _is_services_blocked(p):
+            raise PermissionError(f"Access to this file is blocked: {p.name}")
+
     return p
 
 
@@ -34,7 +50,7 @@ def register_filesystem_tools(server: FastMCP, settings: Settings) -> None:
     """Register filesystem read/write tools with the MCP server."""
 
     @server.tool()
-    async def disk_usage(path: str = "/media-server") -> list[TextContent]:
+    async def disk_usage(path: str = settings.media_dir) -> list[TextContent]:
         """Show disk usage for a path."""
         p = _check_path(path, settings)
         total, used, free = shutil.disk_usage(str(p))
@@ -77,7 +93,7 @@ def register_filesystem_tools(server: FastMCP, settings: Settings) -> None:
     @server.tool()
     async def file_write(path: str, content: str) -> list[TextContent]:
         """Write content to a file (creates parent dirs as needed)."""
-        p = _check_path(path, settings)
+        p = _check_path(path, settings, write=True)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content)
         return [TextContent(type="text", text=f"Written: {p} ({len(content)} bytes)")]
@@ -92,7 +108,7 @@ def register_filesystem_tools(server: FastMCP, settings: Settings) -> None:
                     text=f"Pass confirm=True to delete {path}.",
                 )
             ]
-        p = _check_path(path, settings)
+        p = _check_path(path, settings, write=True)
         if not p.exists():
             return [TextContent(type="text", text=f"File not found: {p}")]
         if p.is_dir():

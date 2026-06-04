@@ -16,7 +16,7 @@ def _check_log_path(path: str, extra_roots: list[Path] | None = None) -> Path:
         p = Path(path).resolve()
     except ValueError as exc:
         raise PermissionError(f"Invalid path: {exc}") from exc
-    allowed = [Path("/var/log"), Path("/media-server"), Path("/opt/stacks")]
+    allowed = [Path("/var/log")]
     if extra_roots:
         allowed.extend(extra_roots)
     if not any(str(p).startswith(str(a)) for a in allowed):
@@ -28,7 +28,7 @@ def register_log_tools(server: FastMCP, settings: Settings) -> None:
     """Register log reading and searching tools with the MCP server."""
     extra_roots = [
         Path(settings.stacks_dir).resolve(),
-        Path(settings.media_dir).resolve(),
+        Path(settings.services_dir).resolve(),
     ]
 
     @server.tool()
