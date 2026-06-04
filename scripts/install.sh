@@ -72,9 +72,14 @@ collect_config() {
         info "Using provided API key"
     fi
 
-    prompt "Media directory [/media-server]:"
+    prompt "Services directory (arr app configs, logs) [/media-server]:"
+    read -r SERVICES_DIR
+    SERVICES_DIR="${SERVICES_DIR:-/media-server}"
+    info "Services directory: $SERVICES_DIR"
+
+    prompt "Media library directory [/media-server/library]:"
     read -r MEDIA_DIR
-    MEDIA_DIR="${MEDIA_DIR:-/media-server}"
+    MEDIA_DIR="${MEDIA_DIR:-/media-server/library}"
     info "Media directory: $MEDIA_DIR"
 
     prompt "Stacks directory [/opt/stacks]:"
@@ -102,6 +107,7 @@ collect_config() {
     PODMAN_SOCK="/run/user/${USER_UID}/podman/podman.sock"
     HELPER_SOCK_HOST="/run/user/${USER_UID}/arr-agent/arr-agent.sock"
     HELPER_SOCK_CONTAINER="/run/arr-agent/arr-agent.sock"
+    SERVICES_DIR="${SERVICES_DIR:-/media-server}"
 }
 
 # ── Install arr-agent ─────────────────────────────────────────────────────────
@@ -176,6 +182,7 @@ ContainerName=arr-mcp
 Environment=ARR_MCP_API_KEY=${API_KEY}
 Environment=ARR_MCP_CONTAINER_RUNTIME=podman
 Environment=ARR_MCP_STACKS_DIR=${STACKS_DIR}
+Environment=ARR_MCP_SERVICES_DIR=${SERVICES_DIR}
 Environment=ARR_MCP_MEDIA_DIR=${MEDIA_DIR}
 Environment=ARR_MCP_PORT=${PORT}
 Environment=ARR_MCP_SOCKET_PATH=unix://${PODMAN_SOCK}
@@ -183,6 +190,7 @@ Environment=ARR_MCP_HELPER_SOCKET=${HELPER_SOCK_CONTAINER}
 Environment=ARR_MCP_DASHBOARD_PUBLIC=${DASHBOARD_PUBLIC}
 Volume=${PODMAN_SOCK}:${PODMAN_SOCK}:z
 Volume=${STACKS_DIR}:${STACKS_DIR}:z
+Volume=${SERVICES_DIR}:${SERVICES_DIR}:z
 Volume=${MEDIA_DIR}:${MEDIA_DIR}:z
 Volume=${HELPER_SOCK_HOST}:${HELPER_SOCK_CONTAINER}:z
 PublishPort=${PORT}:${PORT}

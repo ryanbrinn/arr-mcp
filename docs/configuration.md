@@ -9,13 +9,27 @@ All settings are loaded from environment variables or a `.env` file in the worki
 | `ARR_MCP_API_KEY` | `changeme` | Bearer token for MCP endpoint auth — **change this** |
 | `ARR_MCP_PORT` | `8081` | HTTP listen port |
 | `ARR_MCP_STACKS_DIR` | `/opt/stacks` | Root directory for compose stacks |
-| `ARR_MCP_MEDIA_DIR` | `/media-server` | Media storage root |
+| `ARR_MCP_SERVICES_DIR` | `/media-server` | Root directory where your arr services live (configs, logs, data) — read-only |
+| `ARR_MCP_MEDIA_DIR` | `/media-server/library` | Root directory of your media library |
 | `ARR_MCP_CONTAINER_RUNTIME` | `auto` | `auto` / `podman` / `docker` |
 | `ARR_MCP_SOCKET_PATH` | `` | Explicit socket path — required when running inside a container |
 | `ARR_MCP_HELPER_SOCKET` | `/run/arr-helper/arr-helper.sock` | Path to the arr-helper Unix socket |
 | `ARR_MCP_DASHBOARD_PUBLIC` | `false` | Serve dashboard without auth (set `true` for LAN-only deployments) |
-| `ARR_MCP_PUBLIC_URL` | `` | Public URL shown in the "Open in Claude" dashboard button |
 | `ARR_MCP_LOG_LEVEL` | `info` | `debug` / `info` / `warning` / `error` |
+
+## Directory paths
+
+arr-mcp works with three distinct directory roots:
+
+| Purpose | Variable | What lives here |
+|---|---|---|
+| Compose / quadlet files | `ARR_MCP_STACKS_DIR` | Stack definitions managed by arr-mcp |
+| arr service data | `ARR_MCP_SERVICES_DIR` | Sonarr, Radarr, SABnzbd configs, logs, databases |
+| Media library | `ARR_MCP_MEDIA_DIR` | Your actual media files |
+
+These can all be under the same root (e.g. all under `/media-server`) or on separate mounts — configure each independently to match your setup.
+
+**`ARR_MCP_SERVICES_DIR` is read-only.** arr-mcp will never write to your service directories. Additionally, `config.xml` and database files (`*.db`, `*.db-shm`, `*.db-wal`) are blocked from read access to protect credentials and prevent database corruption.
 
 ## arr-helper settings
 
@@ -72,12 +86,3 @@ http://your-server:8081/?key=your-secret-key
 -e ARR_MCP_DASHBOARD_PUBLIC=true
 ```
 
-**"Open in Claude" button:**
-
-Set `ARR_MCP_PUBLIC_URL` to the address Claude should reference in its context prompt:
-
-```bash
--e ARR_MCP_PUBLIC_URL=http://mediaserver.local:8081
-```
-
-If unset, arr-mcp uses the request's `Host` header.

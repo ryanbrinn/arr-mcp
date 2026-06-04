@@ -38,6 +38,17 @@ async def test_log_read_missing_file(settings: Settings, mock_client: MagicMock)
     assert "not found" in result[0][0].text.lower()
 
 
+async def test_log_read_services_dir(settings: Settings, mock_client: MagicMock) -> None:
+    server = FastMCP("test")
+    register_log_tools(server, settings)
+    log_dir = Path(settings.services_dir) / "radarr" / "logs"
+    log_dir.mkdir(parents=True)
+    log_file = log_dir / "radarr.txt"
+    log_file.write_text("info started\nerror broken\n")
+    result = await server.call_tool("log_read", {"path": str(log_file)})
+    assert "broken" in result[0][0].text
+
+
 async def test_log_read_returns_last_n_lines(settings: Settings, mock_client: MagicMock) -> None:
     server = FastMCP("test")
     register_log_tools(server, settings)

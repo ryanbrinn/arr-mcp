@@ -16,12 +16,15 @@ from arr_mcp.server import create_app
 def settings(tmp_path: Path) -> Settings:
     stacks = tmp_path / "stacks"
     stacks.mkdir()
-    media = tmp_path / "media-server"
+    services = tmp_path / "services"
+    services.mkdir()
+    media = tmp_path / "media"
     media.mkdir()
     return Settings(
         api_key="test-key",
         port=8081,
         stacks_dir=str(stacks),
+        services_dir=str(services),
         media_dir=str(media),
         container_runtime="podman",
         log_level="debug",
