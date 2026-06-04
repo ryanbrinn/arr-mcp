@@ -15,6 +15,21 @@ from arr_mcp.tools.utils import is_owned_by_current_user
 
 log = logging.getLogger(__name__)
 
+_QUADLET_DIR = Path.home() / ".config" / "containers" / "systemd"
+_QUADLET_MSG = (
+    "This stack is managed by systemd quadlets, not a compose file. "
+    "Use the quadlet_* tools (quadlet_read, quadlet_write, quadlet_list) to manage it."
+)
+
+
+def _has_quadlet_for(name: str) -> bool:
+    """Return True if a .container quadlet file exists matching the stack name."""
+    if not _QUADLET_DIR.exists():
+        return False
+    return any(_QUADLET_DIR.glob(f"{name}.container")) or any(
+        _QUADLET_DIR.glob(f"{name}-*.container")
+    )
+
 
 def register_stack_tools(server: FastMCP, client: ContainerClient, settings: Settings) -> None:
     """Register stack management tools with the MCP server."""
@@ -87,17 +102,23 @@ def register_stack_tools(server: FastMCP, client: ContainerClient, settings: Set
             f = p / fname
             if f.exists():
                 return [TextContent(type="text", text=f.read_text())]
+        if _has_quadlet_for(stack):
+            return [TextContent(type="text", text=_QUADLET_MSG)]
         return [TextContent(type="text", text=f"No compose file found in {p}")]
 
     @server.tool()
     async def compose_write(stack: str, content: str) -> list[TextContent]:
         """Write/replace the compose.yaml for a stack."""
+        if _has_quadlet_for(stack):
+            return [TextContent(type="text", text=_QUADLET_MSG)]
         p = _stack_path(stack) / "compose.yaml"
         p.write_text(content)
         return [TextContent(type="text", text=f"Written: {p}")]
 
     @server.tool()
     async def compose_validate(stack: str) -> list[TextContent]:
-        """Dry-run validate a stack compose file via the host-side helper."""
+        """Validate a stack compose file via the host-side helper."""
+        if _has_quadlet_for(stack):
+            return [TextContent(type="text", text=_QUADLET_MSG)]
         _stack_path(stack)
         return await _helper_call("compose_validate", stack=stack)
