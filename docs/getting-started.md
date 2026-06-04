@@ -31,6 +31,8 @@ For Docker, or if you prefer to set things up manually, see the sections below.
 
 ## Supported configurations
 
+**Operating system:** Linux only. Windows and macOS are not supported. The server relies on Unix domain sockets, rootless Podman with systemd quadlets, and `arr-helper` using POSIX APIs that do not exist on those platforms. WSL2 on Windows is not tested and not recommended.
+
 | Configuration | Supported |
 |---|---|
 | Docker Engine | ✅ |
