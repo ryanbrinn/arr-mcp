@@ -23,6 +23,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
 from arr_mcp.config import Settings
+from arr_mcp.tools.diagnostics import _check_diagnostic_path
 from arr_mcp.tools.filesystem import _check_path
 from arr_mcp.tools.logs import _check_log_path
 
@@ -306,3 +307,40 @@ async def test_file_write_with_large_content_is_accepted(
     content = "x" * (1024 * 1024)  # 1 MB
     result = await _mcp.call_tool("file_write", {"path": target, "content": content})
     assert "Written" in result[0][0].text
+
+
+# ---------------------------------------------------------------------------
+# Diagnostic path security (_check_diagnostic_path)
+# ---------------------------------------------------------------------------
+
+
+def test_diagnostic_path_allows_config_xml(_settings: Settings) -> None:
+    """config.xml is permitted by _check_diagnostic_path (unlike _check_path)."""
+    p = str(Path(_settings.services_dir) / "sonarr" / "config.xml")
+    result = _check_diagnostic_path(p, _settings)
+    assert result.name == "config.xml"
+
+
+def test_diagnostic_path_blocks_database(_settings: Settings) -> None:
+    p = str(Path(_settings.services_dir) / "sonarr" / "sonarr.db")
+    with pytest.raises(PermissionError, match="database"):
+        _check_diagnostic_path(p, _settings)
+
+
+def test_diagnostic_path_blocks_database_shm(_settings: Settings) -> None:
+    p = str(Path(_settings.services_dir) / "sonarr" / "sonarr.db-shm")
+    with pytest.raises(PermissionError, match="database"):
+        _check_diagnostic_path(p, _settings)
+
+
+def test_diagnostic_path_blocks_database_wal(_settings: Settings) -> None:
+    p = str(Path(_settings.services_dir) / "sonarr" / "sonarr.db-wal")
+    with pytest.raises(PermissionError, match="database"):
+        _check_diagnostic_path(p, _settings)
+
+
+@pytest.mark.parametrize("case", _TRAVERSAL_CASES, ids=lambda c: c.label)
+def test_check_diagnostic_path_blocks_traversal(_settings: Settings, case: _TraversalCase) -> None:
+    path = case.path.replace("{root}", _settings.services_dir)
+    with pytest.raises(PermissionError):
+        _check_diagnostic_path(path, _settings)
