@@ -4,7 +4,7 @@
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
   },
-  "postCreateCommand": "pip install uv && uv sync --all-extras",
+  "postCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh && ~/.local/bin/uv sync",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -24,6 +24,6 @@
     }
   },
   "remoteEnv": {
-    "PATH": "${containerEnv:PATH}:/workspaces/arr-mcp/.venv/bin"
+    "PATH": "${containerEnv:PATH}:/workspaces/arr-mcp/.venv/bin:/root/.local/bin"
   }
 }
