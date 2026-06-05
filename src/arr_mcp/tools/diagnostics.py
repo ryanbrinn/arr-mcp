@@ -20,6 +20,8 @@ from arr_mcp.tools.services import (
     DiagnosticReport,
     Issue,
     ScannedService,
+    read_download_clients,
+    read_sabnzbd_complete_dir,
     run_diagnostics,
 )
 
@@ -47,6 +49,75 @@ def _check_diagnostic_path(path: str, settings: Settings) -> Path:
         raise PermissionError(f"Access to database files is blocked: {p.name}")
 
     return p
+
+
+# Keys in the download client settings JSON that hold an explicit directory override
+_ARR_DIRECTORY_KEYS = ("tvDirectory", "movieDirectory", "musicDirectory", "bookDirectory")
+
+
+def _check_download_path_match(
+    service: str,
+    service_dir: Path,
+    services_root: Path,
+    report: DiagnosticReport,
+) -> None:
+    """Compare arr service download path to sabnzbd complete_dir.
+
+    Reads sabnzbd's complete_dir from sabnzbd.ini and the directory override
+    from each SABnzbd download client configured in the arr service DB.
+    Flags a mismatch as a warning with a clear fix hint.
+
+    Silently skips if either config is absent or no SABnzbd client is found.
+    """
+    info = KNOWN_SERVICES.get(service)
+    if not info or not info.db_file:
+        return
+
+    db_path = service_dir / info.db_file
+    clients = read_download_clients(db_path)
+
+    sabnzbd_clients = [c for c in clients if c.implementation == "Sabnzbd" and c.enable]
+    if not sabnzbd_clients:
+        return
+
+    sabnzbd_dir = services_root / "sabnzbd"
+    complete_dir = read_sabnzbd_complete_dir(sabnzbd_dir)
+    if not complete_dir:
+        return
+
+    complete_dir_norm = complete_dir.rstrip("/\\")
+
+    for client in sabnzbd_clients:
+        for key in _ARR_DIRECTORY_KEYS:
+            arr_dir = str(client.settings.get(key) or "").strip()
+            if not arr_dir:
+                continue
+            arr_dir_norm = arr_dir.rstrip("/\\")
+            if arr_dir_norm != complete_dir_norm and not arr_dir_norm.startswith(complete_dir_norm):
+                report.warnings.append(
+                    Issue(
+                        severity="warning",
+                        category="path",
+                        message=(
+                            f"Download path mismatch for '{client.name}': "
+                            f"{service} expects '{arr_dir}' but sabnzbd "
+                            f"complete_dir is '{complete_dir}'"
+                        ),
+                        fix_hint=(
+                            f"Either update the {key} in {service} Settings → "
+                            f"Download Clients → {client.name} to match sabnzbd's "
+                            f"complete_dir ('{complete_dir}'), or configure a Remote "
+                            "Path Mapping if the paths differ due to Docker volume mounts."
+                        ),
+                    )
+                )
+            else:
+                report.ok.append(
+                    f"Download path matches: {service} '{arr_dir}' → sabnzbd '{complete_dir}'"
+                )
+
+    if report.warnings and report.status == "healthy":
+        report.status = "degraded"
 
 
 def _collect_running_names(containers: list[dict[str, Any]]) -> set[str]:
@@ -142,6 +213,8 @@ def register_diagnostic_tools(server: FastMCP, settings: Settings, client: Conta
             )
         else:
             report = run_diagnostics(service.lower(), p, info)
+            services_root = Path(settings.services_dir).resolve()
+            _check_download_path_match(service.lower(), p, services_root, report)
 
         return [TextContent(type="text", text=json.dumps(report.to_dict()))]
 
@@ -172,6 +245,7 @@ def register_diagnostic_tools(server: FastMCP, settings: Settings, client: Conta
                 continue
             info = KNOWN_SERVICES[svc.name]
             report = run_diagnostics(svc.name, Path(svc.service_dir), info)
+            _check_download_path_match(svc.name, Path(svc.service_dir), services_root, report)
             reports.append(report.to_dict())
             summary[report.status] = summary.get(report.status, 0) + 1
 

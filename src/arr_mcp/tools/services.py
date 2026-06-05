@@ -312,6 +312,18 @@ def read_indexers(db_path: Path) -> list[IndexerRecord]:
     ]
 
 
+def read_sabnzbd_complete_dir(sabnzbd_dir: Path) -> str | None:
+    """Return the complete_dir value from sabnzbd.ini, or None if unavailable."""
+    ini_path = sabnzbd_dir / "sabnzbd.ini"
+    if not ini_path.exists():
+        return None
+    try:
+        cfg = parse_ini_config(ini_path)
+        return cfg.get("misc", {}).get("complete_dir", "").strip() or None
+    except (configparser.Error, OSError):
+        return None
+
+
 def parse_xml_config(path: Path) -> dict[str, str]:
     """Parse an XML config file and return a flat dict of element tag → text."""
     try:
