@@ -6,6 +6,7 @@ import collections
 import configparser
 import json
 import logging
+import sqlite3
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -25,6 +26,7 @@ class ServiceInfo:
     port_xml_key: str | None
     default_port: int | None
     integration_keys: list[str]
+    db_file: str | None = None  # SQLite DB filename, e.g. "sonarr.db"
 
 
 KNOWN_SERVICES: dict[str, ServiceInfo] = {
@@ -35,6 +37,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key="Port",
         default_port=8989,
         integration_keys=["NzbgetUrl", "SabnzbdUrl"],
+        db_file="sonarr.db",
     ),
     "radarr": ServiceInfo(
         config_file="config.xml",
@@ -43,6 +46,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key="Port",
         default_port=7878,
         integration_keys=["NzbgetUrl", "SabnzbdUrl"],
+        db_file="radarr.db",
     ),
     "lidarr": ServiceInfo(
         config_file="config.xml",
@@ -51,6 +55,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key="Port",
         default_port=8686,
         integration_keys=[],
+        db_file="lidarr.db",
     ),
     "prowlarr": ServiceInfo(
         config_file="config.xml",
@@ -59,6 +64,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key="Port",
         default_port=9696,
         integration_keys=[],
+        db_file="prowlarr.db",
     ),
     "readarr": ServiceInfo(
         config_file="config.xml",
@@ -67,6 +73,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key="Port",
         default_port=8787,
         integration_keys=[],
+        db_file="readarr.db",
     ),
     "bazarr": ServiceInfo(
         config_file="config.yaml",
@@ -198,6 +205,113 @@ class ScannedService:
         }
 
 
+@dataclass
+class DownloadClientRecord:
+    """A download client row from the arr service database."""
+
+    id: int
+    name: str
+    implementation: str
+    settings: dict[str, object]
+    enable: bool
+
+    def to_dict(self) -> dict[str, object]:
+        """Serialise to a JSON-safe dict."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "implementation": self.implementation,
+            "settings": self.settings,
+            "enable": self.enable,
+        }
+
+
+@dataclass
+class IndexerRecord:
+    """An indexer row from the arr service database."""
+
+    id: int
+    name: str
+    implementation: str
+    enable: bool
+
+    def to_dict(self) -> dict[str, object]:
+        """Serialise to a JSON-safe dict."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "implementation": self.implementation,
+            "enable": self.enable,
+        }
+
+
+def _open_db_readonly(db_path: Path) -> sqlite3.Connection:
+    """Open a SQLite database in read-only mode using URI syntax."""
+    uri = f"file:{db_path.as_posix()}?mode=ro"
+    return sqlite3.connect(uri, uri=True, check_same_thread=False)
+
+
+def read_download_clients(db_path: Path) -> list[DownloadClientRecord]:
+    """Read the DownloadClients table from an arr service database.
+
+    Returns an empty list if the table does not exist or the DB is unavailable.
+    """
+    if not db_path.exists():
+        return []
+    try:
+        with _open_db_readonly(db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cur = conn.execute(
+                "SELECT Id, Name, Implementation, Settings, Enable FROM DownloadClients"
+            )
+            rows = cur.fetchall()
+    except sqlite3.OperationalError:
+        return []
+
+    result: list[DownloadClientRecord] = []
+    for row in rows:
+        try:
+            settings: dict[str, object] = json.loads(row["Settings"] or "{}")
+        except (json.JSONDecodeError, TypeError):
+            settings = {}
+        result.append(
+            DownloadClientRecord(
+                id=row["Id"],
+                name=row["Name"],
+                implementation=row["Implementation"],
+                settings=settings,
+                enable=bool(row["Enable"]),
+            )
+        )
+    return result
+
+
+def read_indexers(db_path: Path) -> list[IndexerRecord]:
+    """Read the Indexers table from an arr service database.
+
+    Returns an empty list if the table does not exist or the DB is unavailable.
+    """
+    if not db_path.exists():
+        return []
+    try:
+        with _open_db_readonly(db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cur = conn.execute("SELECT Id, Name, Implementation, Enable FROM Indexers")
+            rows = cur.fetchall()
+    except sqlite3.OperationalError:
+        return []
+
+    return [
+        IndexerRecord(
+            id=row["Id"],
+            name=row["Name"],
+            implementation=row["Implementation"],
+            enable=bool(row["Enable"]),
+        )
+        for row in rows
+    ]
+
+
 def parse_xml_config(path: Path) -> dict[str, str]:
     """Parse an XML config file and return a flat dict of element tag → text."""
     try:
@@ -266,6 +380,81 @@ def scan_log_errors(
 
     lower_patterns = [p.lower() for p in effective_patterns]
     return [line for line in tail if any(p in line.lower() for p in lower_patterns)]
+
+
+def _check_db_download_clients(
+    service: str,
+    db_path: Path,
+    issues: list[Issue],
+    warnings: list[Issue],
+    ok: list[str],
+) -> None:
+    """Append download client findings to issues/warnings/ok lists."""
+    if not db_path.exists():
+        return
+
+    clients = read_download_clients(db_path)
+    if not clients:
+        warnings.append(
+            Issue(
+                severity="warning",
+                category="integration",
+                message="No download clients configured in the database",
+                fix_hint=(f"Add a download client in {service} Settings → Download Clients."),
+            )
+        )
+        return
+
+    enabled = [c for c in clients if c.enable]
+    disabled = [c for c in clients if not c.enable]
+
+    for client in enabled:
+        ok.append(f"Download client enabled: {client.name} ({client.implementation})")
+    for client in disabled:
+        warnings.append(
+            Issue(
+                severity="warning",
+                category="integration",
+                message=f"Download client is disabled: {client.name} ({client.implementation})",
+                fix_hint=(f"Enable the download client in {service} Settings → Download Clients."),
+            )
+        )
+
+
+def _check_db_indexers(
+    service: str,
+    db_path: Path,
+    warnings: list[Issue],
+    ok: list[str],
+) -> None:
+    """Append indexer findings to warnings/ok lists."""
+    if not db_path.exists():
+        return
+
+    indexers = read_indexers(db_path)
+    if not indexers:
+        warnings.append(
+            Issue(
+                severity="warning",
+                category="integration",
+                message="No indexers configured in the database",
+                fix_hint=(f"Add an indexer in {service} Settings → Indexers."),
+            )
+        )
+        return
+
+    enabled = [i for i in indexers if i.enable]
+    for idx in enabled:
+        ok.append(f"Indexer enabled: {idx.name} ({idx.implementation})")
+    if not enabled:
+        warnings.append(
+            Issue(
+                severity="warning",
+                category="integration",
+                message="All configured indexers are disabled",
+                fix_hint=f"Enable at least one indexer in {service} Settings → Indexers.",
+            )
+        )
 
 
 def _compute_status(issues: list[Issue], warnings: list[Issue]) -> str:
@@ -406,6 +595,11 @@ def run_diagnostics(service: str, service_dir: Path, info: ServiceInfo) -> Diagn
 
     else:
         ok.append(f"Config file present: {info.config_file}")
+
+    if info.db_file:
+        db_path = service_dir / info.db_file
+        _check_db_download_clients(service, db_path, issues, warnings, ok)
+        _check_db_indexers(service, db_path, warnings, ok)
 
     log_dir = service_dir / info.log_dir
     error_lines = scan_log_errors(log_dir)
