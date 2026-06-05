@@ -111,6 +111,7 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
   sleep 1
 
   # Write env file for the test instance
+  USER_UID=\$(id -u)
   {
     echo "ARR_MCP_PORT=$TEST_PORT"
     echo "ARR_MCP_API_KEY=$TEST_API_KEY"
@@ -118,6 +119,7 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
     echo "ARR_MCP_MEDIA_DIR=\$HOME/arr-mcp-test/test-stack/data"
     echo "ARR_MCP_CONTAINER_RUNTIME=podman"
     echo "ARR_MCP_COMPOSE_DIR=\$HOME/arr-mcp-test/test-stack"
+    echo "ARR_MCP_SOCKET_PATH=unix:///run/user/\${USER_UID}/podman/podman.sock"
     echo "ARR_MCP_DASHBOARD_PUBLIC=true"
   } > .env.test
 
