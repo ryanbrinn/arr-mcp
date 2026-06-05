@@ -30,6 +30,7 @@ nav:
   - Home: index.md
   - Roadmap: roadmap.md
   - Getting Started: getting-started.md
+  - Contributing: contributing.md
   - Configuration: configuration.md
   - Tools Reference: tools.md
   - Architecture: architecture.md

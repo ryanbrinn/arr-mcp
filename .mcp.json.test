@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "arr-mcp": {
+      "type": "http",
+      "url": "http://192.168.2.15:8082/mcp",
+      "headers": {
+        "Authorization": "Bearer test-key-local"
+      }
+    }
+  }
+}
