@@ -71,6 +71,7 @@ ssh "$TEST_USER@$TEST_HOST" "
 
   # Install deps
   command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
+  export PATH="$HOME/.local/bin:$PATH"
   uv sync --quiet
 
   # Ensure test stack data dirs exist
