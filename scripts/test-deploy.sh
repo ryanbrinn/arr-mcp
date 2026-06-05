@@ -82,6 +82,7 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
     cd \$HOME/arr-mcp-test
     git fetch --all --prune
   else
+    rm -rf \$HOME/arr-mcp-test
     git clone $REPO_URL \$HOME/arr-mcp-test
     cd \$HOME/arr-mcp-test
   fi
