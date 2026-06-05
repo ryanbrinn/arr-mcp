@@ -15,6 +15,7 @@
 set -euo pipefail
 
 TEST_HOST="${TEST_HOST:-192.168.2.15}"
+TEST_USER="${TEST_USER:-ryanbrinn}"
 TEST_PORT="${TEST_PORT:-8082}"
 TEST_DIR="${TEST_DIR:-\$HOME/arr-mcp-test}"
 TEST_API_KEY="${TEST_API_KEY:-test-key-local}"
@@ -34,7 +35,7 @@ done
 
 if $STOP; then
   echo "Stopping test instance on $TEST_HOST..."
-  ssh "$TEST_HOST" "
+  ssh "$TEST_USER@$TEST_HOST" "
     set -e
     cd $TEST_DIR 2>/dev/null || exit 0
     pkill -f 'arr-mcp.*8082' 2>/dev/null || true
@@ -52,7 +53,7 @@ fi
 
 echo "Deploying branch '$BRANCH' to $TEST_HOST:$TEST_PORT..."
 
-ssh "$TEST_HOST" "
+ssh "$TEST_USER@$TEST_HOST" "
   set -e
 
   # Clone or update the repo
@@ -105,7 +106,7 @@ EOF
     echo \"  Dashboard : http://$TEST_HOST:$TEST_PORT/\"
     echo \"  MCP URL   : http://$TEST_HOST:$TEST_PORT/mcp\"
     echo \"  API key   : $TEST_API_KEY\"
-    echo \"  Logs      : ssh $TEST_HOST tail -f /tmp/arr-mcp-test.log\"
+    echo \"  Logs      : ssh $TEST_USER@$TEST_HOST tail -f /tmp/arr-mcp-test.log\"
     echo ''
     echo 'Swap .mcp.json.test into .mcp.json to point Claude at the test instance.'
     echo 'To stop: scripts/test-deploy.sh --stop'
