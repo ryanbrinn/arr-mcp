@@ -25,6 +25,7 @@ class ServiceInfo:
     port_xml_key: str | None
     default_port: int | None
     integration_keys: list[str]
+    api_health_path: str | None = None  # lightweight health-check path
 
 
 KNOWN_SERVICES: dict[str, ServiceInfo] = {
@@ -35,6 +36,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key="Port",
         default_port=8989,
         integration_keys=["NzbgetUrl", "SabnzbdUrl"],
+        api_health_path="/api/v3/system/status",
     ),
     "radarr": ServiceInfo(
         config_file="config.xml",
@@ -43,6 +45,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key="Port",
         default_port=7878,
         integration_keys=["NzbgetUrl", "SabnzbdUrl"],
+        api_health_path="/api/v3/system/status",
     ),
     "lidarr": ServiceInfo(
         config_file="config.xml",
@@ -51,6 +54,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key="Port",
         default_port=8686,
         integration_keys=[],
+        api_health_path="/api/v1/system/status",
     ),
     "prowlarr": ServiceInfo(
         config_file="config.xml",
@@ -59,6 +63,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key="Port",
         default_port=9696,
         integration_keys=[],
+        api_health_path="/api/v1/system/status",
     ),
     "readarr": ServiceInfo(
         config_file="config.xml",
@@ -67,6 +72,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key="Port",
         default_port=8787,
         integration_keys=[],
+        api_health_path="/api/v1/system/status",
     ),
     "bazarr": ServiceInfo(
         config_file="config.yaml",
@@ -75,6 +81,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key=None,
         default_port=6767,
         integration_keys=[],
+        api_health_path="/api/system/status",
     ),
     "sabnzbd": ServiceInfo(
         config_file="sabnzbd.ini",
@@ -83,6 +90,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key=None,
         default_port=8080,
         integration_keys=[],
+        api_health_path="/api?mode=version",
     ),
     "plex": ServiceInfo(
         config_file="Preferences.xml",
@@ -91,6 +99,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key=None,
         default_port=32400,
         integration_keys=[],
+        api_health_path="/identity",
     ),
     "jellyfin": ServiceInfo(
         config_file="system.xml",
@@ -99,6 +108,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key=None,
         default_port=8096,
         integration_keys=[],
+        api_health_path="/health",
     ),
     "overseerr": ServiceInfo(
         config_file="settings.json",
@@ -107,6 +117,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key=None,
         default_port=5055,
         integration_keys=[],
+        api_health_path="/api/v1/status",
     ),
     "tautulli": ServiceInfo(
         config_file="config.ini",
@@ -115,6 +126,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key=None,
         default_port=8181,
         integration_keys=[],
+        api_health_path="/api/v2?cmd=get_server_info",
     ),
     "qbittorrent": ServiceInfo(
         config_file="qBittorrent.conf",
@@ -123,6 +135,7 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         port_xml_key=None,
         default_port=8080,
         integration_keys=[],
+        api_health_path="/api/v2/app/version",
     ),
     "nzbget": ServiceInfo(
         config_file="nzbget.conf",
@@ -133,6 +146,61 @@ KNOWN_SERVICES: dict[str, ServiceInfo] = {
         integration_keys=[],
     ),
 }
+
+
+@dataclass
+class ApiReachabilityResult:
+    """Result of a lightweight HTTP reachability check against a service API."""
+
+    reachable: bool
+    status_code: int | None  # HTTP status if a response was received
+    error: str | None  # connection error message if no response received
+
+    def to_dict(self) -> dict[str, object]:
+        """Serialise to a JSON-safe dict."""
+        return {
+            "reachable": self.reachable,
+            "status_code": self.status_code,
+            "error": self.error,
+        }
+
+
+def extract_service_port(service_dir: Path, info: ServiceInfo) -> int | None:
+    """Return the port a service is listening on, from config file or default."""
+    if info.port_xml_key and info.config_format == "xml":
+        config_path = service_dir / info.config_file
+        try:
+            cfg = parse_xml_config(config_path)
+            raw = cfg.get(info.port_xml_key, "").strip()
+            if raw.isdigit():
+                return int(raw)
+        except (ValueError, OSError):
+            pass
+    return info.default_port
+
+
+def extract_xml_api_key(service_dir: Path, info: ServiceInfo) -> str:
+    """Return the ApiKey from an XML config file, or empty string."""
+    if info.config_format != "xml":
+        return ""
+    config_path = service_dir / info.config_file
+    try:
+        cfg = parse_xml_config(config_path)
+        return cfg.get("ApiKey", "").strip()
+    except (ValueError, OSError):
+        return ""
+
+
+def extract_ini_api_key(service_dir: Path, info: ServiceInfo, section: str, key: str) -> str:
+    """Return an API key from a specific INI section/key, or empty string."""
+    if info.config_format != "ini":
+        return ""
+    config_path = service_dir / info.config_file
+    try:
+        cfg = parse_ini_config(config_path)
+        return cfg.get(section, {}).get(key, "").strip()
+    except (configparser.Error, OSError):
+        return ""
 
 
 @dataclass

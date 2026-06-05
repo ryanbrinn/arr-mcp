@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import httpx
 import yaml
 from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent
@@ -17,9 +18,14 @@ from arr_mcp.config import Settings
 from arr_mcp.runtime.client import ContainerClient
 from arr_mcp.tools.services import (
     KNOWN_SERVICES,
+    ApiReachabilityResult,
     DiagnosticReport,
     Issue,
     ScannedService,
+    ServiceInfo,
+    extract_ini_api_key,
+    extract_service_port,
+    extract_xml_api_key,
     run_diagnostics,
 )
 
@@ -47,6 +53,101 @@ def _check_diagnostic_path(path: str, settings: Settings) -> Path:
         raise PermissionError(f"Access to database files is blocked: {p.name}")
 
     return p
+
+
+_API_CHECK_TIMEOUT = 2.5  # seconds
+
+
+async def check_api_reachability(
+    service: str,
+    service_dir: Path,
+    info: ServiceInfo,
+) -> ApiReachabilityResult:
+    """Attempt a lightweight HTTP call to the service API.
+
+    Uses the API key from the config file for auth. Times out after 2.5s.
+    Returns an ApiReachabilityResult regardless of outcome — never raises.
+    """
+    if not info.api_health_path:
+        return ApiReachabilityResult(reachable=False, status_code=None, error="no health path")
+
+    port = extract_service_port(service_dir, info)
+    if not port:
+        return ApiReachabilityResult(reachable=False, status_code=None, error="unknown port")
+
+    url = f"http://localhost:{port}{info.api_health_path}"
+    headers: dict[str, str] = {}
+    params: dict[str, str] = {}
+
+    if info.config_format == "xml":
+        api_key = extract_xml_api_key(service_dir, info)
+        if api_key:
+            headers["X-Api-Key"] = api_key
+    elif service == "sabnzbd":
+        api_key = extract_ini_api_key(service_dir, info, "misc", "api_key")
+        if api_key:
+            params["apikey"] = api_key
+    elif service == "tautulli":
+        api_key = extract_ini_api_key(service_dir, info, "General", "api_key")
+        if api_key:
+            params["apikey"] = api_key
+
+    try:
+        async with httpx.AsyncClient(timeout=_API_CHECK_TIMEOUT) as client:
+            resp = await client.get(url, headers=headers, params=params)
+        return ApiReachabilityResult(
+            reachable=resp.status_code < 500,
+            status_code=resp.status_code,
+            error=None,
+        )
+    except httpx.TimeoutException:
+        return ApiReachabilityResult(reachable=False, status_code=None, error="timeout")
+    except httpx.ConnectError:
+        return ApiReachabilityResult(reachable=False, status_code=None, error="connection refused")
+    except Exception as exc:  # noqa: BLE001
+        return ApiReachabilityResult(reachable=False, status_code=None, error=str(exc))
+
+
+def _apply_api_findings(
+    service: str,
+    result: ApiReachabilityResult,
+    report: DiagnosticReport,
+) -> None:
+    """Append API reachability findings to an existing DiagnosticReport in place."""
+    if result.error == "no health path":
+        return
+
+    if result.reachable:
+        code = result.status_code
+        if code == 401:
+            report.warnings.append(
+                Issue(
+                    severity="warning",
+                    category="api",
+                    message="API is reachable but returned 401 — API key may be incorrect",
+                    fix_hint=(
+                        f"Verify the ApiKey in {service}'s config matches what is configured."
+                    ),
+                )
+            )
+        else:
+            report.ok.append(f"API reachable (HTTP {code})")
+    else:
+        report.issues.append(
+            Issue(
+                severity="error",
+                category="api",
+                message=f"API is not reachable: {result.error}",
+                fix_hint=(
+                    f"Check that the {service} container is running and the port is not blocked."
+                ),
+            )
+        )
+    # Recompute status after adding API findings
+    if any(i.severity == "error" for i in report.issues):
+        report.status = "critical"
+    elif report.warnings and report.status == "healthy":
+        report.status = "degraded"
 
 
 def _collect_running_names(containers: list[dict[str, Any]]) -> set[str]:
@@ -142,6 +243,8 @@ def register_diagnostic_tools(server: FastMCP, settings: Settings, client: Conta
             )
         else:
             report = run_diagnostics(service.lower(), p, info)
+            api_result = await check_api_reachability(service.lower(), p, info)
+            _apply_api_findings(service.lower(), api_result, report)
 
         return [TextContent(type="text", text=json.dumps(report.to_dict()))]
 
@@ -172,6 +275,8 @@ def register_diagnostic_tools(server: FastMCP, settings: Settings, client: Conta
                 continue
             info = KNOWN_SERVICES[svc.name]
             report = run_diagnostics(svc.name, Path(svc.service_dir), info)
+            api_result = await check_api_reachability(svc.name, Path(svc.service_dir), info)
+            _apply_api_findings(svc.name, api_result, report)
             reports.append(report.to_dict())
             summary[report.status] = summary.get(report.status, 0) + 1
 

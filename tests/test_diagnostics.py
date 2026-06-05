@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from mcp.server.fastmcp import FastMCP
@@ -12,10 +12,23 @@ from mcp.server.fastmcp.exceptions import ToolError
 
 from arr_mcp.config import Settings
 from arr_mcp.tools.diagnostics import _check_diagnostic_path, register_diagnostic_tools
+from arr_mcp.tools.services import ApiReachabilityResult
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+_API_SKIP = ApiReachabilityResult(reachable=False, status_code=None, error="no health path")
+
+
+@pytest.fixture(autouse=True)
+def no_api_calls():
+    """Patch out real HTTP calls so filesystem-only tests stay pure."""
+    with patch(
+        "arr_mcp.tools.diagnostics.check_api_reachability",
+        new=AsyncMock(return_value=_API_SKIP),
+    ):
+        yield
 
 
 @pytest.fixture
