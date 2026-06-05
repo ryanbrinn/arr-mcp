@@ -40,7 +40,7 @@ def _check_diagnostic_path(path: str, settings: Settings) -> Path:
         raise PermissionError(f"Invalid path: {exc}") from exc
 
     services_root = Path(settings.services_dir).resolve()
-    if not str(p).startswith(str(services_root) + "/") and p != services_root:
+    if not (p == services_root or p.is_relative_to(services_root)):
         raise PermissionError(f"Path not in services_dir: {p}")
 
     if p.suffix in _BLOCKED_DB_SUFFIXES:
