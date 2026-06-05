@@ -70,7 +70,7 @@ ssh "$TEST_USER@$TEST_HOST" "
   git pull origin '$BRANCH' 2>/dev/null || true
 
   # Install deps
-  command -v uv >/dev/null 2>&1 || pip install --quiet uv
+  command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
   uv sync --quiet
 
   # Ensure test stack data dirs exist
