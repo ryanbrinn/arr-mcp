@@ -3,11 +3,17 @@
 # Started automatically by scripts/test-deploy.sh — do not run on the production host directly.
 
 services:
-  test-nginx:
-    image: nginx:alpine
-    container_name: test-nginx
+  test-sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: test-sabnzbd
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    volumes:
+      - ./data/sabnzbd:/config
     ports:
-      - "18080:80"
+      - "18080:8080"
     restart: unless-stopped
 
   test-sonarr:

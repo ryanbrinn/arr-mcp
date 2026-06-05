@@ -1,0 +1,14 @@
+<Config>
+  <LogLevel>Info</LogLevel>
+  <ApiKey>testsonarrapikey1234567890abcdef</ApiKey>
+  <Port>8989</Port>
+  <BindAddress>*</BindAddress>
+  <SslPort>9898</SslPort>
+  <EnableSsl>False</EnableSsl>
+  <LaunchBrowser>True</LaunchBrowser>
+  <AuthenticationMethod>None</AuthenticationMethod>
+  <Branch>main</Branch>
+  <UpdateMechanism>Docker</UpdateMechanism>
+  <SabnzbdUrl>http://test-sabnzbd:8080</SabnzbdUrl>
+  <SabnzbdApiKey>testsabnzbdapikey1234567890abcd</SabnzbdApiKey>
+</Config>
