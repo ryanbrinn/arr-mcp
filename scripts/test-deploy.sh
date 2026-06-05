@@ -55,7 +55,7 @@ if $CLEAN; then
       cd \$HOME/arr-mcp-test
       podman compose -f test-stack/compose.yaml down --volumes 2>/dev/null || true
       cd \$HOME
-      sudo rm -rf \$HOME/arr-mcp-test
+      podman unshare rm -rf \$HOME/arr-mcp-test
     fi
     rm -f /tmp/arr-mcp-test.log /tmp/arr-mcp-test.pid
     echo 'Test environment fully removed.'
