@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import httpx
 import yaml
 from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent
@@ -18,8 +19,10 @@ from arr_mcp.runtime.client import ContainerClient
 from arr_mcp.tools.services import (
     KNOWN_SERVICES,
     DiagnosticReport,
+    DownloadClientRecord,
     Issue,
     ScannedService,
+    read_download_clients,
     run_diagnostics,
 )
 
@@ -47,6 +50,143 @@ def _check_diagnostic_path(path: str, settings: Settings) -> Path:
         raise PermissionError(f"Access to database files is blocked: {p.name}")
 
     return p
+
+
+_DOWNLOAD_CLIENT_TIMEOUT = 2.5  # seconds
+
+# Paths used to probe each download client implementation
+_DOWNLOAD_CLIENT_PROBE: dict[str, str] = {
+    "Sabnzbd": "/api?mode=version",
+    "NzbGet": "/jsonrpc",
+    "qBittorrent": "/api/v2/app/version",
+    "Transmission": "/transmission/rpc",
+    "Deluge": "/json",
+    "uTorrent": "/gui/token.html",
+    "Aria2": "/jsonrpc",
+    "Flood": "/",
+    "Hadouken": "/",
+}
+
+
+def _extract_download_client_url(client: DownloadClientRecord) -> str | None:
+    """Build a base URL from a download client's settings JSON blob."""
+    s = client.settings
+    host = str(s.get("host") or "").strip()
+    port_raw = s.get("port")
+    url_base = str(s.get("urlBase") or "").strip().rstrip("/")
+
+    if not host:
+        return None
+
+    try:
+        port = int(port_raw) if port_raw is not None else None
+    except (TypeError, ValueError):
+        port = None
+
+    use_ssl = bool(s.get("useSsl") or s.get("useSSL"))
+    scheme = "https" if use_ssl else "http"
+    if port:
+        base = f"{scheme}://{host}:{port}{url_base}"
+    else:
+        base = f"{scheme}://{host}{url_base}"
+    return base
+
+
+async def check_download_client_reachability(
+    client: DownloadClientRecord,
+) -> tuple[bool, int | None, str | None]:
+    """Attempt a lightweight HTTP probe to a configured download client.
+
+    Returns (reachable, status_code, error).
+    A 401 is considered reachable (service is up, auth may be wrong).
+    A 5xx or connection failure is unreachable.
+    Never raises.
+    """
+    base_url = _extract_download_client_url(client)
+    if not base_url:
+        return False, None, "missing host in download client settings"
+
+    probe_path = _DOWNLOAD_CLIENT_PROBE.get(client.implementation, "/")
+    # For SABnzbd add the API key to the version probe if available
+    api_key = str(client.settings.get("apiKey") or "").strip()
+    if client.implementation == "Sabnzbd" and api_key:
+        probe_path = f"/api?mode=version&apikey={api_key}"
+
+    url = base_url + probe_path
+    try:
+        async with httpx.AsyncClient(
+            timeout=_DOWNLOAD_CLIENT_TIMEOUT, follow_redirects=True
+        ) as http:
+            resp = await http.get(url)
+        return resp.status_code < 500, resp.status_code, None
+    except httpx.TimeoutException:
+        return False, None, "timeout"
+    except httpx.ConnectError:
+        return False, None, "connection refused"
+    except Exception as exc:  # noqa: BLE001
+        return False, None, str(exc)
+
+
+async def _check_inter_service_reachability(
+    service: str,
+    service_dir: Path,
+    report: DiagnosticReport,
+) -> None:
+    """Read download clients from the DB and probe each one.
+
+    Appends findings to report in place. Silently skips if DB is absent.
+    """
+    info = KNOWN_SERVICES.get(service)
+    if not info or not info.db_file:
+        return
+
+    db_path = service_dir / info.db_file
+    clients = read_download_clients(db_path)
+
+    for client in clients:
+        if not client.enable:
+            continue  # already flagged by run_diagnostics
+
+        reachable, status_code, error = await check_download_client_reachability(client)
+        if reachable:
+            if status_code == 401:
+                report.warnings.append(
+                    Issue(
+                        severity="warning",
+                        category="inter-service",
+                        message=(
+                            f"Download client '{client.name}' is reachable but returned 401 "
+                            "— API key may be wrong"
+                        ),
+                        fix_hint=(
+                            f"Verify the API key for '{client.name}' in "
+                            f"{service} Settings → Download Clients."
+                        ),
+                    )
+                )
+            else:
+                report.ok.append(f"Download client reachable: {client.name} (HTTP {status_code})")
+        else:
+            base_url = _extract_download_client_url(client) or "unknown URL"
+            report.issues.append(
+                Issue(
+                    severity="error",
+                    category="inter-service",
+                    message=(
+                        f"Download client '{client.name}' is not reachable at {base_url}: {error}"
+                    ),
+                    fix_hint=(
+                        f"Check that the '{client.name}' container is running and that "
+                        f"the host/port in {service} Settings → Download Clients is correct."
+                    ),
+                )
+            )
+
+    # Recompute status
+    if any(i.severity == "error" for i in report.issues):
+        report.status = "critical"
+    elif report.warnings and report.status == "healthy":
+        report.status = "degraded"
 
 
 def _collect_running_names(containers: list[dict[str, Any]]) -> set[str]:
@@ -142,6 +282,7 @@ def register_diagnostic_tools(server: FastMCP, settings: Settings, client: Conta
             )
         else:
             report = run_diagnostics(service.lower(), p, info)
+            await _check_inter_service_reachability(service.lower(), p, report)
 
         return [TextContent(type="text", text=json.dumps(report.to_dict()))]
 
@@ -172,6 +313,7 @@ def register_diagnostic_tools(server: FastMCP, settings: Settings, client: Conta
                 continue
             info = KNOWN_SERVICES[svc.name]
             report = run_diagnostics(svc.name, Path(svc.service_dir), info)
+            await _check_inter_service_reachability(svc.name, Path(svc.service_dir), report)
             reports.append(report.to_dict())
             summary[report.status] = summary.get(report.status, 0) + 1
 
