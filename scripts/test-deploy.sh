@@ -90,6 +90,10 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
   git checkout '$BRANCH'
   git pull origin '$BRANCH' 2>/dev/null || true
 
+  # Always use test-stack from main — it may not exist on the branch under test
+  git fetch origin main
+  git checkout origin/main -- test-stack/
+
   # Install uv if missing
   command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
 
