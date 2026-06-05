@@ -123,6 +123,11 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
     rm -f /tmp/arr-mcp-test.pid
   fi
   pkill -f 'arr_mcp.server' 2>/dev/null || true
+  # Kill whatever is holding the port directly
+  PORT_PID=\$(ss -tlnp | grep ':$TEST_PORT ' | grep -oP 'pid=\K[0-9]+' | head -1)
+  if [ -n "\$PORT_PID" ]; then
+    kill "\$PORT_PID" 2>/dev/null || true
+  fi
   for i in \$(seq 1 10); do
     ss -tlnp | grep -q ':$TEST_PORT ' || break
     sleep 1
