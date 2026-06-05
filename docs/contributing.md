@@ -150,17 +150,39 @@ The test instance has three throwaway containers running — `test-nginx`, `test
 ssh 192.168.2.15 "tail -f /tmp/arr-mcp-test.log"
 ```
 
-**5. Restore production config and stop the test instance**
+**5. Restore production config and tear down the test instance**
 
 ```bash
 # Restore production MCP config
 cp .mcp.json.prod .mcp.json
-
-# Stop the test instance and tear down the test stack
-make test-stop
 ```
 
 Reload the MCP connection in your Claude client to reconnect to production.
+
+Then choose how much to clean up:
+
+```bash
+# Stop arr-mcp and bring containers down — leaves ~/arr-mcp-test intact for next run
+bash scripts/test-deploy.sh --stop
+
+# Full teardown — removes containers, volumes, logs, and ~/arr-mcp-test entirely
+bash scripts/test-deploy.sh --clean
+```
+
+Use `--stop` when you plan to test the same branch again shortly. Use `--clean` when you're done and want nothing left on the server.
+
+---
+
+## Test environment reference
+
+| Command | What it does |
+|---|---|
+| `bash scripts/test-deploy.sh BRANCH=foo` | Deploy branch, start test stack + arr-mcp on `:8082` |
+| `bash scripts/test-deploy.sh --stop` | Kill arr-mcp, bring containers down |
+| `bash scripts/test-deploy.sh --clean` | Full teardown — removes everything from the server |
+
+!!! note "No `make` on Windows"
+    If you're running from a Windows terminal, use `bash scripts/test-deploy.sh` directly. `make` targets work from inside the dev container or a Linux/macOS terminal.
 
 ---
 
