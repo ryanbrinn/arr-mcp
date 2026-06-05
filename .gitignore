@@ -10,3 +10,4 @@ dist/
 .env.test
 test-stack/data/
 .devcontainer/devcontainer-lock.json
+.mcp.json.prod
