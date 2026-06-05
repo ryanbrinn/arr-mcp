@@ -121,7 +121,7 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
     echo "ARR_MCP_COMPOSE_DIR=\$HOME/arr-mcp-test/test-stack"
     echo "ARR_MCP_SOCKET_PATH=unix:///run/user/\${USER_UID}/podman/podman.sock"
     echo "ARR_MCP_DASHBOARD_PUBLIC=true"
-  } > .env.test
+  } > .env
 
   # Start arr-mcp in the background
   nohup uv run arr-mcp > /tmp/arr-mcp-test.log 2>&1 &
