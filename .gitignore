@@ -9,3 +9,4 @@ dist/
 .mcp.json
 .env.test
 test-stack/data/
+.devcontainer/devcontainer-lock.json
