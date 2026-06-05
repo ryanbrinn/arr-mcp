@@ -128,11 +128,12 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
     echo "ARR_MCP_CONTAINER_RUNTIME=podman"
     echo "ARR_MCP_COMPOSE_DIR=\$HOME/arr-mcp-test/test-stack"
     echo "ARR_MCP_SOCKET_PATH=unix:///run/user/\${USER_UID}/podman/podman.sock"
+    echo "XDG_RUNTIME_DIR=/run/user/\${USER_UID}"
     echo "ARR_MCP_DASHBOARD_PUBLIC=true"
   } > .env
 
   # Start arr-mcp in the background
-  nohup uv run arr-mcp > /tmp/arr-mcp-test.log 2>&1 &
+  nohup env XDG_RUNTIME_DIR=/run/user/\${USER_UID} uv run arr-mcp > /tmp/arr-mcp-test.log 2>&1 &
   echo \$! > /tmp/arr-mcp-test.pid
 
   sleep 2
