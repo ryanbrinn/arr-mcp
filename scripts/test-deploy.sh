@@ -107,9 +107,16 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
   podman compose -f test-stack/compose.yaml up -d
   echo 'Test stack containers started.'
 
-  # Kill any existing test arr-mcp instance
-  pkill -f 'arr-mcp.*$TEST_PORT' 2>/dev/null || true
-  sleep 1
+  # Kill any existing test arr-mcp instance and wait for port to free
+  if [ -f /tmp/arr-mcp-test.pid ]; then
+    kill \$(cat /tmp/arr-mcp-test.pid) 2>/dev/null || true
+    rm -f /tmp/arr-mcp-test.pid
+  fi
+  pkill -f 'arr_mcp.server' 2>/dev/null || true
+  for i in \$(seq 1 10); do
+    ss -tlnp | grep -q ':$TEST_PORT ' || break
+    sleep 1
+  done
 
   # Write env file for the test instance
   USER_UID=\$(id -u)
