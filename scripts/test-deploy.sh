@@ -7,7 +7,7 @@
 #
 # Prerequisites:
 #   - SSH key access to TEST_HOST
-#   - Docker Compose available on TEST_HOST
+#   - Podman available on TEST_HOST
 #
 # To stop the test instance:       scripts/test-deploy.sh --stop
 # To stop and remove everything:   scripts/test-deploy.sh --clean
@@ -40,7 +40,7 @@ if $STOP; then
   ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
     pkill -f 'arr-mcp.*$TEST_PORT' 2>/dev/null || true
     cd \$HOME/arr-mcp-test 2>/dev/null || exit 0
-    docker compose -f test-stack/compose.yaml down 2>/dev/null || true
+    podman compose -f test-stack/compose.yaml down 2>/dev/null || true
     echo 'Test instance stopped.'
 ENDSSH
   exit 0
@@ -53,7 +53,7 @@ if $CLEAN; then
     pkill -f 'arr-mcp.*$TEST_PORT' 2>/dev/null || true
     if [ -d \$HOME/arr-mcp-test ]; then
       cd \$HOME/arr-mcp-test
-      docker compose -f test-stack/compose.yaml down --volumes 2>/dev/null || true
+      podman compose -f test-stack/compose.yaml down --volumes 2>/dev/null || true
       cd \$HOME
       rm -rf \$HOME/arr-mcp-test
     fi
@@ -99,7 +99,7 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
   mkdir -p test-stack/data/sonarr test-stack/data/radarr
 
   # Start test stack containers
-  docker compose -f test-stack/compose.yaml up -d
+  podman compose -f test-stack/compose.yaml up -d
   echo 'Test stack containers started.'
 
   # Kill any existing test arr-mcp instance
@@ -112,7 +112,7 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
     echo "ARR_MCP_API_KEY=$TEST_API_KEY"
     echo "ARR_MCP_SERVICES_DIR=\$HOME/arr-mcp-test/test-stack/data"
     echo "ARR_MCP_MEDIA_DIR=\$HOME/arr-mcp-test/test-stack/data"
-    echo "ARR_MCP_CONTAINER_RUNTIME=docker-compose"
+    echo "ARR_MCP_CONTAINER_RUNTIME=podman"
     echo "ARR_MCP_COMPOSE_DIR=\$HOME/arr-mcp-test/test-stack"
     echo "ARR_MCP_DASHBOARD_PUBLIC=true"
   } > .env.test
