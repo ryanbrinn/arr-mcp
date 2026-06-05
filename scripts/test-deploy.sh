@@ -51,12 +51,13 @@ if $CLEAN; then
   echo "Cleaning up test environment on $TEST_HOST..."
   ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
     USER_UID=\$(id -u)
+    export XDG_RUNTIME_DIR=/run/user/\${USER_UID}
     pkill -f 'arr-mcp.*$TEST_PORT' 2>/dev/null || true
     if [ -d \$HOME/arr-mcp-test ]; then
       cd \$HOME/arr-mcp-test
       podman compose -f test-stack/compose.yaml down --volumes 2>/dev/null || true
       cd \$HOME
-      XDG_RUNTIME_DIR=/run/user/\${USER_UID} podman unshare rm -rf \$HOME/arr-mcp-test 2>/dev/null || rm -rf \$HOME/arr-mcp-test
+      podman unshare rm -rf \$HOME/arr-mcp-test 2>/dev/null || rm -rf \$HOME/arr-mcp-test
     fi
     rm -f /tmp/arr-mcp-test.log /tmp/arr-mcp-test.pid
     echo 'Test environment fully removed.'
@@ -76,14 +77,16 @@ echo "Deploying branch '$BRANCH' to $TEST_USER@$TEST_HOST:$TEST_PORT..."
 # Variables escaped (\$HOME, \$PATH) expand on the remote server.
 ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
   set -e
+  USER_UID=\$(id -u)
   export PATH="\$HOME/.local/bin:\$PATH"
+  export XDG_RUNTIME_DIR=/run/user/\${USER_UID}
 
   # Clone or update the repo
   if [ -d \$HOME/arr-mcp-test/.git ]; then
     cd \$HOME/arr-mcp-test
     git fetch --all --prune
   else
-    XDG_RUNTIME_DIR=/run/user/\${USER_UID} podman unshare rm -rf \$HOME/arr-mcp-test 2>/dev/null || rm -rf \$HOME/arr-mcp-test
+    podman unshare rm -rf \$HOME/arr-mcp-test 2>/dev/null || rm -rf \$HOME/arr-mcp-test
     git clone $REPO_URL \$HOME/arr-mcp-test
     cd \$HOME/arr-mcp-test
   fi
