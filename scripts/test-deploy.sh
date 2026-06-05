@@ -102,7 +102,8 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
   # Ensure test stack data dirs exist
   mkdir -p test-stack/data/sonarr test-stack/data/radarr
 
-  # Start test stack containers
+  # Start test stack containers (bring down first to ensure clean state)
+  podman compose -f test-stack/compose.yaml down 2>/dev/null || true
   podman compose -f test-stack/compose.yaml up -d
   echo 'Test stack containers started.'
 
