@@ -50,12 +50,13 @@ fi
 if $CLEAN; then
   echo "Cleaning up test environment on $TEST_HOST..."
   ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
+    USER_UID=\$(id -u)
     pkill -f 'arr-mcp.*$TEST_PORT' 2>/dev/null || true
     if [ -d \$HOME/arr-mcp-test ]; then
       cd \$HOME/arr-mcp-test
       podman compose -f test-stack/compose.yaml down --volumes 2>/dev/null || true
       cd \$HOME
-      rm -rf \$HOME/arr-mcp-test
+      XDG_RUNTIME_DIR=/run/user/\${USER_UID} podman unshare rm -rf \$HOME/arr-mcp-test 2>/dev/null || rm -rf \$HOME/arr-mcp-test
     fi
     rm -f /tmp/arr-mcp-test.log /tmp/arr-mcp-test.pid
     echo 'Test environment fully removed.'
@@ -82,7 +83,7 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
     cd \$HOME/arr-mcp-test
     git fetch --all --prune
   else
-    rm -rf \$HOME/arr-mcp-test
+    XDG_RUNTIME_DIR=/run/user/\${USER_UID} podman unshare rm -rf \$HOME/arr-mcp-test 2>/dev/null || rm -rf \$HOME/arr-mcp-test
     git clone $REPO_URL \$HOME/arr-mcp-test
     cd \$HOME/arr-mcp-test
   fi
