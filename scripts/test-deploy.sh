@@ -131,6 +131,15 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
     echo "ARR_MCP_DASHBOARD_PUBLIC=true"
   } > .env
 
+  # Ensure Podman socket service is running for this user
+  mkdir -p /run/user/\${USER_UID}/podman
+  if ! XDG_RUNTIME_DIR=/run/user/\${USER_UID} podman system service --help >/dev/null 2>&1; then
+    echo 'WARNING: podman system service not available'
+  else
+    XDG_RUNTIME_DIR=/run/user/\${USER_UID} podman system service --time=0 unix:///run/user/\${USER_UID}/podman/podman.sock &
+    sleep 1
+  fi
+
   # Start arr-mcp in the background
   nohup env XDG_RUNTIME_DIR=/run/user/\${USER_UID} uv run arr-mcp > /tmp/arr-mcp-test.log 2>&1 &
   echo \$! > /tmp/arr-mcp-test.pid
