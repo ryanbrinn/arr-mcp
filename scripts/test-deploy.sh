@@ -38,7 +38,15 @@ done
 if $STOP; then
   echo "Stopping test instance on $TEST_HOST..."
   ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
-    pkill -f 'arr-mcp.*$TEST_PORT' 2>/dev/null || true
+    USER_UID=\$(id -u)
+    export XDG_RUNTIME_DIR=/run/user/\${USER_UID}
+    # Kill arr-mcp by pid file, then by port as fallback
+    if [ -f /tmp/arr-mcp-test.pid ]; then
+      kill \$(cat /tmp/arr-mcp-test.pid) 2>/dev/null || true
+      rm -f /tmp/arr-mcp-test.pid
+    fi
+    PORT_PID=\$(ss -tlnp | grep ':$TEST_PORT ' | grep -oP 'pid=\K[0-9]+' | head -1)
+    [ -n "\$PORT_PID" ] && kill "\$PORT_PID" 2>/dev/null || true
     cd \$HOME/arr-mcp-test 2>/dev/null || exit 0
     podman compose -f test-stack/compose.yaml down 2>/dev/null || true
     echo 'Test instance stopped.'
@@ -52,7 +60,13 @@ if $CLEAN; then
   ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
     USER_UID=\$(id -u)
     export XDG_RUNTIME_DIR=/run/user/\${USER_UID}
-    pkill -f 'arr-mcp.*$TEST_PORT' 2>/dev/null || true
+    # Kill arr-mcp by pid file, then by port as fallback
+    if [ -f /tmp/arr-mcp-test.pid ]; then
+      kill \$(cat /tmp/arr-mcp-test.pid) 2>/dev/null || true
+      rm -f /tmp/arr-mcp-test.pid
+    fi
+    PORT_PID=\$(ss -tlnp | grep ':$TEST_PORT ' | grep -oP 'pid=\K[0-9]+' | head -1)
+    [ -n "\$PORT_PID" ] && kill "\$PORT_PID" 2>/dev/null || true
     if [ -d \$HOME/arr-mcp-test ]; then
       cd \$HOME/arr-mcp-test
       podman compose -f test-stack/compose.yaml down --volumes 2>/dev/null || true
