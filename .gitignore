@@ -7,3 +7,5 @@ dist/
 *.egg-info/
 .pytest_cache/
 .mcp.json
+.env.test
+test-stack/data/
