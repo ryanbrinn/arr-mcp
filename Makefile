@@ -6,9 +6,13 @@ test-deploy:
 	@if [ -z "$(BRANCH)" ]; then echo "Usage: make test-deploy BRANCH=<branch>"; exit 1; fi
 	bash scripts/test-deploy.sh BRANCH=$(BRANCH)
 
-# Stop the test instance on the server.
+# Stop the test instance on the server (containers down, process killed).
 test-stop:
 	bash scripts/test-deploy.sh --stop
+
+# Stop and fully remove the test environment from the server.
+test-clean:
+	bash scripts/test-deploy.sh --clean
 
 # Run the full test suite locally.
 test:

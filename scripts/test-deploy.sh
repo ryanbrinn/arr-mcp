@@ -9,7 +9,8 @@
 #   - SSH key access to TEST_HOST
 #   - Docker Compose available on TEST_HOST
 #
-# To stop the test instance: scripts/test-deploy.sh --stop
+# To stop the test instance:       scripts/test-deploy.sh --stop
+# To stop and remove everything:   scripts/test-deploy.sh --clean
 
 set -euo pipefail
 
@@ -22,11 +23,13 @@ REPO_URL="https://github.com/ryanbrinn/arr-mcp.git"
 # --- parse args ---
 BRANCH=""
 STOP=false
+CLEAN=false
 
 for arg in "$@"; do
   case $arg in
     BRANCH=*) BRANCH="${arg#BRANCH=}" ;;
     --stop)   STOP=true ;;
+    --clean)  CLEAN=true ;;
     *) echo "Unknown argument: $arg"; exit 1 ;;
   esac
 done
@@ -35,11 +38,27 @@ done
 if $STOP; then
   echo "Stopping test instance on $TEST_HOST..."
   ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
-    set -e
     pkill -f 'arr-mcp.*$TEST_PORT' 2>/dev/null || true
     cd \$HOME/arr-mcp-test 2>/dev/null || exit 0
     docker compose -f test-stack/compose.yaml down 2>/dev/null || true
     echo 'Test instance stopped.'
+ENDSSH
+  exit 0
+fi
+
+# -- clean (stop + remove everything) --
+if $CLEAN; then
+  echo "Cleaning up test environment on $TEST_HOST..."
+  ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
+    pkill -f 'arr-mcp.*$TEST_PORT' 2>/dev/null || true
+    if [ -d \$HOME/arr-mcp-test ]; then
+      cd \$HOME/arr-mcp-test
+      docker compose -f test-stack/compose.yaml down --volumes 2>/dev/null || true
+      cd \$HOME
+      rm -rf \$HOME/arr-mcp-test
+    fi
+    rm -f /tmp/arr-mcp-test.log /tmp/arr-mcp-test.pid
+    echo 'Test environment fully removed.'
 ENDSSH
   exit 0
 fi
