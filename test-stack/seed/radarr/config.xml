@@ -9,4 +9,6 @@
   <AuthenticationMethod>None</AuthenticationMethod>
   <Branch>master</Branch>
   <UpdateMechanism>Docker</UpdateMechanism>
+  <SabnzbdUrl>http://test-sabnzbd:8080</SabnzbdUrl>
+  <SabnzbdApiKey>testsabnzbdapikey1234567890abcd</SabnzbdApiKey>
 </Config>
