@@ -1,0 +1,43 @@
+# Minimal throwaway stack for manual E2E testing.
+# These containers simulate a real media stack without touching production data.
+# Started automatically by scripts/test-deploy.sh — do not run on the production host directly.
+
+services:
+  test-sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: test-sabnzbd
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    volumes:
+      - ./data/sabnzbd:/config
+    ports:
+      - "18080:8080"
+    restart: unless-stopped
+
+  test-sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: test-sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    volumes:
+      - ./data/sonarr:/config
+    ports:
+      - "18989:8989"
+    restart: unless-stopped
+
+  test-radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: test-radarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    volumes:
+      - ./data/radarr:/config
+    ports:
+      - "17878:7878"
+    restart: unless-stopped

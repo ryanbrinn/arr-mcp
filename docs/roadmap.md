@@ -17,10 +17,10 @@ gantt
         Security and ownership scoping          :done,    p1a, 2026-05, 2026-06
         Code quality and CLAUDE.md              :done,    p1b, 2026-05, 2026-06
         MkDocs and ADRs                         :done,    p1c, 2026-06, 2026-07
-        file_delete tool                        :         p1d, 2026-06, 2026-07
-        Stack mgmt and host-side helper         :         p1e, 2026-06, 2026-08
-        Compose and Quadlet conversion          :         p1f, 2026-07, 2026-08
-        Read-only dashboard                     :         p1g, 2026-08, 2026-09
+        file_delete tool                        :done,    p1d, 2026-06, 2026-07
+        Stack mgmt and host-side helper         :done,    p1e, 2026-06, 2026-08
+        Compose and Quadlet conversion          :done,    p1f, 2026-07, 2026-08
+        Read-only dashboard                     :done,    p1g, 2026-08, 2026-09
 
     section Phase 2 - Media Intelligence
         arr and Plex API integrations           :         p2a, 2026-09, 2026-11

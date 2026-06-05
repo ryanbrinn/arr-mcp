@@ -16,6 +16,49 @@ log = logging.getLogger(__name__)
 API = "/v1.41"
 
 
+def _decode_log_stream(raw: bytes) -> str:
+    """Decode a Docker/Podman multiplexed log stream into plain text.
+
+    Each frame has an 8-byte header: 1 byte stream type, 3 bytes padding,
+    4 bytes big-endian payload length.  Plain-text responses (some Podman
+    versions omit framing) are returned as-is when the header parse yields
+    nothing.
+    """
+    lines_out: list[str] = []
+    i = 0
+    while i < len(raw):
+        if i + 8 > len(raw):
+            break
+        size = int.from_bytes(raw[i + 4 : i + 8], "big")
+        chunk = raw[i + 8 : i + 8 + size].decode("utf-8", errors="replace")
+        lines_out.append(chunk)
+        i += 8 + size
+    if not lines_out and raw:
+        return raw.decode("utf-8", errors="replace")
+    return "".join(lines_out)
+
+
+def _calc_cpu_pct(stats: dict[str, Any]) -> str:
+    """Return a CPU% string from a container stats response.
+
+    Rootless Podman omits system_cpu_usage, so we fall back to 'N/A' for CPU%
+    while still allowing the caller to display memory and network stats.
+    """
+    cpu = stats.get("cpu_stats", {})
+    precpu = stats.get("precpu_stats", {})
+    cpu_delta = cpu.get("cpu_usage", {}).get("total_usage", 0) - precpu.get("cpu_usage", {}).get(
+        "total_usage", 0
+    )
+    sys_usage = cpu.get("system_cpu_usage")
+    prev_sys_usage = precpu.get("system_cpu_usage")
+    if sys_usage is None or prev_sys_usage is None:
+        return "  N/A "
+    sys_delta = sys_usage - prev_sys_usage
+    ncpu = cpu.get("online_cpus", 1)
+    pct = (cpu_delta / sys_delta) * ncpu * 100.0 if sys_delta > 0 else 0.0
+    return f"{pct:6.2f}%"
+
+
 def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
     """Register all container lifecycle tools with the MCP server."""
 
@@ -71,18 +114,13 @@ def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
         transport = httpx.AsyncHTTPTransport(uds=uds)
         async with httpx.AsyncClient(transport=transport, base_url="http://localhost") as c:
             r = await c.get(f"{API}/containers/{name}/logs?stdout=true&stderr=true&tail={lines}")
-        # Docker/Podman multiplex stream — strip 8-byte header per frame
-        raw = r.content
-        lines_out: list[str] = []
-        i = 0
-        while i < len(raw):
-            if i + 8 > len(raw):
-                break
-            size = int.from_bytes(raw[i + 4 : i + 8], "big")
-            chunk = raw[i + 8 : i + 8 + size].decode("utf-8", errors="replace")
-            lines_out.append(chunk)
-            i += 8 + size
-        return [TextContent(type="text", text="".join(lines_out) or "(no logs)")]
+        if r.status_code != 200:
+            msg = r.text.strip() or f"HTTP {r.status_code}"
+            # Podman with journald log driver returns 500 and "configured logging driver
+            # does not support reading" — surface that clearly rather than empty output.
+            return [TextContent(type="text", text=f"(logs unavailable: {msg})")]
+        text = _decode_log_stream(r.content)
+        return [TextContent(type="text", text=text or "(no logs)")]
 
     @server.tool()
     async def container_stats() -> list[TextContent]:
@@ -94,25 +132,15 @@ def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
             cid = c["Id"]
             try:
                 s = await client.get(f"{API}/containers/{cid}/stats?stream=false")
-                cpu_delta = (
-                    s["cpu_stats"]["cpu_usage"]["total_usage"]
-                    - s["precpu_stats"]["cpu_usage"]["total_usage"]
-                )
-                sys_delta = (
-                    s["cpu_stats"]["system_cpu_usage"] - s["precpu_stats"]["system_cpu_usage"]
-                )
-                ncpu = s["cpu_stats"].get("online_cpus", 1)
-                cpu_pct = (cpu_delta / sys_delta) * ncpu * 100.0 if sys_delta > 0 else 0.0
-                mem = s["memory_stats"]
+                cpu_str = _calc_cpu_pct(s)
+                mem = s.get("memory_stats", {})
                 used = mem.get("usage", 0) / 1024 / 1024
                 limit = mem.get("limit", 0) / 1024 / 1024
                 nets = s.get("networks", {})
                 rx = sum(v.get("rx_bytes", 0) for v in nets.values()) / 1024
                 tx = sum(v.get("tx_bytes", 0) for v in nets.values()) / 1024
                 rows.append(
-                    f"{name:20s} {cpu_pct:6.2f}%  "
-                    f"{used:6.1f}MB / {limit:6.1f}MB  "
-                    f"{rx:.1f}kB / {tx:.1f}kB"
+                    f"{name:20s} {cpu_str}  {used:6.1f}MB / {limit:6.1f}MB  {rx:.1f}kB / {tx:.1f}kB"
                 )
             except Exception as exc:
                 rows.append(f"{name:20s} (stats unavailable: {exc})")
