@@ -41,3 +41,18 @@ services:
     ports:
       - "17878:7878"
     restart: unless-stopped
+
+  test-plex:
+    image: lscr.io/linuxserver/plex:latest
+    container_name: test-plex
+    environment:
+      - PUID=1001
+      - PGID=1001
+      - TZ=UTC
+      - VERSION=docker
+      - PLEX_CLAIM=${PLEX_CLAIM:-}
+    volumes:
+      - ./data/plex:/config
+    ports:
+      - "132400:32400"
+    restart: unless-stopped

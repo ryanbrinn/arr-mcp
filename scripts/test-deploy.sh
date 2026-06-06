@@ -119,7 +119,7 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
   uv sync --quiet
 
   # Ensure test stack data dirs exist and seed configs
-  mkdir -p test-stack/data/sonarr test-stack/data/radarr test-stack/data/sabnzbd
+  mkdir -p test-stack/data/sonarr test-stack/data/radarr test-stack/data/sabnzbd test-stack/data/plex
   for svc in sonarr radarr; do
     if [ -d test-stack/seed/\$svc ]; then
       cp -n test-stack/seed/\$svc/* test-stack/data/\$svc/ 2>/dev/null || true
