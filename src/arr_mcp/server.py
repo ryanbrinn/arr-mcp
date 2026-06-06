@@ -29,6 +29,7 @@ from arr_mcp.tools.diagnostics import register_diagnostic_tools
 from arr_mcp.tools.filesystem import register_filesystem_tools
 from arr_mcp.tools.logs import register_log_tools
 from arr_mcp.tools.stacks import register_stack_tools
+from arr_mcp.tools.watched_cleanup import register_watched_cleanup_tools
 
 load_dotenv()
 
@@ -52,6 +53,7 @@ def build_mcp_server(settings: Settings, client: ContainerClient) -> FastMCP:
     register_log_tools(server, settings)
     register_conversion_tools(server, settings)
     register_diagnostic_tools(server, settings, client)
+    register_watched_cleanup_tools(server, settings)
     return server
 
 
