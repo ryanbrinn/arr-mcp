@@ -69,7 +69,8 @@ def _load_file(path: Path, secret: str | None) -> dict[str, dict[str, str | None
             log.warning("Failed to decrypt credential file — returning empty store")
             return {}
     try:
-        return json.loads(raw)
+        loaded: dict[str, dict[str, str | None]] = json.loads(raw)
+        return loaded
     except json.JSONDecodeError:
         log.warning("Credential file is not valid JSON — returning empty store")
         return {}
@@ -195,7 +196,7 @@ class CredentialStore:
 
     def _autodiscoverable_services(self) -> list[str]:
         """Return services with a readable XML config containing ApiKey."""
-        result = []
+        result: list[str] = []
         if not self._services_dir.exists():
             return result
         for entry in self._services_dir.iterdir():

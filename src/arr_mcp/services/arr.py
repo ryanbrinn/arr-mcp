@@ -69,7 +69,7 @@ class ArrClient(BaseServiceClient):
         result = await self.get("/api/v3/queue")
         if result.ok and isinstance(result.data, dict):
             records = result.data.get("records", [])
-            result.data = [  # type: ignore[assignment]
+            result.data = [
                 QueueItem(
                     id=r.get("id", 0),
                     title=r.get("title", ""),
@@ -86,7 +86,7 @@ class ArrClient(BaseServiceClient):
         """Fetch the app's internal health checks."""
         result = await self.get("/api/v3/health")
         if result.ok and isinstance(result.data, list):
-            result.data = [  # type: ignore[assignment]
+            result.data = [
                 HealthItem(
                     source=r.get("source", ""),
                     type=r.get("type", ""),
