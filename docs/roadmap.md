@@ -21,12 +21,17 @@ gantt
         Stack mgmt and host-side helper         :done,    p1e, 2026-06, 2026-08
         Compose and Quadlet conversion          :done,    p1f, 2026-07, 2026-08
         Read-only dashboard                     :done,    p1g, 2026-08, 2026-09
-
     section Phase 2 - Media Intelligence
-        arr and Plex API integrations           :         p2a, 2026-09, 2026-11
-        Watched content cleanup                 :         p2b, 2026-10, 2026-11
-        Log monitoring and alerting             :         p2c, 2026-10, 2026-12
-        Plex auth and per-user watchlists       :         p2d, 2026-11, 2027-01
+        Service diagnostics redesign (#112)     :         p2z, 2026-06, 2026-07
+        CredentialStore                         :         p2a, 2026-06, 2026-07
+        BaseServiceClient + ArrClient           :         p2b, 2026-06, 2026-07
+        SonarrClient + RadarrClient             :         p2c, 2026-07, 2026-08
+        PlexClient                              :         p2d, 2026-07, 2026-08
+        Watched content cleanup                 :         p2e, 2026-08, 2026-09
+        AlertWatcher — threshold monitoring     :         p2f, 2026-09, 2026-10
+        VersionChecker — upgrade tracking       :         p2g, 2026-10, 2026-11
+        Log monitoring and alerting             :         p2h, 2026-10, 2026-12
+        Plex auth and per-user watchlists       :         p2i, 2026-11, 2027-01
 
     section Phase 3 - Installation Wizard
         System check and runtime setup          :         p3a, 2027-01, 2027-03
@@ -52,6 +57,7 @@ Build a solid, secure, well-tested foundation that a technical user can deploy t
 | **Frontend** | Read-only dashboard showing container status, disk usage, and stack health |
 | **Documentation** | MkDocs site live, ADRs written, CLAUDE.md complete |
 | **Quality** | CI passing — ruff, mypy, pytest — on every PR |
+| **Diagnostics** | Service API reachability checks, inter-service probes, download path verification |
 
 ### Guardrails
 - No Phase 2 API integrations (Plex, Sonarr, Radarr, SABnzbd APIs) until Phase 1 is verified complete
@@ -77,18 +83,34 @@ Before declaring Phase 1 complete, confirm:
 ### Architectural goal
 Integrate with the APIs of the media stack applications (Plex, Sonarr, Radarr, SABnzbd) to enable cross-application intelligence that no single app provides — watched content cleanup, storage optimisation, health monitoring, and multi-user protection.
 
+Phase 2 is built on a layered service client architecture. The foundation must land before any feature work:
+
+1. **CredentialStore** — secure per-service credential management (never in compose files)
+2. **BaseServiceClient** — shared async HTTP client; all service integrations extend this
+3. **ArrClient** — shared Sonarr/Radarr/Lidarr behaviour (same API schema)
+4. **Per-service clients** — SonarrClient, RadarrClient, PlexClient, SABnzbdClient
+
+Only once that foundation exists should the higher-level features (watched cleanup, alerting, version tracking) be built on top of it.
+
+See [Architecture — Phase 2 Service Layer](architecture.md#phase-2-service-client-layer) for the full design.
+
 ### What this phase delivers
 
 | Area | Goal |
 |---|---|
-| **API integrations** | Read access to Plex, Sonarr, Radarr, SABnzbd APIs |
+| **Credential management** | Secure per-service credential store; env-var override for CI/testing |
+| **Service client layer** | `BaseServiceClient`, `ArrClient`, per-service subclasses |
+| **API integrations** | Read/write access to Plex, Sonarr, Radarr, SABnzbd APIs |
 | **Watched cleanup** | Identify and safely delete fully-watched seasons, with per-user protection |
-| **Log monitoring** | Scheduled error detection across all applications with alerting |
+| **Alert monitoring** | Scheduled checks against configured thresholds; emit notifications |
+| **Version tracking** | Poll GitHub releases / Docker Hub tags; surface upgrade recommendations |
+| **Log monitoring** | Scheduled error detection across all applications |
 | **Multi-user** | Plex authentication on the dashboard; per-user watchlists; deletion protection |
 | **Storage** | Surface large, duplicate, and unwatched content for review |
 
 ### Guardrails
 - API credentials for Plex/Sonarr/Radarr/SABnzbd must be stored securely — never in compose files or quadlets
+- All service HTTP calls must go through `BaseServiceClient` — no one-off inline `httpx` clients in tool code
 - Deletion operations must always require explicit confirmation and check all user watchlists first
 - Jellyfin support is future state — design the auth layer to be provider-agnostic but don't implement it in this phase
 - No installation wizard work in this phase
@@ -101,6 +123,8 @@ Before declaring Phase 2 complete, confirm:
 - [ ] Log monitoring correctly detects and surfaces errors from all applications
 - [ ] Dashboard requires Plex login and shows per-user watchlist state
 - [ ] Deletion of watchlisted content is blocked with a clear user-facing message
+- [ ] Alert rules can be configured and fire correctly
+- [ ] Version checker surfaces new releases with parsed release notes
 - [ ] All Phase 1 verification criteria still pass (no regression)
 
 ---
