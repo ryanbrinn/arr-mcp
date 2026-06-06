@@ -207,13 +207,15 @@ def test_registry_raises_service_not_configured_not_key_error(tmp_path: Path) ->
     assert exc is not None
 
 
-def test_registry_returns_arr_client_for_sonarr(
+def test_registry_returns_sonarr_client_for_sonarr(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from arr_mcp.services.sonarr import SonarrClient
+
     monkeypatch.setenv("SONARR_API_KEY", "key")
     registry = ServiceRegistry(str(tmp_path))
     client = registry.get_client("sonarr")
-    assert isinstance(client, ArrClient)
+    assert isinstance(client, SonarrClient)
 
 
 def test_registry_returns_base_client_for_plex(
