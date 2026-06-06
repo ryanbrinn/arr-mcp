@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from mcp.server.fastmcp import FastMCP
@@ -12,9 +13,23 @@ from mcp.server.fastmcp import FastMCP
 from arr_mcp.config import Settings
 from arr_mcp.tools.diagnostics import register_diagnostic_tools
 from arr_mcp.tools.services import (
+    ApiReachabilityResult,
     read_download_clients,
     read_indexers,
 )
+
+_API_SKIP = ApiReachabilityResult(reachable=False, status_code=None, error="no health path")
+
+
+@pytest.fixture(autouse=True)
+def no_api_calls():
+    """Prevent real HTTP calls in DB-focused tests."""
+    with patch(
+        "arr_mcp.tools.diagnostics.check_api_reachability",
+        new=AsyncMock(return_value=_API_SKIP),
+    ):
+        yield
+
 
 # ---------------------------------------------------------------------------
 # Helpers
