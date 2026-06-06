@@ -45,7 +45,7 @@ def _parse_sse_json(body: str) -> dict:
     """Extract the JSON object from an SSE data line."""
     for line in body.splitlines():
         if line.startswith("data:"):
-            return json.loads(line[len("data:"):].strip())
+            return json.loads(line[len("data:") :].strip())
     raise ValueError(f"No data: line found in SSE body:\n{body[:300]}")
 
 

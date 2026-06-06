@@ -79,11 +79,13 @@ def test_version_matches_pyproject(
     assert isinstance(bin_dir, Path)
     python = bin_dir / ("python.exe" if sys.platform == "win32" else "python")
 
-    result = _run([
-        str(python),
-        "-c",
-        "from importlib.metadata import version; print(version('arr-mcp-server'))",
-    ])
+    result = _run(
+        [
+            str(python),
+            "-c",
+            "from importlib.metadata import version; print(version('arr-mcp-server'))",
+        ]
+    )
     assert result.returncode == 0, result.stderr
     installed = result.stdout.strip()
     assert installed == expected, (
