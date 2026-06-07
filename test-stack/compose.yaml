@@ -54,5 +54,5 @@ services:
     volumes:
       - ./data/plex:/config
     ports:
-      - "132400:32400"
+      - "32400:32400"
     restart: unless-stopped
