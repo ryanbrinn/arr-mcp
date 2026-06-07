@@ -10,12 +10,20 @@ import httpx
 from arr_mcp.services.arr import ArrClient
 from arr_mcp.services.base import BaseServiceClient, ServiceNotConfiguredError
 from arr_mcp.services.credentials import CredentialStore
+from arr_mcp.services.radarr import RadarrClient
+from arr_mcp.services.sonarr import SonarrClient
 from arr_mcp.tools.services import KNOWN_SERVICES, parse_xml_config
 
 log = logging.getLogger(__name__)
 
-# Services that use the shared /api/v3 arr surface
-_ARR_SERVICES = {"sonarr", "radarr", "lidarr", "prowlarr", "readarr"}
+# Mapping from service name to its specific client class
+_CLIENT_MAP: dict[str, type[BaseServiceClient]] = {
+    "sonarr": SonarrClient,
+    "radarr": RadarrClient,
+    "lidarr": ArrClient,
+    "prowlarr": ArrClient,
+    "readarr": ArrClient,
+}
 
 
 def _resolve_base_url(service: str, services_dir: str, store: CredentialStore) -> str:
@@ -89,11 +97,8 @@ class ServiceRegistry:
             )
 
         base_url = _resolve_base_url(name, self._services_dir, self._store)
-
-        if name in _ARR_SERVICES:
-            return ArrClient(base_url, cred.api_key, http=self._http)
-
-        return BaseServiceClient(base_url, cred.api_key, http=self._http)
+        client_cls = _CLIENT_MAP.get(name, BaseServiceClient)
+        return client_cls(base_url, cred.api_key, http=self._http)
 
     def available(self) -> list[str]:
         """Return names of services that have credentials configured."""
