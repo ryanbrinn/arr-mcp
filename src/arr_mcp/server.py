@@ -25,6 +25,7 @@ from arr_mcp.dashboard.routes import make_dashboard_routes
 from arr_mcp.runtime.client import ContainerClient
 from arr_mcp.tools.containers import register_container_tools
 from arr_mcp.tools.conversion import register_conversion_tools
+from arr_mcp.tools.credentials import register_credential_tools
 from arr_mcp.tools.diagnostics import register_diagnostic_tools
 from arr_mcp.tools.filesystem import register_filesystem_tools
 from arr_mcp.tools.logs import register_log_tools
@@ -52,6 +53,7 @@ def build_mcp_server(settings: Settings, client: ContainerClient) -> FastMCP:
     register_log_tools(server, settings)
     register_conversion_tools(server, settings)
     register_diagnostic_tools(server, settings, client)
+    register_credential_tools(server, settings)
     return server
 
 
