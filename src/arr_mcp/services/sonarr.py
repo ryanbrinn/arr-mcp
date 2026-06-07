@@ -18,21 +18,21 @@ class SonarrClient(ArrClient):
         """Fetch all series in the Sonarr library."""
         result = await self.get("/api/v3/series")
         if result.ok and isinstance(result.data, list):
-            result.data = [_parse_series(r) for r in result.data]  # type: ignore[assignment]
+            result.data = [_parse_series(r) for r in result.data]
         return result
 
     async def get_episodes(self, series_id: int) -> ApiResult:
         """Fetch all episodes for a series."""
         result = await self.get("/api/v3/episode", seriesId=str(series_id))
         if result.ok and isinstance(result.data, list):
-            result.data = [_parse_episode(r) for r in result.data]  # type: ignore[assignment]
+            result.data = [_parse_episode(r) for r in result.data]
         return result
 
     async def get_episode_files(self, series_id: int) -> ApiResult:
         """Fetch all on-disk episode files for a series."""
         result = await self.get("/api/v3/episodefile", seriesId=str(series_id))
         if result.ok and isinstance(result.data, list):
-            result.data = [_parse_episode_file(r) for r in result.data]  # type: ignore[assignment]
+            result.data = [_parse_episode_file(r) for r in result.data]
         return result
 
     async def delete_episode_file(self, file_id: int) -> ApiResult:
