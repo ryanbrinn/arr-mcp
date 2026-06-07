@@ -18,14 +18,14 @@ class RadarrClient(ArrClient):
         """Fetch all movies in the Radarr library."""
         result = await self.get("/api/v3/movie")
         if result.ok and isinstance(result.data, list):
-            result.data = [_parse_movie(r) for r in result.data]  # type: ignore[assignment]
+            result.data = [_parse_movie(r) for r in result.data]
         return result
 
     async def get_movie_files(self) -> ApiResult:
         """Fetch all on-disk movie files tracked by Radarr."""
         result = await self.get("/api/v3/moviefile")
         if result.ok and isinstance(result.data, list):
-            result.data = [_parse_movie_file(r) for r in result.data]  # type: ignore[assignment]
+            result.data = [_parse_movie_file(r) for r in result.data]
         return result
 
     async def delete_movie_file(self, file_id: int) -> ApiResult:
