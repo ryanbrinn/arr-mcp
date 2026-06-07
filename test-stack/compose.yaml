@@ -50,7 +50,7 @@ services:
       - PGID=1001
       - TZ=UTC
       - VERSION=docker
-      - PLEX_CLAIM=${PLEX_CLAIM:-}
+      - PLEX_CLAIM=
     volumes:
       - ./data/plex:/config
     ports:
