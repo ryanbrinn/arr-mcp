@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
 import httpx
@@ -12,6 +13,7 @@ from arr_mcp.services.base import ApiResult, BaseServiceClient
 log = logging.getLogger(__name__)
 
 _PLEX_TV_USERS_URL = "https://plex.tv/api/v2/home/users"
+_PLEX_TV_SWITCH_URL = "https://plex.tv/api/home/users/{user_id}/switch"
 
 
 @dataclass
@@ -72,11 +74,14 @@ class PlexClient(BaseServiceClient):
     # ------------------------------------------------------------------
 
     async def get_home_users(self) -> ApiResult:
-        """Fetch the list of Plex home users.
+        """Fetch the list of Plex home users with their watch-history tokens.
 
-        Calls plex.tv/api/v2/home/users. When the server is unclaimed
-        or plex.tv is unreachable, falls back to a synthetic single-user
-        list containing only the server owner (main token).
+        Calls plex.tv/api/v2/home/users to enumerate home users, then
+        switches into each one via plex.tv/api/home/users/{id}/switch to
+        obtain a per-user access token — the home users endpoint does not
+        return one directly. When the server is unclaimed or plex.tv is
+        unreachable, falls back to a synthetic single-user list containing
+        only the server owner (main token).
         """
         url = _PLEX_TV_USERS_URL
         headers = {
@@ -91,6 +96,8 @@ class PlexClient(BaseServiceClient):
                 if resp.is_success:
                     payload = resp.json()
                     users = _parse_home_users(payload)
+                    for user in users:
+                        user.token = await self._switch_home_user(client, user.id) or ""
                     return ApiResult(ok=True, status_code=resp.status_code, data=users)
             except Exception as exc:
                 log.warning("plex.tv users endpoint unavailable (%s) — using owner only", exc)
@@ -108,6 +115,28 @@ class PlexClient(BaseServiceClient):
             return await _fetch(self._http)
         async with httpx.AsyncClient() as client:
             return await _fetch(client)
+
+    async def _switch_home_user(self, client: httpx.AsyncClient, user_id: str) -> str | None:
+        """Switch into a home user and return their personal access token.
+
+        Returns ``None`` (and logs a warning) if the switch fails — e.g. the
+        user's profile is PIN-protected and the admin token can't bypass it.
+        """
+        url = _PLEX_TV_SWITCH_URL.format(user_id=user_id)
+        headers = {
+            "X-Plex-Token": self._api_key,
+            "X-Plex-Client-Identifier": "arr-mcp",
+        }
+        try:
+            resp = await client.post(url, headers=headers, timeout=10.0)
+            if not resp.is_success:
+                log.warning("Could not switch to home user %s: HTTP %s", user_id, resp.status_code)
+                return None
+            root = ET.fromstring(resp.text)
+            return root.get("authToken") or None
+        except Exception as exc:
+            log.warning("Could not switch to home user %s: %s", user_id, exc)
+            return None
 
     # ------------------------------------------------------------------
     # Watch history

@@ -134,15 +134,33 @@ Reload the MCP connection in your Claude client (FleetView: disconnect and recon
 
 **3. Run your manual tests**
 
-The test instance has three throwaway containers running — `test-nginx`, `test-sonarr`, and `test-radarr`. Use these to exercise the MCP tools:
+The test instance has four throwaway containers running — `test-sabnzbd`, `test-sonarr`, `test-radarr`, and `test-plex`. Use these to exercise the MCP tools.
 
-- `container_list` — verify all three appear
-- `container_stats` — check stats are returned
-- `stack_list` — verify the test-stack is visible
-- `service_scan` / `service_diagnose` — verify diagnostic tools run against test service configs
-- `file_read` / `file_write` — verify filesystem access within the test-stack data directory
+**Container and filesystem tools**
+
+- `container_list` / `container_stats` / `container_logs` — verify all four containers appear and report data
+- `container_start` / `container_stop` / `container_restart` — verify lifecycle actions against a throwaway container (never run these against production containers)
+- `service_scan` / `service_diagnose` / `service_health_report` — verify diagnostic tools run against test service configs
+- `service_api_reachability` / `inter_service_reachability` — verify API and cross-service connectivity checks against the test stack's Sonarr/Radarr/Plex/SABnzbd
+- `file_read` / `file_write` / `file_delete` / `directory_list` / `disk_usage` — verify filesystem access is scoped to the test-stack data directory
 - `log_read` / `log_search` — verify log tools against test service log dirs
+- `compose_to_quadlets` / `quadlets_to_compose` — verify conversion against `test-stack/compose.yaml`
 - Dashboard at `http://192.168.2.15:8082/` — verify it loads and shows the test containers
+
+**Credential and service-client tools**
+
+- `credential_set` / `credential_list` / `credential_delete` — store and retrieve API keys for `sonarr`, `radarr`, and `plex` against the test instances (never store production credentials here)
+- Verify `CredentialStore`'s three-tier resolution (env var → stored credential → XML config auto-discovery) by testing with and without an explicitly stored credential
+
+**Media intelligence tools (Sonarr/Radarr/Plex)**
+
+These need realistic data to exercise meaningfully — register a series in test-Sonarr and a movie in test-Radarr (via their `/api/v3/series` and `/api/v3/movie` endpoints), seed placeholder media files, add matching libraries in test-Plex, and mark items watched via Plex's `/:/scrobble` endpoint. Then:
+
+- `watched_cleanup_preview` — verify it identifies non-current-season episodes that have files on disk and that all household Plex users have watched (season 0 is always excluded)
+- `watched_cleanup_delete` — verify it deletes only the previewed candidates and requires `confirm=true`
+
+!!! note "Seeding realistic data"
+    The cross-reference logic needs Plex titles to match Sonarr/Radarr titles, files registered as `hasFile` in Sonarr/Radarr, and a season beyond the one under test to be monitored (so Sonarr doesn't treat the seeded season as "current"). Building this seed data is fiddly enough that it's worth scripting if you do it more than once.
 
 **4. Check test instance logs if anything looks wrong**
 
@@ -188,13 +206,14 @@ Use `--stop` when you plan to test the same branch again shortly. Use `--clean` 
 
 ## Test stack
 
-The test stack is defined in `test-stack/compose.yaml`. It runs three lightweight services:
+The test stack is defined in `test-stack/compose.yaml`. It runs four lightweight services:
 
 | Container | Image | Port |
 |---|---|---|
-| `test-nginx` | `nginx:alpine` | `18080` |
+| `test-sabnzbd` | `linuxserver/sabnzbd` | `18080` |
 | `test-sonarr` | `linuxserver/sonarr` | `18989` |
 | `test-radarr` | `linuxserver/radarr` | `17878` |
+| `test-plex` | `linuxserver/plex` | `33400` |
 
 These use non-standard ports so they never conflict with production. Config and data land in `test-stack/data/` on the server, which is excluded from git.
 
