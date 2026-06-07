@@ -5,14 +5,16 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import asdict, dataclass, field
+from typing import cast
 
 from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent
 
 from arr_mcp.config import Settings
 from arr_mcp.services.models import Episode, EpisodeFile, Series
-from arr_mcp.services.plex import PlexEpisode
+from arr_mcp.services.plex import PlexClient, PlexEpisode
 from arr_mcp.services.registry import ServiceRegistry
+from arr_mcp.services.sonarr import SonarrClient
 
 log = logging.getLogger(__name__)
 
@@ -72,21 +74,21 @@ def _find_candidates(
             max_season[s.id] = max(seasons_with_eps)
 
     candidates: list[CleanupCandidate] = []
-    for ep in episodes:
-        if ep.season_number == 0:
+    for episode in episodes:
+        if episode.season_number == 0:
             continue
-        if not ep.has_file or ep.episode_file_id is None:
+        if not episode.has_file or episode.episode_file_id is None:
             continue
-        if max_season.get(ep.series_id, 0) <= ep.season_number:
+        if max_season.get(episode.series_id, 0) <= episode.season_number:
             continue
 
-        ef = episode_files.get(ep.episode_file_id)
+        ef = episode_files.get(episode.episode_file_id)
         if ef is None:
             continue
 
         # Find series title for Plex lookup
-        series_title = next((s.title for s in series_list if s.id == ep.series_id), "")
-        plex_key = (series_title.lower(), ep.season_number, ep.episode_number)
+        series_title = next((s.title for s in series_list if s.id == episode.series_id), "")
+        plex_key = (series_title.lower(), episode.season_number, episode.episode_number)
         plex_ep = plex_lookup.get(plex_key)
 
         watched_by = plex_ep.watched_by if plex_ep else []
@@ -96,10 +98,10 @@ def _find_candidates(
             candidates.append(
                 CleanupCandidate(
                     series_title=series_title,
-                    season_number=ep.season_number,
-                    episode_number=ep.episode_number,
-                    episode_title=ep.title,
-                    episode_file_id=ep.episode_file_id,
+                    season_number=episode.season_number,
+                    episode_number=episode.episode_number,
+                    episode_title=episode.title,
+                    episode_file_id=episode.episode_file_id,
                     file_path=ef.path,
                     file_size_bytes=ef.size,
                     watched_by=watched_by,
@@ -123,20 +125,20 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
         is always excluded. Returns a dry-run candidate list — no files are deleted.
         """
         try:
-            sonarr = registry.get_client("sonarr")
-            plex = registry.get_client("plex")
+            sonarr = cast(SonarrClient, registry.get_client("sonarr"))
+            plex = cast(PlexClient, registry.get_client("plex"))
         except Exception as exc:
             return [TextContent(type="text", text=f"Service not configured: {exc}")]
 
-        series_result = await sonarr.get_series()  # type: ignore[union-attr]
+        series_result = await sonarr.get_series()
         if not series_result.ok:
             return [TextContent(type="text", text=f"Sonarr error: {series_result.error}")]
 
-        users_result = await plex.get_home_users()  # type: ignore[union-attr]
+        users_result = await plex.get_home_users()
         if not users_result.ok:
             return [TextContent(type="text", text=f"Plex error: {users_result.error}")]
 
-        watched_result = await plex.get_all_watched_episodes()  # type: ignore[union-attr]
+        watched_result = await plex.get_all_watched_episodes()
         if not watched_result.ok:
             return [TextContent(type="text", text=f"Plex error: {watched_result.error}")]
 
@@ -148,10 +150,10 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
         all_files: dict[int, EpisodeFile] = {}
 
         for s in series_list:
-            ep_result = await sonarr.get_episodes(s.id)  # type: ignore[union-attr]
+            ep_result = await sonarr.get_episodes(s.id)
             if ep_result.ok:
                 all_episodes.extend(ep_result.data)  # type: ignore[arg-type]
-            ef_result = await sonarr.get_episode_files(s.id)  # type: ignore[union-attr]
+            ef_result = await sonarr.get_episode_files(s.id)
             if ef_result.ok:
                 for ef in ef_result.data:  # type: ignore[union-attr]
                     all_files[ef.id] = ef
@@ -189,20 +191,20 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
             ]
 
         try:
-            sonarr = registry.get_client("sonarr")
-            plex = registry.get_client("plex")
+            sonarr = cast(SonarrClient, registry.get_client("sonarr"))
+            plex = cast(PlexClient, registry.get_client("plex"))
         except Exception as exc:
             return [TextContent(type="text", text=f"Service not configured: {exc}")]
 
-        series_result = await sonarr.get_series()  # type: ignore[union-attr]
+        series_result = await sonarr.get_series()
         if not series_result.ok:
             return [TextContent(type="text", text=f"Sonarr error: {series_result.error}")]
 
-        users_result = await plex.get_home_users()  # type: ignore[union-attr]
+        users_result = await plex.get_home_users()
         if not users_result.ok:
             return [TextContent(type="text", text=f"Plex error: {users_result.error}")]
 
-        watched_result = await plex.get_all_watched_episodes()  # type: ignore[union-attr]
+        watched_result = await plex.get_all_watched_episodes()
         if not watched_result.ok:
             return [TextContent(type="text", text=f"Plex error: {watched_result.error}")]
 
@@ -214,10 +216,10 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
         all_files: dict[int, EpisodeFile] = {}
 
         for s in series_list:
-            ep_result = await sonarr.get_episodes(s.id)  # type: ignore[union-attr]
+            ep_result = await sonarr.get_episodes(s.id)
             if ep_result.ok:
                 all_episodes.extend(ep_result.data)  # type: ignore[arg-type]
-            ef_result = await sonarr.get_episode_files(s.id)  # type: ignore[union-attr]
+            ef_result = await sonarr.get_episode_files(s.id)
             if ef_result.ok:
                 for ef in ef_result.data:  # type: ignore[union-attr]
                     all_files[ef.id] = ef
@@ -226,7 +228,7 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
 
         cleanup = CleanupResult()
         for candidate in candidates:
-            delete_result = await sonarr.delete_episode_file(candidate.episode_file_id)  # type: ignore[union-attr]
+            delete_result = await sonarr.delete_episode_file(candidate.episode_file_id)
             entry = {
                 "series_title": candidate.series_title,
                 "season_number": candidate.season_number,
