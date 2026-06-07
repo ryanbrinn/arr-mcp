@@ -12,7 +12,7 @@ from mcp.types import TextContent
 
 from arr_mcp.config import Settings
 from arr_mcp.services.models import Episode, EpisodeFile, Series
-from arr_mcp.services.plex import PlexClient, PlexEpisode
+from arr_mcp.services.plex import PlexClient, PlexEpisode, PlexUser
 from arr_mcp.services.registry import ServiceRegistry
 from arr_mcp.services.sonarr import SonarrClient
 
@@ -138,12 +138,13 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
         if not users_result.ok:
             return [TextContent(type="text", text=f"Plex error: {users_result.error}")]
 
-        watched_result = await plex.get_all_watched_episodes()
+        users: list[PlexUser] = users_result.data  # type: ignore[assignment]
+        watched_result = await plex.get_all_watched_episodes(users)
         if not watched_result.ok:
             return [TextContent(type="text", text=f"Plex error: {watched_result.error}")]
 
         series_list: list[Series] = series_result.data  # type: ignore[assignment]
-        all_user_count = len(users_result.data)  # type: ignore[arg-type]
+        all_user_count = len(users)
         watched: list[PlexEpisode] = watched_result.data  # type: ignore[assignment]
 
         all_episodes: list[Episode] = []
@@ -204,12 +205,13 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
         if not users_result.ok:
             return [TextContent(type="text", text=f"Plex error: {users_result.error}")]
 
-        watched_result = await plex.get_all_watched_episodes()
+        users: list[PlexUser] = users_result.data  # type: ignore[assignment]
+        watched_result = await plex.get_all_watched_episodes(users)
         if not watched_result.ok:
             return [TextContent(type="text", text=f"Plex error: {watched_result.error}")]
 
         series_list: list[Series] = series_result.data  # type: ignore[assignment]
-        all_user_count = len(users_result.data)  # type: ignore[arg-type]
+        all_user_count = len(users)
         watched: list[PlexEpisode] = watched_result.data  # type: ignore[assignment]
 
         all_episodes: list[Episode] = []

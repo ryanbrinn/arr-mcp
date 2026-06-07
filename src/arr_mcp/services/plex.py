@@ -5,7 +5,9 @@ from __future__ import annotations
 import logging
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
+from typing import cast
 
+import anyio
 import httpx
 
 from arr_mcp.services.base import ApiResult, BaseServiceClient
@@ -96,8 +98,7 @@ class PlexClient(BaseServiceClient):
                 if resp.is_success:
                     payload = resp.json()
                     users = _parse_home_users(payload)
-                    for user in users:
-                        user.token = await self._switch_home_user(client, user.id) or ""
+                    await self._resolve_user_tokens(client, users)
                     return ApiResult(ok=True, status_code=resp.status_code, data=users)
             except Exception as exc:
                 log.warning("plex.tv users endpoint unavailable (%s) — using owner only", exc)
@@ -115,6 +116,21 @@ class PlexClient(BaseServiceClient):
             return await _fetch(self._http)
         async with httpx.AsyncClient() as client:
             return await _fetch(client)
+
+    async def _resolve_user_tokens(self, client: httpx.AsyncClient, users: list[PlexUser]) -> None:
+        """Switch into each home user concurrently to populate their token.
+
+        The "switch" calls are independent round-trips to plex.tv, so running
+        them concurrently keeps user discovery to roughly one round-trip's
+        worth of latency instead of N sequential ones.
+        """
+
+        async def _resolve(user: PlexUser) -> None:
+            user.token = await self._switch_home_user(client, user.id) or ""
+
+        async with anyio.create_task_group() as tg:
+            for user in users:
+                tg.start_soon(_resolve, user)
 
     async def _switch_home_user(self, client: httpx.AsyncClient, user_id: str) -> str | None:
         """Switch into a home user and return their personal access token.
@@ -166,19 +182,23 @@ class PlexClient(BaseServiceClient):
             result.data = _parse_movies(result.data)  # type: ignore[arg-type]
         return result
 
-    async def get_all_watched_episodes(self) -> ApiResult:
+    async def get_all_watched_episodes(self, users: list[PlexUser] | None = None) -> ApiResult:
         """Aggregate watched episodes across all home users.
 
-        Each episode carries a ``watched_by`` list of display names.
+        Each episode carries a ``watched_by`` list of display names. Pass
+        ``users`` (e.g. from a prior ``get_home_users()`` call) to skip
+        re-resolving the user list and per-user tokens.
         """
-        users_result = await self.get_home_users()
-        if not users_result.ok:
-            return users_result
+        if users is None:
+            users_result = await self.get_home_users()
+            if not users_result.ok:
+                return users_result
+            users = cast("list[PlexUser]", users_result.data)
+        resolved_users: list[PlexUser] = users
 
-        users: list[PlexUser] = users_result.data  # type: ignore[assignment]
         aggregated: dict[str, PlexEpisode] = {}
 
-        for user in users:
+        for user in resolved_users:
             result = await self.get_watched_episodes(user.token)
             if not result.ok:
                 log.warning("Could not fetch episodes for user %s: %s", user.title, result.error)
@@ -193,19 +213,23 @@ class PlexClient(BaseServiceClient):
 
         return ApiResult(ok=True, data=list(aggregated.values()))
 
-    async def get_all_watched_movies(self) -> ApiResult:
+    async def get_all_watched_movies(self, users: list[PlexUser] | None = None) -> ApiResult:
         """Aggregate watched movies across all home users.
 
-        Each movie carries a ``watched_by`` list of display names.
+        Each movie carries a ``watched_by`` list of display names. Pass
+        ``users`` (e.g. from a prior ``get_home_users()`` call) to skip
+        re-resolving the user list and per-user tokens.
         """
-        users_result = await self.get_home_users()
-        if not users_result.ok:
-            return users_result
+        if users is None:
+            users_result = await self.get_home_users()
+            if not users_result.ok:
+                return users_result
+            users = cast("list[PlexUser]", users_result.data)
+        resolved_users: list[PlexUser] = users
 
-        users: list[PlexUser] = users_result.data  # type: ignore[assignment]
         aggregated: dict[str, PlexMovie] = {}
 
-        for user in users:
+        for user in resolved_users:
             result = await self.get_watched_movies(user.token)
             if not result.ok:
                 log.warning("Could not fetch movies for user %s: %s", user.title, result.error)

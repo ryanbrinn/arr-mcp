@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import anyio
 import httpx
 import pytest
 
@@ -129,6 +130,57 @@ async def test_get_home_users_handles_switch_failure() -> None:
     assert users[0].token == ""
 
 
+@pytest.mark.anyio
+async def test_get_home_users_switches_concurrently() -> None:
+    """Per-user "switch" calls run concurrently rather than one-at-a-time.
+
+    Each handler invocation holds its slot open until every other expected
+    invocation has also started — this only resolves if the client issues
+    them all in parallel rather than awaiting them sequentially.
+    """
+    plex_tv_payload = {
+        "users": [
+            {"id": 1, "username": "alice", "title": "Alice"},
+            {"id": 2, "username": "bob", "title": "Bob"},
+            {"id": 3, "username": "carol", "title": "Carol"},
+        ]
+    }
+    switch_tokens = {"1": "tok-alice", "2": "tok-bob", "3": "tok-carol"}
+    in_flight = 0
+    max_in_flight = 0
+
+    async def handler(req: httpx.Request) -> httpx.Response:
+        nonlocal in_flight, max_in_flight
+        url = str(req.url)
+        path = req.url.path
+
+        if _PLEX_TV_USERS_URL in url:
+            return httpx.Response(
+                200,
+                content=json.dumps(plex_tv_payload).encode(),
+                headers={"content-type": "application/json"},
+            )
+
+        if path.startswith(_PLEX_TV_SWITCH_PATH_PREFIX) and path.endswith("/switch"):
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+            await anyio.sleep(0.01)
+            in_flight -= 1
+            user_id = path[len(_PLEX_TV_SWITCH_PATH_PREFIX) : -len("/switch")]
+            return httpx.Response(200, content=_switch_xml(switch_tokens[user_id]))
+
+        return httpx.Response(404, content=b"{}")
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    client = PlexClient("http://plex:32400", "owner-token", http=http)
+    result = await client.get_home_users()
+
+    assert result.ok
+    users: list[PlexUser] = result.data  # type: ignore[assignment]
+    assert {u.token for u in users} == {"tok-alice", "tok-bob", "tok-carol"}
+    assert max_in_flight > 1
+
+
 # ---------------------------------------------------------------------------
 # get_home_users — plex.tv unavailable (fallback to owner)
 # ---------------------------------------------------------------------------
@@ -233,6 +285,55 @@ async def test_get_all_watched_episodes_aggregates_across_users() -> None:
     episodes: list[PlexEpisode] = result.data  # type: ignore[assignment]
     assert len(episodes) == 1
     assert set(episodes[0].watched_by) == {"Alice", "Bob"}
+
+
+@pytest.mark.anyio
+async def test_get_all_watched_episodes_accepts_prefetched_users() -> None:
+    """Passing ``users`` skips the internal get_home_users() round-trip."""
+    plex_tv_calls = 0
+    plex_tv_payload = {"users": [{"id": 1, "username": "alice", "title": "Alice"}]}
+    ep = {
+        "ratingKey": "42",
+        "grandparentTitle": "Show",
+        "parentIndex": 1,
+        "index": 1,
+        "title": "S01E01",
+    }
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        nonlocal plex_tv_calls
+        url = str(req.url)
+        path = req.url.path
+
+        if _PLEX_TV_USERS_URL in url:
+            plex_tv_calls += 1
+            return httpx.Response(
+                200,
+                content=json.dumps(plex_tv_payload).encode(),
+                headers={"content-type": "application/json"},
+            )
+        if path.startswith(_PLEX_TV_SWITCH_PATH_PREFIX) and path.endswith("/switch"):
+            return httpx.Response(200, content=_switch_xml("tok-alice"))
+        if path == "/library/all":
+            return httpx.Response(
+                200,
+                content=json.dumps(_episode_payload(ep)).encode(),
+                headers={"content-type": "application/json"},
+            )
+        return httpx.Response(404, content=b"{}")
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    client = PlexClient("http://plex:32400", "owner-token", http=http)
+
+    users_result = await client.get_home_users()
+    assert plex_tv_calls == 1
+    users: list[PlexUser] = users_result.data  # type: ignore[assignment]
+
+    result = await client.get_all_watched_episodes(users)
+    assert result.ok
+    episodes: list[PlexEpisode] = result.data  # type: ignore[assignment]
+    assert episodes[0].watched_by == ["Alice"]
+    assert plex_tv_calls == 1  # not re-fetched
 
 
 @pytest.mark.anyio
