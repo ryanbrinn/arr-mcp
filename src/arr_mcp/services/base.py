@@ -44,6 +44,8 @@ class BaseServiceClient:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._http = http
+        # Subclasses can override the header name used to send the API key
+        self._auth_header = "X-Api-Key"
 
     # ------------------------------------------------------------------
     # HTTP primitives
@@ -86,7 +88,7 @@ class BaseServiceClient:
         json: dict | None = None,  # type: ignore[type-arg]
     ) -> ApiResult:
         url = self._base_url + path
-        headers = {"X-Api-Key": self._api_key, "Accept": "application/json"}
+        headers = {self._auth_header: self._api_key, "Accept": "application/json"}
 
         async def _send(client: httpx.AsyncClient) -> ApiResult:
             try:

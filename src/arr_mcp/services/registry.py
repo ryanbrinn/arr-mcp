@@ -10,6 +10,7 @@ import httpx
 from arr_mcp.services.arr import ArrClient
 from arr_mcp.services.base import BaseServiceClient, ServiceNotConfiguredError
 from arr_mcp.services.credentials import CredentialStore
+from arr_mcp.services.plex import PlexClient
 from arr_mcp.services.radarr import RadarrClient
 from arr_mcp.services.sonarr import SonarrClient
 from arr_mcp.tools.services import KNOWN_SERVICES, parse_xml_config
@@ -23,6 +24,7 @@ _CLIENT_MAP: dict[str, type[BaseServiceClient]] = {
     "lidarr": ArrClient,
     "prowlarr": ArrClient,
     "readarr": ArrClient,
+    "plex": PlexClient,
 }
 
 
