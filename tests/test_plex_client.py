@@ -15,13 +15,26 @@ from arr_mcp.services.plex import PlexClient, PlexEpisode, PlexMovie, PlexUser
 # ---------------------------------------------------------------------------
 
 _PLEX_TV_USERS_URL = "https://plex.tv/api/v2/home/users"
+_PLEX_TV_SWITCH_PATH_PREFIX = "/api/home/users/"
+
+
+def _switch_xml(auth_token: str) -> bytes:
+    return f'<?xml version="1.0"?><user id="1" authToken="{auth_token}"/>'.encode()
 
 
 def _client(
     server_responses: dict[str, tuple[int, object]],
     plex_tv_response: tuple[int, object] | None = None,
+    switch_tokens: dict[str, str] | None = None,
 ) -> PlexClient:
-    """Build a PlexClient backed by a mock transport."""
+    """Build a PlexClient backed by a mock transport.
+
+    ``switch_tokens`` maps a home user's id (as a string) to the personal
+    access token returned by plex.tv's "switch user" endpoint — this is how
+    PlexClient discovers per-user tokens, since the home users list itself
+    does not include them.
+    """
+    switch_tokens = switch_tokens or {}
 
     def handler(req: httpx.Request) -> httpx.Response:
         url = str(req.url)
@@ -36,6 +49,13 @@ def _client(
                 content=json.dumps(body).encode(),
                 headers={"content-type": "application/json"},
             )
+
+        if path.startswith(_PLEX_TV_SWITCH_PATH_PREFIX) and path.endswith("/switch"):
+            user_id = path[len(_PLEX_TV_SWITCH_PATH_PREFIX) : -len("/switch")]
+            token = switch_tokens.get(user_id)
+            if token is None:
+                return httpx.Response(404, content=b"")
+            return httpx.Response(200, content=_switch_xml(token))
 
         if path in server_responses:
             status, body = server_responses[path]
@@ -76,13 +96,19 @@ async def test_plex_uses_x_plex_token_header() -> None:
 
 @pytest.mark.anyio
 async def test_get_home_users_returns_user_list() -> None:
+    # The real plex.tv/api/v2/home/users response does not include an
+    # authToken — PlexClient must "switch" into each user to obtain one.
     plex_tv_payload = {
         "users": [
-            {"id": 1, "username": "alice", "title": "Alice", "authToken": "alice-token"},
-            {"id": 2, "username": "bob", "title": "Bob", "authToken": "bob-token"},
+            {"id": 1, "username": "alice", "title": "Alice"},
+            {"id": 2, "username": "bob", "title": "Bob"},
         ]
     }
-    client = _client({}, plex_tv_response=(200, plex_tv_payload))
+    client = _client(
+        {},
+        plex_tv_response=(200, plex_tv_payload),
+        switch_tokens={"1": "alice-token", "2": "bob-token"},
+    )
     result = await client.get_home_users()
     assert result.ok
     assert len(result.data) == 2  # type: ignore[arg-type]
@@ -90,6 +116,17 @@ async def test_get_home_users_returns_user_list() -> None:
     assert isinstance(user, PlexUser)
     assert user.title == "Alice"
     assert user.token == "alice-token"
+
+
+@pytest.mark.anyio
+async def test_get_home_users_handles_switch_failure() -> None:
+    """A user whose profile can't be switched into gets an empty token."""
+    plex_tv_payload = {"users": [{"id": 1, "username": "alice", "title": "Alice"}]}
+    client = _client({}, plex_tv_response=(200, plex_tv_payload), switch_tokens={})
+    result = await client.get_home_users()
+    assert result.ok
+    users: list[PlexUser] = result.data  # type: ignore[assignment]
+    assert users[0].token == ""
 
 
 # ---------------------------------------------------------------------------
@@ -175,8 +212,8 @@ async def test_get_watched_movies_returns_dataclasses() -> None:
 async def test_get_all_watched_episodes_aggregates_across_users() -> None:
     plex_tv_payload = {
         "users": [
-            {"id": 1, "username": "alice", "title": "Alice", "authToken": "tok-alice"},
-            {"id": 2, "username": "bob", "title": "Bob", "authToken": "tok-bob"},
+            {"id": 1, "username": "alice", "title": "Alice"},
+            {"id": 2, "username": "bob", "title": "Bob"},
         ]
     }
     ep = {
@@ -189,6 +226,7 @@ async def test_get_all_watched_episodes_aggregates_across_users() -> None:
     client = _client(
         {"/library/all": (200, _episode_payload(ep))},
         plex_tv_response=(200, plex_tv_payload),
+        switch_tokens={"1": "tok-alice", "2": "tok-bob"},
     )
     result = await client.get_all_watched_episodes()
     assert result.ok
@@ -201,7 +239,7 @@ async def test_get_all_watched_episodes_aggregates_across_users() -> None:
 async def test_get_all_watched_episodes_no_duplicates_for_unique_episodes() -> None:
     plex_tv_payload = {
         "users": [
-            {"id": 1, "username": "alice", "title": "Alice", "authToken": "tok-alice"},
+            {"id": 1, "username": "alice", "title": "Alice"},
         ]
     }
     eps = [
@@ -223,6 +261,7 @@ async def test_get_all_watched_episodes_no_duplicates_for_unique_episodes() -> N
     client = _client(
         {"/library/all": (200, _episode_payload(*eps))},
         plex_tv_response=(200, plex_tv_payload),
+        switch_tokens={"1": "tok-alice"},
     )
     result = await client.get_all_watched_episodes()
     assert result.ok
@@ -238,14 +277,15 @@ async def test_get_all_watched_episodes_no_duplicates_for_unique_episodes() -> N
 async def test_get_all_watched_movies_aggregates_across_users() -> None:
     plex_tv_payload = {
         "users": [
-            {"id": 1, "username": "alice", "title": "Alice", "authToken": "tok-alice"},
-            {"id": 2, "username": "bob", "title": "Bob", "authToken": "tok-bob"},
+            {"id": 1, "username": "alice", "title": "Alice"},
+            {"id": 2, "username": "bob", "title": "Bob"},
         ]
     }
     movie = {"ratingKey": "99", "title": "Inception", "year": 2010}
     client = _client(
         {"/library/all": (200, _movie_payload(movie))},
         plex_tv_response=(200, plex_tv_payload),
+        switch_tokens={"1": "tok-alice", "2": "tok-bob"},
     )
     result = await client.get_all_watched_movies()
     assert result.ok
@@ -261,15 +301,12 @@ async def test_get_all_watched_movies_aggregates_across_users() -> None:
 
 @pytest.mark.anyio
 async def test_watched_by_contains_display_names_not_ids() -> None:
-    plex_tv_payload = {
-        "users": [
-            {"id": 12345, "username": "alice_login", "title": "Alice Smith", "authToken": "tok"}
-        ]
-    }
+    plex_tv_payload = {"users": [{"id": 12345, "username": "alice_login", "title": "Alice Smith"}]}
     ep = {"ratingKey": "1", "grandparentTitle": "Show", "parentIndex": 1, "index": 1, "title": "ep"}
     client = _client(
         {"/library/all": (200, _episode_payload(ep))},
         plex_tv_response=(200, plex_tv_payload),
+        switch_tokens={"12345": "tok"},
     )
     result = await client.get_all_watched_episodes()
     episodes: list[PlexEpisode] = result.data  # type: ignore[assignment]
