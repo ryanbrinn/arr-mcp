@@ -2,7 +2,7 @@
 
 ## Overview
 
-arr-mcp is built in three phases, each with a clear architectural goal, defined success criteria, and a verification step before moving forward. The phases are intentionally sequential — Phase 2 should not begin until Phase 1 is verified complete.
+arr-mcp is built in four phases, each with a clear architectural goal, defined success criteria, and a verification step before moving forward. The phases are intentionally sequential — Phase 2 should not begin until Phase 1 is verified complete.
 
 ---
 
@@ -37,6 +37,8 @@ gantt
         System check and runtime setup          :         p3a, 2027-01, 2027-03
         Stack scaffolding and config wizard     :         p3b, 2027-03, 2027-05
         First-run validation                    :         p3c, 2027-05, 2027-06
+    section Phase 4 - Advanced Features
+        Tiered infrastructure access (#54)      :         p4a, 2027-06, 2027-08
 ```
 
 ---
@@ -159,6 +161,33 @@ Before declaring Phase 3 complete, confirm:
 - [ ] All services pass health checks at the end of the wizard
 - [ ] Jellyfin path is available as an alternative to Plex
 - [ ] All Phase 1 and Phase 2 verification criteria still pass (no regression)
+
+---
+
+## Phase 4 — Advanced Features
+
+### Architectural goal
+Give advanced users explicit, opt-in ways to widen arr-mcp's default safety scope on their own terms — without weakening the safe-by-default posture established in Phase 1 (#52) for everyone else. This phase is for capabilities that intentionally trade a larger blast radius for more power, aimed at users who understand and accept that trade-off.
+
+### What this phase delivers
+
+| Area | Goal |
+|---|---|
+| **Tiered access** | Static, config-driven model for unlocking infrastructure-level tools (nginx, fail2ban, certbot) beyond the default media-stack scope (#54) |
+
+### Guardrails
+- Expanded access must be configured statically (install time / config file edit) — never toggled at runtime via MCP tools
+- Unlocking infrastructure-level tools must surface a clear, persistent warning that they affect network security and availability
+- Default scope for new installs remains the media stack only — advanced tiers are strictly opt-in
+- Cloudflare/tunnel/CDN management stays out of scope for direct control; at most, read-only health/status visibility may be considered
+
+### Verification checklist
+Before declaring Phase 4 complete, confirm:
+
+- [ ] Tier/allowlist configuration is read only from static config — no MCP tool can change it at runtime
+- [ ] Unlocking an advanced tier surfaces a clear warning in both the dashboard and tool responses
+- [ ] Default (media-only) installs are unaffected and remain the out-of-the-box behaviour
+- [ ] All Phase 1, 2, and 3 verification criteria still pass (no regression)
 
 ---
 

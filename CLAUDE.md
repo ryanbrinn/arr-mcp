@@ -111,6 +111,7 @@ See `docs/roadmap.md` for the full public roadmap. This section governs how sess
 | **Phase 1 — MVP** | Solid, secure, well-tested foundation. All tools working. Dashboard. Documentation. |
 | **Phase 2 — Media Intelligence** | Plex/-arr API integrations, watched content cleanup, log monitoring, multi-user support. |
 | **Phase 3 — Installation Wizard** | Guided setup for non-technical users on a fresh machine. |
+| **Phase 4 — Advanced Features** | Opt-in, config-driven ways for advanced users to widen the default safety scope (e.g. tiered infrastructure access) without weakening it for everyone else. |
 
 ### Guardrails — what NOT to build yet
 
@@ -118,11 +119,15 @@ See `docs/roadmap.md` for the full public roadmap. This section governs how sess
 - Integrate with Plex, Sonarr, Radarr, or SABnzbd APIs
 - Build user authentication or watchlist features
 - Start installation wizard work
-- Build Phase 2/3 features even if they seem "quick"
+- Build Phase 2/3/4 features even if they seem "quick"
 
 **In Phase 2, do not:**
 - Start installation wizard work
 - Implement Jellyfin support (future state — design for it, don't build it)
+- Build Phase 4 features (e.g. tiered infrastructure access) — the default media-stack scope must stay solid first
+
+**In Phase 3, do not:**
+- Build Phase 4 features — advanced/opt-in scope changes come after the wizard is stable
 
 ### End-of-phase verification
 
