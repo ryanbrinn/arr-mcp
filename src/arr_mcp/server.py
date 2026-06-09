@@ -82,8 +82,10 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         # Health, dashboard, and static assets bypass Bearer auth —
         # the dashboard does its own key-in-query-param check.
         path = request.url.path
-        is_dashboard = path in ("/health", "/", "/api/status", "/api/diagnose") or path.startswith(
-            "/static/"
+        is_dashboard = (
+            path in ("/health", "/", "/api/status", "/api/diagnose")
+            or path.startswith("/static/")
+            or path.startswith("/auth/")
         )
         if is_dashboard:
             return await call_next(request)
@@ -126,6 +128,10 @@ def create_app(settings: Settings) -> Starlette:
         Route("/", endpoint=dashboard["dashboard"]),
         Route("/api/status", endpoint=dashboard["api_status"]),
         Route("/api/diagnose", endpoint=dashboard["api_diagnose"], methods=["POST"]),
+        Route("/auth/signin", endpoint=dashboard["auth_signin"]),
+        Route("/auth/plex/start", endpoint=dashboard["auth_plex_start"]),
+        Route("/auth/plex/callback", endpoint=dashboard["auth_plex_callback"]),
+        Route("/auth/logout", endpoint=dashboard["auth_logout"], methods=["GET", "POST"]),
         Mount("/static", app=StaticFiles(directory=str(_STATIC_DIR)), name="static"),
         mcp_route,
     ]

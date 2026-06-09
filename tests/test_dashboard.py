@@ -72,13 +72,14 @@ async def test_dashboard_returns_html(public_settings: Settings) -> None:
     assert "arr-mcp" in r.text
 
 
-async def test_dashboard_rejects_missing_key(private_settings: Settings) -> None:
+async def test_dashboard_redirects_unauthenticated(private_settings: Settings) -> None:
     app = _make_app(private_settings)
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
+        transport=httpx.ASGITransport(app=app), base_url="http://test", follow_redirects=False
     ) as client:
         r = await client.get("/")
-    assert r.status_code == 401
+    assert r.status_code == 302
+    assert "/auth/signin" in r.headers["location"]
 
 
 async def test_dashboard_accepts_valid_key(private_settings: Settings) -> None:
@@ -90,13 +91,14 @@ async def test_dashboard_accepts_valid_key(private_settings: Settings) -> None:
     assert r.status_code == 200
 
 
-async def test_dashboard_rejects_wrong_key(private_settings: Settings) -> None:
+async def test_dashboard_redirects_wrong_key(private_settings: Settings) -> None:
     app = _make_app(private_settings)
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
+        transport=httpx.ASGITransport(app=app), base_url="http://test", follow_redirects=False
     ) as client:
         r = await client.get("/?key=wrong")
-    assert r.status_code == 401
+    assert r.status_code == 302
+    assert "/auth/signin" in r.headers["location"]
 
 
 async def test_api_status_returns_200(public_settings: Settings) -> None:

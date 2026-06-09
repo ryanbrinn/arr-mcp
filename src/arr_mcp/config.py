@@ -69,6 +69,21 @@ class Settings(BaseSettings):
         default=False,
         description="Serve dashboard without auth (safe for LAN-only deployments)",
     )
+    admin_plex_users: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Comma-separated Plex usernames that receive admin role on the dashboard. "
+            "Set ARR_MCP_ADMIN_PLEX_USERS=alice,bob"
+        ),
+    )
+    session_secret: str = Field(
+        default="",
+        description=(
+            "Secret key for signing dashboard session cookies. "
+            'Generate with: python -c "import secrets; print(secrets.token_hex(32))". '
+            "Sessions survive restarts only when this is set."
+        ),
+    )
     allowed_stacks: list[str] = Field(
         default_factory=list,
         description=(
@@ -113,7 +128,7 @@ class Settings(BaseSettings):
         description="How often AlertWatcher polls for threshold violations (seconds)",
     )
 
-    @field_validator("allowed_stacks", mode="before")
+    @field_validator("allowed_stacks", "admin_plex_users", mode="before")
     @classmethod
     def _parse_allowed_stacks(cls, v: object) -> list[str]:
         """Accept a comma-separated string or a list."""

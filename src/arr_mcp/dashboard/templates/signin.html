@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>arr-mcp — Sign in</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .signin-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 80vh;
+      gap: 2rem;
+    }
+    .signin-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 3rem 2.5rem;
+      text-align: center;
+      max-width: 380px;
+      width: 100%;
+    }
+    .signin-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .75rem;
+      margin-bottom: 1.5rem;
+    }
+    .signin-logo .logo-img { height: 40px; }
+    .signin-logo .logo { font-size: 1.6rem; font-weight: 700; }
+    .signin-tagline {
+      color: var(--muted);
+      font-size: .9rem;
+      margin-bottom: 2rem;
+    }
+    .btn-plex {
+      display: inline-flex;
+      align-items: center;
+      gap: .6rem;
+      background: #e5a00d;
+      color: #000;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: .75rem 1.5rem;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background .15s;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-plex:hover { background: #f0b429; }
+    .btn-plex svg { width: 20px; height: 20px; fill: #000; }
+    .signin-error {
+      background: rgba(231,76,60,.15);
+      border: 1px solid rgba(231,76,60,.4);
+      border-radius: 6px;
+      color: #e74c3c;
+      padding: .75rem 1rem;
+      font-size: .875rem;
+      margin-bottom: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="signin-wrap">
+    <div class="signin-card">
+      <div class="signin-logo">
+        <img class="logo-img" src="/static/logo.svg" alt="arr-mcp logo">
+        <span class="logo">arr-mcp</span>
+      </div>
+      <p class="signin-tagline">Home media stack management</p>
+
+      {% if error %}
+      <div class="signin-error">{{ error }}</div>
+      {% endif %}
+
+      <a href="/auth/plex/start" class="btn-plex">
+        <!-- Plex "P" logo mark -->
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M11.994 2L4 12.005 11.994 22l8.004-9.995L11.994 2z"/>
+        </svg>
+        Sign in with Plex
+      </a>
+    </div>
+  </div>
+</body>
+</html>
