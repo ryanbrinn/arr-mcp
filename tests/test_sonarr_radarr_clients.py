@@ -62,6 +62,9 @@ async def test_sonarr_get_series_returns_dataclasses() -> None:
             "id": 1,
             "title": "Breaking Bad",
             "path": "/media/tv/Breaking Bad",
+            "year": 2008,
+            "status": "ended",
+            "monitored": True,
             "seasons": [
                 {
                     "seasonNumber": 1,
@@ -77,6 +80,9 @@ async def test_sonarr_get_series_returns_dataclasses() -> None:
     series = result.data[0]  # type: ignore[index]
     assert isinstance(series, Series)
     assert series.title == "Breaking Bad"
+    assert series.year == 2008
+    assert series.status == "ended"
+    assert series.monitored is True
     assert len(series.seasons) == 1
     assert series.seasons[0].episode_count == 7
 
@@ -156,6 +162,9 @@ async def test_radarr_get_movies_returns_dataclasses() -> None:
             "path": "/media/movies/Inception",
             "hasFile": True,
             "movieFileId": 42,
+            "year": 2010,
+            "status": "released",
+            "monitored": False,
         }
     ]
     client = _radarr({"/api/v3/movie": (200, payload)})
@@ -164,6 +173,9 @@ async def test_radarr_get_movies_returns_dataclasses() -> None:
     movie = result.data[0]  # type: ignore[index]
     assert isinstance(movie, Movie)
     assert movie.title == "Inception"
+    assert movie.year == 2010
+    assert movie.status == "released"
+    assert movie.monitored is False
     assert movie.movie_file_id == 42
 
 

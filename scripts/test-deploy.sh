@@ -132,6 +132,9 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
   podman compose -f test-stack/compose.yaml up -d
   echo 'Test stack containers started.'
 
+  # Seed Sonarr/Radarr with representative media library test data
+  bash \$HOME/arr-mcp-test/test-stack/seed-media.sh || echo 'WARNING: media seed failed, continuing.'
+
   # Kill any existing test arr-mcp instance and wait for port to free
   if [ -f /tmp/arr-mcp-test.pid ]; then
     kill \$(cat /tmp/arr-mcp-test.pid) 2>/dev/null || true

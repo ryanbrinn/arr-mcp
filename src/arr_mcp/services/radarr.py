@@ -48,6 +48,9 @@ def _parse_movie(raw: dict) -> Movie:  # type: ignore[type-arg]
         title=raw.get("title", ""),
         path=raw.get("path", ""),
         has_file=raw.get("hasFile", False),
+        year=raw.get("year", 0),
+        status=raw.get("status", ""),
+        monitored=raw.get("monitored", True),
         movie_file_id=raw.get("movieFileId") or None,
     )
 
