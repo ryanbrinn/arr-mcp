@@ -26,6 +26,7 @@ from arr_mcp.config import Settings
 from arr_mcp.dashboard.routes import make_dashboard_routes
 from arr_mcp.runtime.client import ContainerClient
 from arr_mcp.tasks.alerts import AlertWatcher
+from arr_mcp.tasks.versions import VersionChecker
 from arr_mcp.tools.alerts import register_alert_tools
 from arr_mcp.tools.containers import register_container_tools
 from arr_mcp.tools.conversion import register_conversion_tools
@@ -37,6 +38,7 @@ from arr_mcp.tools.logs import register_log_tools
 from arr_mcp.tools.media import register_media_tools
 from arr_mcp.tools.reachability import register_reachability_tools
 from arr_mcp.tools.stacks import register_stack_tools
+from arr_mcp.tools.versions import register_version_tools
 
 load_dotenv()
 
@@ -67,6 +69,7 @@ def build_mcp_server(
     register_interest_tools(server, settings)
     register_media_tools(server, settings)
     register_reachability_tools(server, settings)
+    register_version_tools(server, settings)
     return server
 
 
@@ -103,6 +106,7 @@ def create_app(settings: Settings) -> Starlette:
     mcp_route = fastmcp_app.routes[0]  # Route("/mcp", endpoint=StreamableHTTPASGIApp)
 
     alert_watcher = AlertWatcher(settings)
+    version_checker = VersionChecker(settings)
 
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
@@ -110,6 +114,7 @@ def create_app(settings: Settings) -> Starlette:
         async with mcp_server.session_manager.run():
             async with anyio.create_task_group() as tg:
                 tg.start_soon(alert_watcher.run)
+                tg.start_soon(version_checker.run)
                 yield
                 tg.cancel_scope.cancel()
         log.info("arr-mcp stopped")
