@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import anyio
 import uvicorn
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
@@ -24,6 +25,8 @@ from arr_mcp.ai.provider import AIProvider, get_provider
 from arr_mcp.config import Settings
 from arr_mcp.dashboard.routes import make_dashboard_routes
 from arr_mcp.runtime.client import ContainerClient
+from arr_mcp.tasks.alerts import AlertWatcher
+from arr_mcp.tools.alerts import register_alert_tools
 from arr_mcp.tools.containers import register_container_tools
 from arr_mcp.tools.conversion import register_conversion_tools
 from arr_mcp.tools.credentials import register_credential_tools
@@ -59,6 +62,7 @@ def build_mcp_server(
     register_log_tools(server, settings)
     register_conversion_tools(server, settings)
     register_diagnostic_tools(server, settings, client)
+    register_alert_tools(server, settings)
     register_credential_tools(server, settings)
     register_interest_tools(server, settings)
     register_media_tools(server, settings)
@@ -98,11 +102,16 @@ def create_app(settings: Settings) -> Starlette:
     fastmcp_app = mcp_server.streamable_http_app()
     mcp_route = fastmcp_app.routes[0]  # Route("/mcp", endpoint=StreamableHTTPASGIApp)
 
+    alert_watcher = AlertWatcher(settings)
+
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
         log.info("arr-mcp starting — runtime=%s port=%d", settings.container_runtime, settings.port)
         async with mcp_server.session_manager.run():
-            yield
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(alert_watcher.run)
+                yield
+                tg.cancel_scope.cancel()
         log.info("arr-mcp stopped")
 
     routes = [

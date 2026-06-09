@@ -104,6 +104,15 @@ class Settings(BaseSettings):
         description="Anthropic model ID to use for completions",
     )
 
+    # ------------------------------------------------------------------
+    # Alert watcher
+    # ------------------------------------------------------------------
+
+    alert_interval_seconds: int = Field(
+        default=300,
+        description="How often AlertWatcher polls for threshold violations (seconds)",
+    )
+
     @field_validator("allowed_stacks", mode="before")
     @classmethod
     def _parse_allowed_stacks(cls, v: object) -> list[str]:
