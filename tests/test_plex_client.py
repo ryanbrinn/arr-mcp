@@ -82,7 +82,9 @@ async def test_plex_uses_x_plex_token_header() -> None:
 
     def handler(req: httpx.Request) -> httpx.Response:
         received.append(req.headers.get("x-plex-token", ""))
-        return httpx.Response(200, content=b"{}", headers={"content-type": "application/json"})
+        return httpx.Response(
+            200, content=b"{}", headers={"content-type": "application/json"}
+        )
 
     http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     client = PlexClient("http://plex:32400", "my-plex-token", http=http)
@@ -402,8 +404,16 @@ async def test_get_all_watched_movies_aggregates_across_users() -> None:
 
 @pytest.mark.anyio
 async def test_watched_by_contains_display_names_not_ids() -> None:
-    plex_tv_payload = {"users": [{"id": 12345, "username": "alice_login", "title": "Alice Smith"}]}
-    ep = {"ratingKey": "1", "grandparentTitle": "Show", "parentIndex": 1, "index": 1, "title": "ep"}
+    plex_tv_payload = {
+        "users": [{"id": 12345, "username": "alice_login", "title": "Alice Smith"}]
+    }
+    ep = {
+        "ratingKey": "1",
+        "grandparentTitle": "Show",
+        "parentIndex": 1,
+        "index": 1,
+        "title": "ep",
+    }
     client = _client(
         {"/library/all": (200, _episode_payload(ep))},
         plex_tv_response=(200, plex_tv_payload),
@@ -421,7 +431,9 @@ async def test_watched_by_contains_display_names_not_ids() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_registry_returns_plex_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_registry_returns_plex_client(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from arr_mcp.services.registry import ServiceRegistry
 
     monkeypatch.setenv("PLEX_TOKEN", "token")

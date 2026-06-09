@@ -124,7 +124,9 @@ async def test_sonarr_get_episode_files_returns_dataclasses() -> None:
 
 
 @pytest.mark.anyio
-async def test_sonarr_delete_episode_file_sends_delete(caplog: pytest.LogCaptureFixture) -> None:
+async def test_sonarr_delete_episode_file_sends_delete(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     import logging
 
     client = _sonarr({"/api/v3/episodefile/99": (200, {})})
@@ -186,7 +188,9 @@ async def test_radarr_get_movie_files_returns_dataclasses() -> None:
 
 
 @pytest.mark.anyio
-async def test_radarr_delete_movie_file_sends_delete(caplog: pytest.LogCaptureFixture) -> None:
+async def test_radarr_delete_movie_file_sends_delete(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     import logging
 
     client = _radarr({"/api/v3/moviefile/42": (200, {})})

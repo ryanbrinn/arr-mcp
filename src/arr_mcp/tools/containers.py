@@ -46,9 +46,9 @@ def _calc_cpu_pct(stats: dict[str, Any]) -> str:
     """
     cpu = stats.get("cpu_stats", {})
     precpu = stats.get("precpu_stats", {})
-    cpu_delta = cpu.get("cpu_usage", {}).get("total_usage", 0) - precpu.get("cpu_usage", {}).get(
-        "total_usage", 0
-    )
+    cpu_delta = cpu.get("cpu_usage", {}).get("total_usage", 0) - precpu.get(
+        "cpu_usage", {}
+    ).get("total_usage", 0)
     sys_usage = cpu.get("system_cpu_usage")
     prev_sys_usage = precpu.get("system_cpu_usage")
     if sys_usage is None or prev_sys_usage is None:
@@ -72,14 +72,19 @@ def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
             status = c.get("Status", "unknown")
             ports = (
                 ", ".join(
-                    f"{p.get('PublicPort', '?')}->{p.get('PrivatePort', '?')}/{p.get('Type', '')}"
+                    (
+                        f"{p.get('PublicPort', '?')}"
+                        f"->{p.get('PrivatePort', '?')}/{p.get('Type', '')}"
+                    )
                     for p in (c.get("Ports") or [])
                     if p.get("PublicPort")
                 )
                 or "none"
             )
             rows.append(f"{name:20s}  {status:30s}  ports: {ports}")
-        return [TextContent(type="text", text="\n".join(rows) or "No containers found.")]
+        return [
+            TextContent(type="text", text="\n".join(rows) or "No containers found.")
+        ]
 
     @server.tool()
     async def container_start(name: str) -> list[TextContent]:
@@ -103,7 +108,11 @@ def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
     async def container_remove(name: str, confirm: bool = False) -> list[TextContent]:
         """Remove a container. Requires confirm=True."""
         if not confirm:
-            return [TextContent(type="text", text="Pass confirm=True to remove the container.")]
+            return [
+                TextContent(
+                    type="text", text="Pass confirm=True to remove the container."
+                )
+            ]
         await client.delete(f"{API}/containers/{name}?force=true")
         return [TextContent(type="text", text=f"Removed: {name}")]
 
@@ -112,8 +121,12 @@ def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
         """Fetch the last N log lines from a container."""
         uds = client.socket_path.removeprefix("unix://")
         transport = httpx.AsyncHTTPTransport(uds=uds)
-        async with httpx.AsyncClient(transport=transport, base_url="http://localhost") as c:
-            r = await c.get(f"{API}/containers/{name}/logs?stdout=true&stderr=true&tail={lines}")
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://localhost"
+        ) as c:
+            r = await c.get(
+                f"{API}/containers/{name}/logs?stdout=true&stderr=true&tail={lines}"
+            )
         if r.status_code != 200:
             msg = r.text.strip() or f"HTTP {r.status_code}"
             # Podman with journald log driver returns 500 and "configured logging driver
@@ -140,7 +153,9 @@ def register_container_tools(server: FastMCP, client: ContainerClient) -> None:
                 rx = sum(v.get("rx_bytes", 0) for v in nets.values()) / 1024
                 tx = sum(v.get("tx_bytes", 0) for v in nets.values()) / 1024
                 rows.append(
-                    f"{name:20s} {cpu_str}  {used:6.1f}MB / {limit:6.1f}MB  {rx:.1f}kB / {tx:.1f}kB"
+                    f"{name:20s} {cpu_str}  "
+                    f"{used:6.1f}MB / {limit:6.1f}MB  "
+                    f"{rx:.1f}kB / {tx:.1f}kB"
                 )
             except Exception as exc:
                 rows.append(f"{name:20s} (stats unavailable: {exc})")

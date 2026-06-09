@@ -98,7 +98,9 @@ def service_to_quadlet(name: str, service: dict[str, Any]) -> tuple[str, list[st
         if isinstance(test, list):
             # Strip CMD / CMD-SHELL prefix
             test = (
-                " ".join(test[1:]) if test and test[0] in ("CMD", "CMD-SHELL") else " ".join(test)
+                " ".join(test[1:])
+                if test and test[0] in ("CMD", "CMD-SHELL")
+                else " ".join(test)
             )
         if test:
             lines_container.append(f"HealthCmd={test}")
@@ -264,26 +266,39 @@ def register_conversion_tools(server: FastMCP, settings: Settings) -> None:
 
         # Find compose file
         compose_path: Path | None = None
-        for fname in ("compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml"):
+        for fname in (
+            "compose.yaml",
+            "compose.yml",
+            "docker-compose.yaml",
+            "docker-compose.yml",
+        ):
             candidate = stack_dir / fname
             if candidate.exists():
                 compose_path = candidate
                 break
 
         if compose_path is None:
-            return [TextContent(type="text", text=f"No compose file found in {stack_dir}")]
+            return [
+                TextContent(type="text", text=f"No compose file found in {stack_dir}")
+            ]
 
         try:
             data = yaml.safe_load(compose_path.read_text())
         except yaml.YAMLError as exc:
-            return [TextContent(type="text", text=f"Could not parse compose.yaml: {exc}")]
+            return [
+                TextContent(type="text", text=f"Could not parse compose.yaml: {exc}")
+            ]
 
         if not isinstance(data, dict) or "services" not in data:
-            return [TextContent(type="text", text="compose.yaml has no services defined")]
+            return [
+                TextContent(type="text", text="compose.yaml has no services defined")
+            ]
 
         services: dict[str, Any] = data["services"] or {}
         if not services:
-            return [TextContent(type="text", text="compose.yaml has no services defined")]
+            return [
+                TextContent(type="text", text="compose.yaml has no services defined")
+            ]
 
         staging_dir = stack_dir / "quadlets"
         staging_dir.mkdir(exist_ok=True)
@@ -360,14 +375,20 @@ def register_conversion_tools(server: FastMCP, settings: Settings) -> None:
                 skipped.append(f"  {qfile.name}: {exc}")
 
         if not services:
-            return [TextContent(type="text", text="No valid quadlet files could be parsed")]
+            return [
+                TextContent(type="text", text="No valid quadlet files could be parsed")
+            ]
 
         compose_data: dict[str, Any] = {"services": services}
 
         # Render YAML with clean formatting
         stream = io.StringIO()
         yaml.dump(
-            compose_data, stream, default_flow_style=False, allow_unicode=True, sort_keys=False
+            compose_data,
+            stream,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
         )
         compose_yaml = stream.getvalue()
 

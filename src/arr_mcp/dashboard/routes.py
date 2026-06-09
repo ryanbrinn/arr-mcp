@@ -88,7 +88,9 @@ def _check_auth(request: Request, settings: Settings) -> bool:
     return key == settings.api_key
 
 
-def make_dashboard_routes(client: ContainerClient, settings: Settings) -> dict[str, Any]:
+def make_dashboard_routes(
+    client: ContainerClient, settings: Settings
+) -> dict[str, Any]:
     """Return the two dashboard route handlers as a dict."""
     jinja = _get_jinja_env()
 

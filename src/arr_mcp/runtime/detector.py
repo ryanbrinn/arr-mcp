@@ -18,7 +18,11 @@ def detect_runtime(preference: str = "auto", socket_path: str = "") -> tuple[str
     if socket_path:
         # Explicit path wins — infer runtime from the path string.
         runtime = "podman" if "podman" in socket_path else "docker"
-        sock = socket_path if socket_path.startswith("unix://") else f"unix://{socket_path}"
+        sock = (
+            socket_path
+            if socket_path.startswith("unix://")
+            else f"unix://{socket_path}"
+        )
         return (runtime, sock)
 
     if preference == "docker":

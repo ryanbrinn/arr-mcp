@@ -1,4 +1,4 @@
-"""ServiceRegistry — builds typed service clients from KNOWN_SERVICES + CredentialStore."""
+"""ServiceRegistry — builds typed service clients from KNOWN_SERVICES + CredentialStore."""  # noqa: E501
 
 from __future__ import annotations
 

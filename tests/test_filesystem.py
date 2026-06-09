@@ -92,22 +92,30 @@ async def test_directory_list_empty(settings: Settings, mock_client: MagicMock) 
     assert result[0][0].text == "(empty)"
 
 
-async def test_directory_list_with_entries(settings: Settings, mock_client: MagicMock) -> None:
+async def test_directory_list_with_entries(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     server = FastMCP("test")
     register_filesystem_tools(server, settings)
     (Path(settings.compose_dir) / "mystack").mkdir()
     (Path(settings.compose_dir) / "readme.txt").write_text("hi")
     with patch("arr_mcp.tools.filesystem.is_owned_by_current_user", return_value=True):
-        result = await server.call_tool("directory_list", {"path": settings.compose_dir})
+        result = await server.call_tool(
+            "directory_list", {"path": settings.compose_dir}
+        )
     assert "mystack" in result[0][0].text
     assert "readme.txt" in result[0][0].text
 
 
-async def test_file_write_outside_allowed_fails(settings: Settings, mock_client: MagicMock) -> None:
+async def test_file_write_outside_allowed_fails(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     server = FastMCP("test")
     register_filesystem_tools(server, settings)
     with pytest.raises(ToolError, match="not in allowed roots"):
-        await server.call_tool("file_write", {"path": "/etc/evil.txt", "content": "bad"})
+        await server.call_tool(
+            "file_write", {"path": "/etc/evil.txt", "content": "bad"}
+        )
 
 
 async def test_file_delete_success(settings: Settings, mock_client: MagicMock) -> None:
@@ -116,12 +124,16 @@ async def test_file_delete_success(settings: Settings, mock_client: MagicMock) -
     target = Path(settings.compose_dir) / "to-delete.txt"
     target.write_text("bye")
     with patch("arr_mcp.tools.filesystem.is_owned_by_current_user", return_value=True):
-        result = await server.call_tool("file_delete", {"path": str(target), "confirm": True})
+        result = await server.call_tool(
+            "file_delete", {"path": str(target), "confirm": True}
+        )
     assert "Deleted" in result[0][0].text
     assert not target.exists()
 
 
-async def test_file_delete_requires_confirm(settings: Settings, mock_client: MagicMock) -> None:
+async def test_file_delete_requires_confirm(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     server = FastMCP("test")
     register_filesystem_tools(server, settings)
     target = Path(settings.compose_dir) / "safe.txt"
@@ -131,34 +143,46 @@ async def test_file_delete_requires_confirm(settings: Settings, mock_client: Mag
     assert target.exists()
 
 
-async def test_file_delete_outside_allowed_root(settings: Settings, mock_client: MagicMock) -> None:
+async def test_file_delete_outside_allowed_root(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     server = FastMCP("test")
     register_filesystem_tools(server, settings)
     with pytest.raises(ToolError, match="not in allowed roots"):
         await server.call_tool("file_delete", {"path": "/etc/passwd", "confirm": True})
 
 
-async def test_file_delete_not_found(settings: Settings, mock_client: MagicMock) -> None:
+async def test_file_delete_not_found(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     server = FastMCP("test")
     register_filesystem_tools(server, settings)
     missing = str(Path(settings.compose_dir) / "ghost.txt")
     with patch("arr_mcp.tools.filesystem.is_owned_by_current_user", return_value=True):
-        result = await server.call_tool("file_delete", {"path": missing, "confirm": True})
+        result = await server.call_tool(
+            "file_delete", {"path": missing, "confirm": True}
+        )
     assert "not found" in result[0][0].text.lower()
 
 
-async def test_file_delete_directory_rejected(settings: Settings, mock_client: MagicMock) -> None:
+async def test_file_delete_directory_rejected(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     server = FastMCP("test")
     register_filesystem_tools(server, settings)
     d = Path(settings.compose_dir) / "mydir"
     d.mkdir()
     with patch("arr_mcp.tools.filesystem.is_owned_by_current_user", return_value=True):
-        result = await server.call_tool("file_delete", {"path": str(d), "confirm": True})
+        result = await server.call_tool(
+            "file_delete", {"path": str(d), "confirm": True}
+        )
     assert "directory" in result[0][0].text.lower()
     assert d.exists()
 
 
-async def test_file_delete_root_owned_rejected(settings: Settings, mock_client: MagicMock) -> None:
+async def test_file_delete_root_owned_rejected(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     """Regression: root-owned files must never be deleted."""
     server = FastMCP("test")
     register_filesystem_tools(server, settings)
@@ -166,7 +190,9 @@ async def test_file_delete_root_owned_rejected(settings: Settings, mock_client: 
     target.write_text("owned by root")
     with patch("arr_mcp.tools.filesystem.is_owned_by_current_user", return_value=False):
         with pytest.raises(ToolError, match="not owned by current user"):
-            await server.call_tool("file_delete", {"path": str(target), "confirm": True})
+            await server.call_tool(
+                "file_delete", {"path": str(target), "confirm": True}
+            )
     assert target.exists()
 
 
@@ -182,6 +208,8 @@ async def test_directory_list_excludes_root_owned_in_stacks_dir(
         "arr_mcp.tools.filesystem.is_owned_by_current_user",
         side_effect=lambda p: p.name != "root-stack",
     ):
-        result = await server.call_tool("directory_list", {"path": settings.compose_dir})
+        result = await server.call_tool(
+            "directory_list", {"path": settings.compose_dir}
+        )
     assert "my-stack" in result[0][0].text
     assert "root-stack" not in result[0][0].text

@@ -102,12 +102,16 @@ def test_check_port_binding_all_interfaces() -> None:
 
 
 def test_check_port_binding_localhost_127() -> None:
-    port, is_localhost = check_port_binding({"Port": "8989", "BindAddress": "127.0.0.1"}, "Port")
+    port, is_localhost = check_port_binding(
+        {"Port": "8989", "BindAddress": "127.0.0.1"}, "Port"
+    )
     assert is_localhost is True
 
 
 def test_check_port_binding_localhost_name() -> None:
-    _, is_localhost = check_port_binding({"Port": "8989", "BindAddress": "localhost"}, "Port")
+    _, is_localhost = check_port_binding(
+        {"Port": "8989", "BindAddress": "localhost"}, "Port"
+    )
     assert is_localhost is True
 
 
@@ -172,7 +176,9 @@ def test_scan_log_errors_custom_patterns(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _write_sonarr_config(path: Path, api_key: str = "abc123def456abc1", bind: str = "") -> None:
+def _write_sonarr_config(
+    path: Path, api_key: str = "abc123def456abc1", bind: str = ""
+) -> None:
     path.write_text(
         f"<Config>"
         f"<ApiKey>{api_key}</ApiKey>"
@@ -280,7 +286,9 @@ def test_known_services_all_have_log_dir() -> None:
 def test_known_services_all_have_valid_format() -> None:
     valid_formats = {"xml", "ini", "json", "yaml"}
     for name, info in KNOWN_SERVICES.items():
-        assert info.config_format in valid_formats, f"{name}: unknown format {info.config_format}"
+        assert info.config_format in valid_formats, (
+            f"{name}: unknown format {info.config_format}"
+        )
 
 
 # ---------------------------------------------------------------------------

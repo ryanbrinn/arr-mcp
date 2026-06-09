@@ -57,4 +57,6 @@ def register_log_tools(server: FastMCP, settings: Settings) -> None:
                     matches.append(line)
         matches = matches[-lines:]
         header = f"Last {len(matches)} matches for '{query}' in {p}:\n"
-        return [TextContent(type="text", text=header + "".join(matches) or "(no matches)")]
+        return [
+            TextContent(type="text", text=header + "".join(matches) or "(no matches)")
+        ]

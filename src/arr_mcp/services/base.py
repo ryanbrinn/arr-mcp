@@ -101,7 +101,9 @@ class BaseServiceClient:
                     timeout=_DEFAULT_TIMEOUT,
                 )
             except httpx.TimeoutException:
-                return ApiResult(ok=False, error=f"Timeout connecting to {self._base_url}")
+                return ApiResult(
+                    ok=False, error=f"Timeout connecting to {self._base_url}"
+                )
             except httpx.ConnectError as exc:
                 return ApiResult(ok=False, error=f"Connection refused: {exc}")
             except httpx.RequestError as exc:

@@ -73,7 +73,13 @@ def _parse_uptime(status: str) -> int | None:
         if len(parts) >= 2:
             n = int(parts[0])
             unit = parts[1].rstrip("s")
-            multipliers = {"second": 1, "minute": 60, "hour": 3600, "day": 86400, "week": 604800}
+            multipliers = {
+                "second": 1,
+                "minute": 60,
+                "hour": 3600,
+                "day": 86400,
+                "week": 604800,
+            }
             return n * multipliers.get(unit, 0)
     except (ValueError, IndexError):
         pass

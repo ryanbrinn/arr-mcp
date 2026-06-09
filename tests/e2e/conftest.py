@@ -77,7 +77,9 @@ def e2e_settings(tmp_path: Path, runtime: str) -> Settings:
 
 
 @pytest.fixture
-def e2e_client(e2e_settings: Settings, fake_docker: FakeDockerTransport) -> ContainerClient:
+def e2e_client(
+    e2e_settings: Settings, fake_docker: FakeDockerTransport
+) -> ContainerClient:
     """ContainerClient whose httpx transport is the in-process fake."""
     with patch(
         "arr_mcp.runtime.detector.detect_runtime",
@@ -96,7 +98,11 @@ def e2e_client(e2e_settings: Settings, fake_docker: FakeDockerTransport) -> Cont
 
 
 @pytest.fixture
-def mcp(e2e_settings: Settings, e2e_client: ContainerClient, fake_docker: FakeDockerTransport):
+def mcp(
+    e2e_settings: Settings,
+    e2e_client: ContainerClient,
+    fake_docker: FakeDockerTransport,
+):
     """FastMCP server wired to the fake Docker backend.
 
     Also patches ``httpx.AsyncHTTPTransport`` inside the containers module so
@@ -113,7 +119,9 @@ def mcp(e2e_settings: Settings, e2e_client: ContainerClient, fake_docker: FakeDo
         async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
             return await fake_docker.handle_async_request(request)
 
-    with patch("arr_mcp.tools.containers.httpx.AsyncHTTPTransport", _FakeTransportFactory):
+    with patch(
+        "arr_mcp.tools.containers.httpx.AsyncHTTPTransport", _FakeTransportFactory
+    ):
         yield server
 
 

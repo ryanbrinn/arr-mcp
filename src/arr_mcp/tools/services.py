@@ -364,9 +364,13 @@ def scan_log_errors(
     if not log_dir.exists() or not log_dir.is_dir():
         return []
 
-    log_files = sorted(log_dir.glob("*.txt"), key=lambda f: f.stat().st_mtime, reverse=True)
+    log_files = sorted(
+        log_dir.glob("*.txt"), key=lambda f: f.stat().st_mtime, reverse=True
+    )
     if not log_files:
-        log_files = sorted(log_dir.glob("*.log"), key=lambda f: f.stat().st_mtime, reverse=True)
+        log_files = sorted(
+            log_dir.glob("*.log"), key=lambda f: f.stat().st_mtime, reverse=True
+        )
     if not log_files:
         return []
 
@@ -400,7 +404,9 @@ def _check_db_download_clients(
                 severity="warning",
                 category="integration",
                 message="No download clients configured in the database",
-                fix_hint=(f"Add a download client in {service} Settings → Download Clients."),
+                fix_hint=(
+                    f"Add a download client in {service} Settings → Download Clients."
+                ),
             )
         )
         return
@@ -415,8 +421,14 @@ def _check_db_download_clients(
             Issue(
                 severity="warning",
                 category="integration",
-                message=f"Download client is disabled: {client.name} ({client.implementation})",
-                fix_hint=(f"Enable the download client in {service} Settings → Download Clients."),
+                message=(
+                    f"Download client is disabled:"
+                    f" {client.name} ({client.implementation})"
+                ),
+                fix_hint=(
+                    f"Enable the download client in {service}"
+                    " Settings → Download Clients."
+                ),
             )
         )
 
@@ -452,7 +464,9 @@ def _check_db_indexers(
                 severity="warning",
                 category="integration",
                 message="All configured indexers are disabled",
-                fix_hint=f"Enable at least one indexer in {service} Settings → Indexers.",
+                fix_hint=(
+                    f"Enable at least one indexer in {service} Settings → Indexers."
+                ),
             )
         )
 
@@ -465,7 +479,9 @@ def _compute_status(issues: list[Issue], warnings: list[Issue]) -> str:
     return "healthy"
 
 
-def run_diagnostics(service: str, service_dir: Path, info: ServiceInfo) -> DiagnosticReport:
+def run_diagnostics(
+    service: str, service_dir: Path, info: ServiceInfo
+) -> DiagnosticReport:
     """Run expert diagnostics on a known service.
 
     Pure function — only performs filesystem reads, no MCP or network I/O.
@@ -508,7 +524,8 @@ def run_diagnostics(service: str, service_dir: Path, info: ServiceInfo) -> Diagn
                     category="config",
                     message=str(exc),
                     fix_hint=(
-                        "Restore config.xml from a backup or remove it so the app regenerates it."
+                        "Restore config.xml from a backup or remove it"
+                        " so the app regenerates it."
                     ),
                 )
             )
@@ -548,8 +565,9 @@ def run_diagnostics(service: str, service_dir: Path, info: ServiceInfo) -> Diagn
                         severity="warning",
                         category="port",
                         message=(
-                            f"BindAddress is set to a loopback address — {service} will only "
-                            "accept connections from localhost, breaking inter-container links."
+                            f"BindAddress is loopback — {service} will only"
+                            " accept connections from localhost,"
+                            " breaking inter-container links."
                         ),
                         fix_hint=(
                             'Set BindAddress to "" (blank) or "0.0.0.0" in config.xml '
@@ -608,8 +626,12 @@ def run_diagnostics(service: str, service_dir: Path, info: ServiceInfo) -> Diagn
             Issue(
                 severity="warning",
                 category="logs",
-                message=f"Found {len(error_lines)} error/exception line(s) in recent logs",
-                fix_hint=f"Use log_read to inspect {service}/{info.log_dir} for more detail.",
+                message=(
+                    f"Found {len(error_lines)} error/exception line(s) in recent logs"
+                ),
+                fix_hint=(
+                    f"Use log_read to inspect {service}/{info.log_dir} for more detail."
+                ),
             )
         )
     else:

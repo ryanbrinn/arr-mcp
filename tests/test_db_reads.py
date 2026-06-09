@@ -46,13 +46,16 @@ def _insert_download_client(
     s = json.dumps(settings or {"host": "sabnzbd", "port": 8080, "apiKey": "abc"})
     with sqlite3.connect(str(path)) as conn:
         conn.execute(
-            "INSERT INTO DownloadClients (Name, Implementation, Settings, Enable) VALUES (?,?,?,?)",
+            "INSERT INTO DownloadClients"
+            " (Name, Implementation, Settings, Enable) VALUES (?,?,?,?)",
             (name, impl, s, int(enable)),
         )
         conn.commit()
 
 
-def _insert_indexer(path: Path, name: str, impl: str = "Newznab", enable: bool = True) -> None:
+def _insert_indexer(
+    path: Path, name: str, impl: str = "Newznab", enable: bool = True
+) -> None:
     with sqlite3.connect(str(path)) as conn:
         conn.execute(
             "INSERT INTO Indexers (Name, Implementation, Enable) VALUES (?,?,?)",
@@ -101,7 +104,8 @@ def test_read_download_clients_bad_settings_json(tmp_path: Path) -> None:
     _make_db(db)
     with sqlite3.connect(str(db)) as conn:
         conn.execute(
-            "INSERT INTO DownloadClients (Name, Implementation, Settings, Enable) VALUES (?,?,?,?)",
+            "INSERT INTO DownloadClients"
+            " (Name, Implementation, Settings, Enable) VALUES (?,?,?,?)",
             ("Bad", "Sabnzbd", "not-json{{{", 1),
         )
         conn.commit()
@@ -159,7 +163,9 @@ async def test_service_diagnose_reports_enabled_download_client(
 ) -> None:
     svc_dir = Path(settings.services_dir) / "sonarr"
     svc_dir.mkdir()
-    (svc_dir / "config.xml").write_text("<Config><ApiKey>abc123</ApiKey><Port>8989</Port></Config>")
+    (svc_dir / "config.xml").write_text(
+        "<Config><ApiKey>abc123</ApiKey><Port>8989</Port></Config>"
+    )
     (svc_dir / "logs").mkdir()
     db = svc_dir / "sonarr.db"
     _make_db(db)
@@ -177,7 +183,9 @@ async def test_service_diagnose_warns_no_download_clients(
 ) -> None:
     svc_dir = Path(settings.services_dir) / "sonarr"
     svc_dir.mkdir()
-    (svc_dir / "config.xml").write_text("<Config><ApiKey>abc123</ApiKey><Port>8989</Port></Config>")
+    (svc_dir / "config.xml").write_text(
+        "<Config><ApiKey>abc123</ApiKey><Port>8989</Port></Config>"
+    )
     (svc_dir / "logs").mkdir()
     db = svc_dir / "sonarr.db"
     _make_db(db)
@@ -195,7 +203,9 @@ async def test_service_diagnose_warns_disabled_download_client(
 ) -> None:
     svc_dir = Path(settings.services_dir) / "sonarr"
     svc_dir.mkdir()
-    (svc_dir / "config.xml").write_text("<Config><ApiKey>abc123</ApiKey><Port>8989</Port></Config>")
+    (svc_dir / "config.xml").write_text(
+        "<Config><ApiKey>abc123</ApiKey><Port>8989</Port></Config>"
+    )
     (svc_dir / "logs").mkdir()
     db = svc_dir / "sonarr.db"
     _make_db(db)
@@ -214,7 +224,9 @@ async def test_service_diagnose_reports_enabled_indexer(
 ) -> None:
     svc_dir = Path(settings.services_dir) / "sonarr"
     svc_dir.mkdir()
-    (svc_dir / "config.xml").write_text("<Config><ApiKey>abc123</ApiKey><Port>8989</Port></Config>")
+    (svc_dir / "config.xml").write_text(
+        "<Config><ApiKey>abc123</ApiKey><Port>8989</Port></Config>"
+    )
     (svc_dir / "logs").mkdir()
     db = svc_dir / "sonarr.db"
     _make_db(db)
@@ -228,11 +240,15 @@ async def test_service_diagnose_reports_enabled_indexer(
     assert any("NZBgeek" in msg for msg in data["ok"])
 
 
-async def test_service_diagnose_no_db_skips_db_checks(server: FastMCP, settings: Settings) -> None:
+async def test_service_diagnose_no_db_skips_db_checks(
+    server: FastMCP, settings: Settings
+) -> None:
     """When DB file is absent, no DB-related warnings should appear."""
     svc_dir = Path(settings.services_dir) / "sonarr"
     svc_dir.mkdir()
-    (svc_dir / "config.xml").write_text("<Config><ApiKey>abc123</ApiKey><Port>8989</Port></Config>")
+    (svc_dir / "config.xml").write_text(
+        "<Config><ApiKey>abc123</ApiKey><Port>8989</Port></Config>"
+    )
     (svc_dir / "logs").mkdir()
     # No DB file created
 

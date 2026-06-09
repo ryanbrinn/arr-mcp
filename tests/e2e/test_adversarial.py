@@ -37,7 +37,9 @@ async def test_mcp_requires_auth(http_client: httpx.AsyncClient) -> None:
     assert r.status_code == 401
 
 
-async def test_missing_authorization_header_rejected(http_client: httpx.AsyncClient) -> None:
+async def test_missing_authorization_header_rejected(
+    http_client: httpx.AsyncClient,
+) -> None:
     r = await http_client.post("/mcp", content=b"{}")
     assert r.status_code == 401
 
@@ -57,7 +59,9 @@ async def test_wrong_api_key_rejected(http_client: httpx.AsyncClient) -> None:
     assert r.status_code == 401
 
 
-async def test_bearer_prefix_only_no_key_rejected(http_client: httpx.AsyncClient) -> None:
+async def test_bearer_prefix_only_no_key_rejected(
+    http_client: httpx.AsyncClient,
+) -> None:
     r = await http_client.post("/mcp", headers={"Authorization": "Bearer"})
     assert r.status_code == 401
 
@@ -67,7 +71,9 @@ async def test_health_bypasses_auth(http_client: httpx.AsyncClient) -> None:
     assert r.status_code == 200
 
 
-async def test_api_key_in_query_string_is_rejected(http_client: httpx.AsyncClient) -> None:
+async def test_api_key_in_query_string_is_rejected(
+    http_client: httpx.AsyncClient,
+) -> None:
     """Auth must come from the Authorization header, not query params."""
     r = await http_client.post("/mcp?api_key=http-test-key")
     assert r.status_code == 401
@@ -132,7 +138,9 @@ def test_check_path_blocks_traversal(_settings: Settings, case: _TraversalCase) 
 
 
 @pytest.mark.parametrize("case", _TRAVERSAL_CASES, ids=lambda c: c.label)
-def test_check_log_path_blocks_traversal(_settings: Settings, case: _TraversalCase) -> None:
+def test_check_log_path_blocks_traversal(
+    _settings: Settings, case: _TraversalCase
+) -> None:
     path = case.path.replace("{root}", _settings.compose_dir)
     extra_roots = [Path(_settings.compose_dir), Path(_settings.media_dir)]
     with pytest.raises(PermissionError):
@@ -140,7 +148,9 @@ def test_check_log_path_blocks_traversal(_settings: Settings, case: _TraversalCa
 
 
 @pytest.mark.parametrize("case", _SAFE_LOOKING_ENCODED, ids=lambda c: c.label)
-def test_url_encoded_dots_are_not_traversal(_settings: Settings, case: _TraversalCase) -> None:
+def test_url_encoded_dots_are_not_traversal(
+    _settings: Settings, case: _TraversalCase
+) -> None:
     """Percent-encoded dots (%2e%2e) are literal path components, not ".." — they
     stay inside the allowed root and must NOT be treated as traversal."""
     path = case.path.replace("{root}", _settings.compose_dir)
@@ -210,7 +220,9 @@ async def test_container_remove_default_refuses(_mcp: FastMCP) -> None:
 
 
 async def test_container_remove_explicit_false_refuses(_mcp: FastMCP) -> None:
-    result = await _mcp.call_tool("container_remove", {"name": "plex", "confirm": False})
+    result = await _mcp.call_tool(
+        "container_remove", {"name": "plex", "confirm": False}
+    )
     assert "confirm=True" in result[0][0].text
 
 
@@ -222,7 +234,9 @@ async def test_stack_down_default_refuses(_mcp: FastMCP, _settings: Settings) ->
     assert "confirm=True" in result[0][0].text
 
 
-async def test_stack_down_explicit_false_refuses(_mcp: FastMCP, _settings: Settings) -> None:
+async def test_stack_down_explicit_false_refuses(
+    _mcp: FastMCP, _settings: Settings
+) -> None:
     stacks_root = Path(_settings.compose_dir)
     (stacks_root / "media").mkdir()
     with patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True):
@@ -235,7 +249,9 @@ async def test_stack_down_explicit_false_refuses(_mcp: FastMCP, _settings: Setti
 # ---------------------------------------------------------------------------
 
 
-async def test_stack_not_owned_by_user_is_hidden(_mcp: FastMCP, _settings: Settings) -> None:
+async def test_stack_not_owned_by_user_is_hidden(
+    _mcp: FastMCP, _settings: Settings
+) -> None:
     stacks_root = Path(_settings.compose_dir)
     (stacks_root / "root-stack").mkdir()
     with patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=False):
@@ -243,7 +259,9 @@ async def test_stack_not_owned_by_user_is_hidden(_mcp: FastMCP, _settings: Setti
     assert "root-stack" not in result[0][0].text
 
 
-async def test_stack_not_owned_by_user_raises_on_access(_mcp: FastMCP, _settings: Settings) -> None:
+async def test_stack_not_owned_by_user_raises_on_access(
+    _mcp: FastMCP, _settings: Settings
+) -> None:
     stacks_root = Path(_settings.compose_dir)
     (stacks_root / "root-stack").mkdir()
     with patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=False):
@@ -280,7 +298,9 @@ async def test_compose_write_with_shell_injection_content_is_stored_verbatim(
     stack_dir.mkdir()
     evil_content = "services:\n  x:\n    command: rm -rf / --no-preserve-root\n"
     with patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True):
-        await _mcp.call_tool("compose_write", {"stack": "target", "content": evil_content})
+        await _mcp.call_tool(
+            "compose_write", {"stack": "target", "content": evil_content}
+        )
     written = (stack_dir / "compose.yaml").read_text()
     # Content stored verbatim — no execution occurred
     assert written == evil_content
@@ -294,7 +314,9 @@ async def test_log_search_with_regex_special_chars_does_not_crash(
     log_file.write_text("normal log line\n")
     # These would crash if the query were passed to re.search() unsanitised
     for evil_query in ["[invalid regex", ".*+?{}", "(unclosed", "\\"]:
-        result = await _mcp.call_tool("log_search", {"path": str(log_file), "query": evil_query})
+        result = await _mcp.call_tool(
+            "log_search", {"path": str(log_file), "query": evil_query}
+        )
         # Just verify it returns a TextContent without raising
         assert result[0][0].text is not None
 
@@ -340,7 +362,9 @@ def test_diagnostic_path_blocks_database_wal(_settings: Settings) -> None:
 
 
 @pytest.mark.parametrize("case", _TRAVERSAL_CASES, ids=lambda c: c.label)
-def test_check_diagnostic_path_blocks_traversal(_settings: Settings, case: _TraversalCase) -> None:
+def test_check_diagnostic_path_blocks_traversal(
+    _settings: Settings, case: _TraversalCase
+) -> None:
     path = case.path.replace("{root}", _settings.services_dir)
     with pytest.raises(PermissionError):
         _check_diagnostic_path(path, _settings)

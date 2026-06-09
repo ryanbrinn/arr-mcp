@@ -47,7 +47,10 @@ def test_auto_prefers_podman_when_available(settings: Settings) -> None:
 
 def test_auto_falls_back_to_docker(settings: Settings) -> None:
     with (
-        patch("arr_mcp.runtime.detector._find_podman", side_effect=RuntimeError("no podman")),
+        patch(
+            "arr_mcp.runtime.detector._find_podman",
+            side_effect=RuntimeError("no podman"),
+        ),
         patch(
             "arr_mcp.runtime.detector._find_docker",
             return_value=("docker", "unix:///var/run/docker.sock"),
@@ -59,8 +62,14 @@ def test_auto_falls_back_to_docker(settings: Settings) -> None:
 
 def test_no_runtime_available_raises(settings: Settings) -> None:
     with (
-        patch("arr_mcp.runtime.detector._find_podman", side_effect=RuntimeError("no podman")),
-        patch("arr_mcp.runtime.detector._find_docker", side_effect=RuntimeError("no docker")),
+        patch(
+            "arr_mcp.runtime.detector._find_podman",
+            side_effect=RuntimeError("no podman"),
+        ),
+        patch(
+            "arr_mcp.runtime.detector._find_docker",
+            side_effect=RuntimeError("no docker"),
+        ),
     ):
         with pytest.raises(RuntimeError):
             detect_runtime("auto")

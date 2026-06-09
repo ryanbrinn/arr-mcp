@@ -44,8 +44,12 @@ async def handle_stack_pull(args: dict[str, str]) -> tuple[int, str]:
 async def handle_stack_restart(args: dict[str, str]) -> tuple[int, str]:
     """Restart a stack (down then up)."""
     stack = validate_stack_name(args.get("stack", ""))
-    down_code, down_out = await run_command("podman-compose", "-f", _compose_file(stack), "down")
-    up_code, up_out = await run_command("podman-compose", "-f", _compose_file(stack), "up", "-d")
+    down_code, down_out = await run_command(
+        "podman-compose", "-f", _compose_file(stack), "down"
+    )
+    up_code, up_out = await run_command(
+        "podman-compose", "-f", _compose_file(stack), "up", "-d"
+    )
     combined = f"--- down ---\n{down_out}\n--- up ---\n{up_out}"
     return max(down_code, up_code), combined
 

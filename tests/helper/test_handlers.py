@@ -31,7 +31,9 @@ class TestHandleComposeValidate:
         assert "--dry-run" not in captured[0]
 
     async def test_returns_output_on_success(self) -> None:
-        compose_output = "name: media\nservices:\n  sonarr:\n    image: linuxserver/sonarr\n"
+        compose_output = (
+            "name: media\nservices:\n  sonarr:\n    image: linuxserver/sonarr\n"
+        )
 
         async def fake_run(*args: str) -> tuple[int, str]:
             return 0, compose_output
