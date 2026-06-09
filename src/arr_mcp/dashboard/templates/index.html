@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="30">
   <title>arr-mcp</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -605,6 +604,9 @@
         });
       });
     })();
+
+    // Auto-refresh — preserves URL hash (and therefore active tab) unlike meta refresh
+    setTimeout(function () { window.location.reload(); }, 30000);
   </script>
 </body>
 </html>
