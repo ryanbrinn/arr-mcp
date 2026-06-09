@@ -29,6 +29,7 @@ from arr_mcp.tools.conversion import register_conversion_tools
 from arr_mcp.tools.credentials import register_credential_tools
 from arr_mcp.tools.diagnostics import register_diagnostic_tools
 from arr_mcp.tools.filesystem import register_filesystem_tools
+from arr_mcp.tools.interests import register_interest_tools
 from arr_mcp.tools.logs import register_log_tools
 from arr_mcp.tools.media import register_media_tools
 from arr_mcp.tools.reachability import register_reachability_tools
@@ -59,6 +60,7 @@ def build_mcp_server(
     register_conversion_tools(server, settings)
     register_diagnostic_tools(server, settings, client)
     register_credential_tools(server, settings)
+    register_interest_tools(server, settings)
     register_media_tools(server, settings)
     register_reachability_tools(server, settings)
     return server
