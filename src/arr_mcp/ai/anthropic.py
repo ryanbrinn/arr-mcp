@@ -36,10 +36,10 @@ class AnthropicProvider:
             kwargs["system"] = system
 
         try:
-            response = await self._client.messages.create(**kwargs)  # type: ignore[arg-type]
+            response = await self._client.messages.create(**kwargs)  # type: ignore[call-overload]
             block = response.content[0]
             if block.type == "text":
-                return block.text
+                return str(block.text)
             return ""
         except anthropic_sdk.APIError as exc:
             log.warning("Anthropic API error: %s", exc)

@@ -175,7 +175,7 @@ class AlertStore:
     # Private
     # ------------------------------------------------------------------
 
-    def _read_rules(self) -> dict[str, dict[str, object]]:  # type: ignore[return]
+    def _read_rules(self) -> dict[str, dict[str, object]]:
         if not self._rules_path.exists():
             return {}
         try:
@@ -285,7 +285,7 @@ class AlertWatcher:
             if not p.exists():
                 continue
             try:
-                usage = await anyio.to_thread.run_sync(lambda: shutil.disk_usage(str(p)))  # type: ignore[attr-defined]
+                usage = await anyio.to_thread.run_sync(lambda: shutil.disk_usage(str(p)))
                 pct = 100.0 * usage.used / usage.total if usage.total > 0 else 0.0
                 if pct >= rule.threshold:
                     self._fire(
@@ -341,7 +341,7 @@ class AlertWatcher:
         try:
             for log_file in services_path.rglob("*.txt"):
                 try:
-                    text = await anyio.to_thread.run_sync(log_file.read_text)  # type: ignore[attr-defined]
+                    text = await anyio.to_thread.run_sync(log_file.read_text)
                     errors = sum(
                         1 for line in text.splitlines() if "[Error]" in line or "[Fatal]" in line
                     )

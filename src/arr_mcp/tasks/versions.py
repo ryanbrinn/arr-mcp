@@ -174,7 +174,7 @@ class VersionChecker:
                 client = registry.get_client(service_name)
                 status_result = await client.system_status()  # type: ignore[attr-defined]
                 if status_result.ok and hasattr(status_result.data, "version"):
-                    current_version = status_result.data.version  # type: ignore[union-attr]
+                    current_version = status_result.data.version
             except ServiceNotConfiguredError:
                 continue
             except Exception:

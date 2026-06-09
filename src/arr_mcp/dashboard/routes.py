@@ -164,6 +164,7 @@ def make_dashboard_routes(
         if not isinstance(context, dict):
             return JSONResponse({"error": "context must be an object"}, status_code=400)
 
+        provider: AIProvider
         if ai_provider is None:
             from arr_mcp.ai.null import NullProvider
 

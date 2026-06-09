@@ -78,7 +78,7 @@ class SessionManager:
 
     def sign(self, user: AuthUser) -> str:
         """Return a signed session token for user."""
-        return self._s.dumps(  # type: ignore[no-any-return]
+        return self._s.dumps(
             {
                 "pid": user.plex_id,
                 "usr": user.plex_username,
