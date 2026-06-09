@@ -21,7 +21,7 @@ from arr_mcp.dashboard.auth import (
     poll_plex_pin,
     set_session_cookie,
 )
-from arr_mcp.dashboard.data import get_status
+from arr_mcp.dashboard.data import get_insights, get_status
 from arr_mcp.dashboard.diagnose import diagnose
 from arr_mcp.runtime.client import ContainerClient
 
@@ -122,8 +122,14 @@ def make_dashboard_routes(
             log.exception("Error building dashboard status")
             return HTMLResponse(f"<h1>Error</h1><pre>{exc}</pre>", status_code=500)
 
+        try:
+            insights: list[dict[str, Any]] = await get_insights(status, ai_provider)
+        except Exception:
+            log.exception("Error generating AI insights")
+            insights = []
+
         template = jinja.get_template("index.html")
-        html = template.render(status=status, settings=settings)
+        html = template.render(status=status, insights=insights, settings=settings)
         return HTMLResponse(html)
 
     async def handle_api_status(request: Request) -> Response:

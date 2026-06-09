@@ -87,6 +87,28 @@
       </section>
       {% endif %}
 
+      <!-- AI Insights -->
+      {% if insights %}
+      <section>
+        <h2>AI Insights</h2>
+        {% for insight in insights %}
+        <div class="insight-card">
+          <div class="insight-type">{{ insight.type | replace("_", " ") | title }}</div>
+          {% if insight.narrative %}
+          <p class="insight-narrative">{{ insight.narrative }}</p>
+          {% endif %}
+          {% if insight.remedies %}
+          <ul class="insight-remedies">
+            {% for remedy in insight.remedies %}
+            <li>{{ remedy.label }}</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </section>
+      {% endif %}
+
       <!-- Upgrade Recommendations -->
       {% if status.upgrades %}
       <section>
@@ -197,6 +219,30 @@
        ================================================================ -->
   <div id="media" class="tab-panel" hidden>
     <main>
+      {% if status.media.configured %}
+        {% set has_data = status.media.series_count is not none or status.media.movie_count is not none %}
+        {% if has_data %}
+        <section class="stat-grid">
+          {% if status.media.series_count is not none %}
+          <div class="stat-tile">
+            <div class="stat-value">{{ status.media.series_count }}</div>
+            <div class="stat-label">TV Series</div>
+          </div>
+          {% endif %}
+          {% if status.media.movie_count is not none %}
+          <div class="stat-tile">
+            <div class="stat-value">{{ status.media.movie_count }}</div>
+            <div class="stat-label">Movies</div>
+          </div>
+          {% endif %}
+        </section>
+        {% else %}
+        <section class="coming-soon">
+          <h2>Media Library</h2>
+          <p class="empty">Services are configured but currently unreachable. Stats will appear when Sonarr and Radarr are online.</p>
+        </section>
+        {% endif %}
+      {% else %}
       <section class="coming-soon">
         <h2>Media Library</h2>
         <p class="empty">
@@ -205,6 +251,7 @@
           appear here on the next refresh.
         </p>
       </section>
+      {% endif %}
     </main>
   </div>
 

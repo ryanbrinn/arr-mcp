@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import shutil
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import anyio
 
 from arr_mcp.config import Settings
 from arr_mcp.runtime.client import ContainerClient
+
+if TYPE_CHECKING:
+    from arr_mcp.ai.provider import AIProvider
 
 
 async def get_status(client: ContainerClient, settings: Settings) -> dict[str, Any]:
@@ -20,6 +23,7 @@ async def get_status(client: ContainerClient, settings: Settings) -> dict[str, A
     alerts_recent = _get_recent_alerts(settings)
     upgrades = _get_upgrade_list(settings)
     connectivity = await _get_service_connectivity(settings)
+    media = await _get_media_stats(settings)
     stats = _derive_stats(containers, disk, alerts_recent, upgrades)
 
     return {
@@ -30,9 +34,77 @@ async def get_status(client: ContainerClient, settings: Settings) -> dict[str, A
         "alerts_recent": alerts_recent,
         "upgrades": upgrades,
         "connectivity": connectivity,
+        "media": media,
         "stats": stats,
         "runtime": settings.container_runtime,
     }
+
+
+def _detect_issues(status: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return detected issues from status that warrant AI analysis."""
+    issues: list[dict[str, Any]] = []
+
+    for d in status.get("disk", []):
+        if d.get("used_pct", 0) >= 85:
+            issues.append(
+                {
+                    "type": "disk_pressure",
+                    "context": {"path": d["path"], "used_pct": d["used_pct"]},
+                }
+            )
+            break
+
+    for svc in status.get("connectivity", []):
+        if not svc.get("reachable") and svc.get("status") not in ("unconfigured", "timeout"):
+            issues.append(
+                {
+                    "type": "service_unreachable",
+                    "context": {
+                        "service": svc["name"],
+                        "container_status": svc.get("status", "unknown"),
+                    },
+                }
+            )
+            break
+
+    return issues
+
+
+async def get_insights(
+    status: dict[str, Any],
+    ai_provider: AIProvider | None,
+) -> list[dict[str, Any]]:
+    """Generate AI insights for detected issues in the current status.
+
+    Returns an empty list when no issues are detected or when all diagnose
+    calls fail/time out.
+    """
+    from arr_mcp.ai.null import NullProvider
+    from arr_mcp.dashboard.diagnose import diagnose
+
+    issues = _detect_issues(status)
+    if not issues:
+        return []
+
+    provider = ai_provider if ai_provider is not None else NullProvider()
+    results: list[dict[str, Any]] = []
+
+    for issue in issues[:2]:  # cap at 2 AI calls per render
+        with anyio.move_on_after(10.0):
+            try:
+                result = await diagnose(provider, issue["type"], issue["context"])
+                if result:
+                    results.append(
+                        {
+                            "type": issue["type"],
+                            "narrative": result.get("narrative", ""),
+                            "remedies": result.get("remedies", []),
+                        }
+                    )
+            except Exception:
+                pass
+
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -142,6 +214,50 @@ def _get_disk(settings: Settings) -> list[dict[str, Any]]:
         except OSError:
             pass
     return results
+
+
+# ---------------------------------------------------------------------------
+# Media library stats
+# ---------------------------------------------------------------------------
+
+
+async def _get_media_stats(settings: Settings) -> dict[str, Any]:
+    """Fetch basic media library stats from Sonarr and Radarr."""
+    from arr_mcp.services.base import ServiceNotConfiguredError
+    from arr_mcp.services.registry import ServiceRegistry
+
+    registry = ServiceRegistry(settings.services_dir)
+    stats: dict[str, Any] = {
+        "configured": False,
+        "series_count": None,
+        "movie_count": None,
+    }
+
+    try:
+        sonarr = registry.get_client("sonarr")
+        stats["configured"] = True
+        with anyio.move_on_after(8.0):
+            result = await sonarr.get_series()  # type: ignore[attr-defined]
+            if result.ok and isinstance(result.data, list):
+                stats["series_count"] = len(result.data)
+    except ServiceNotConfiguredError:
+        pass
+    except Exception:
+        pass
+
+    try:
+        radarr = registry.get_client("radarr")
+        stats["configured"] = True
+        with anyio.move_on_after(8.0):
+            result = await radarr.get_movies()  # type: ignore[attr-defined]
+            if result.ok and isinstance(result.data, list):
+                stats["movie_count"] = len(result.data)
+    except ServiceNotConfiguredError:
+        pass
+    except Exception:
+        pass
+
+    return stats
 
 
 # ---------------------------------------------------------------------------
