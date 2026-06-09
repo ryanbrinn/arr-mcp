@@ -75,7 +75,9 @@ async def test_dashboard_returns_html(public_settings: Settings) -> None:
 async def test_dashboard_redirects_unauthenticated(private_settings: Settings) -> None:
     app = _make_app(private_settings)
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test", follow_redirects=False
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        follow_redirects=False,
     ) as client:
         r = await client.get("/")
     assert r.status_code == 302
@@ -94,7 +96,9 @@ async def test_dashboard_accepts_valid_key(private_settings: Settings) -> None:
 async def test_dashboard_redirects_wrong_key(private_settings: Settings) -> None:
     app = _make_app(private_settings)
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test", follow_redirects=False
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        follow_redirects=False,
     ) as client:
         r = await client.get("/?key=wrong")
     assert r.status_code == 302
@@ -151,7 +155,9 @@ async def test_api_status_alerts_empty_when_no_log(public_settings: Settings) ->
     assert r.json()["alerts_recent"] == []
 
 
-async def test_api_status_upgrades_empty_when_no_cache(public_settings: Settings) -> None:
+async def test_api_status_upgrades_empty_when_no_cache(
+    public_settings: Settings,
+) -> None:
     app = _make_app(public_settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
@@ -335,7 +341,9 @@ async def test_api_diagnose_rejects_missing_key(private_settings: Settings) -> N
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.post("/api/diagnose", json={"issue_type": "disk_pressure", "context": {}})
+        r = await client.post(
+            "/api/diagnose", json={"issue_type": "disk_pressure", "context": {}}
+        )
     assert r.status_code == 401
 
 
@@ -348,7 +356,10 @@ async def test_api_diagnose_returns_fallback_when_null_provider(
     ) as client:
         r = await client.post(
             "/api/diagnose",
-            json={"issue_type": "disk_pressure", "context": {"path": "/data", "used_pct": 92}},
+            json={
+                "issue_type": "disk_pressure",
+                "context": {"path": "/data", "used_pct": 92},
+            },
         )
     assert r.status_code == 200
     data = r.json()
@@ -357,7 +368,9 @@ async def test_api_diagnose_returns_fallback_when_null_provider(
     assert all("label" in rem and "tool" in rem for rem in data["remedies"])
 
 
-async def test_api_diagnose_fallback_contains_known_tools(public_settings: Settings) -> None:
+async def test_api_diagnose_fallback_contains_known_tools(
+    public_settings: Settings,
+) -> None:
     app = _make_app(public_settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
@@ -399,7 +412,9 @@ async def test_api_diagnose_with_ai_provider_returns_narrative(
     mock_provider.complete_structured = AsyncMock(
         return_value={
             "narrative": "The disk is nearly full.",
-            "remedies": [{"label": "Clean up", "tool": "watched_cleanup_preview", "args": {}}],
+            "remedies": [
+                {"label": "Clean up", "tool": "watched_cleanup_preview", "args": {}}
+            ],
         }
     )
 
@@ -416,7 +431,11 @@ async def test_api_diagnose_with_ai_provider_returns_narrative(
         from starlette.routing import Route
 
         app = Starlette(
-            routes=[Route("/api/diagnose", endpoint=routes["api_diagnose"], methods=["POST"])]
+            routes=[
+                Route(
+                    "/api/diagnose", endpoint=routes["api_diagnose"], methods=["POST"]
+                )
+            ]
         )
         await app(scope, receive, send)
 

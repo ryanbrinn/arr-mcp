@@ -32,7 +32,9 @@ def _check_log_path(path: str, extra_roots: list[Path] | None = None) -> Path:
     # Outside /var/log, block sensitive file names and extensions.
     if not str(p).startswith(str(_VARLOG)):
         if p.name in _LOG_BLOCKED_NAMES or p.suffix in _LOG_BLOCKED_SUFFIXES:
-            raise PermissionError(f"Access to this file is blocked via log tools: {p.name}")
+            raise PermissionError(
+                f"Access to this file is blocked via log tools: {p.name}"
+            )
     return p
 
 

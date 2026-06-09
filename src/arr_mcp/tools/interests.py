@@ -95,7 +95,10 @@ def register_interest_tools(server: FastMCP, settings: Settings) -> None:
                     return [
                         TextContent(
                             type="text",
-                            text=f"Invalid filter {filter!r}. Valid values: {', '.join(valid)}",
+                            text=(
+                                f"Invalid filter {filter!r}."
+                                f" Valid values: {', '.join(valid)}"
+                            ),
                         )
                     ]
 

@@ -76,7 +76,9 @@ def _make_app(settings: Settings):
 
 def test_session_round_trip():
     sm = SessionManager("test-secret")
-    user = AuthUser(plex_id="123", plex_username="alice", is_admin=True, avatar_url="https://img")
+    user = AuthUser(
+        plex_id="123", plex_username="alice", is_admin=True, avatar_url="https://img"
+    )
     token = sm.sign(user)
     result = sm.verify(token)
     assert result is not None
@@ -104,7 +106,9 @@ def test_session_rejects_wrong_secret():
 
 def test_session_none_avatar_preserved():
     sm = SessionManager("test-secret")
-    user = AuthUser(plex_id="99", plex_username="carol", is_admin=False, avatar_url=None)
+    user = AuthUser(
+        plex_id="99", plex_username="carol", is_admin=False, avatar_url=None
+    )
     token = sm.sign(user)
     result = sm.verify(token)
     assert result is not None
@@ -150,7 +154,9 @@ def test_build_auth_user_empty_admin_list():
 
 def test_build_plex_auth_url_contains_code():
     pin = PlexPin(id="12345", code="abcdef12")
-    url = build_plex_auth_url(pin, "http://localhost:8081/auth/plex/callback?pin_id=12345")
+    url = build_plex_auth_url(
+        pin, "http://localhost:8081/auth/plex/callback?pin_id=12345"
+    )
     assert "app.plex.tv/auth" in url
     assert "code=abcdef12" in url
     assert "clientID=arr-mcp" in url
@@ -434,7 +440,9 @@ async def test_auth_logout_clears_cookie(private_settings: Settings) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_dashboard_accepts_valid_session_cookie(private_settings: Settings) -> None:
+async def test_dashboard_accepts_valid_session_cookie(
+    private_settings: Settings,
+) -> None:
     from arr_mcp.dashboard.auth import AuthUser, SessionManager
 
     sm = SessionManager(private_settings.session_secret)
@@ -451,7 +459,9 @@ async def test_dashboard_accepts_valid_session_cookie(private_settings: Settings
     assert r.status_code == 200
 
 
-async def test_dashboard_rejects_invalid_session_cookie(private_settings: Settings) -> None:
+async def test_dashboard_rejects_invalid_session_cookie(
+    private_settings: Settings,
+) -> None:
     app = _make_app(private_settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),

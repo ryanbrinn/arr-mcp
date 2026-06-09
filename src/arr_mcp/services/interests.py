@@ -113,7 +113,9 @@ class InterestStore:
     def get_all_for_content(self, content_id: str) -> list[ContentInterest]:
         """Return all interest records for a given content ID."""
         data = self._read()
-        return [_from_dict(v) for k, v in data.items() if v.get("content_id") == content_id]
+        return [
+            _from_dict(v) for k, v in data.items() if v.get("content_id") == content_id
+        ]
 
     def is_deletion_eligible(self, content_id: str, all_user_ids: list[str]) -> bool:
         """Return True when no user has ``interested`` state for *content_id*.
@@ -184,7 +186,9 @@ class InterestStore:
         username: str,
         content_type: str,
     ) -> None:
-        """Seed ``watched`` state on first encounter; never overwrite an existing record.
+        """Seed ``watched`` state on first encounter.
+
+        Never overwrites an existing record.
 
         Safe to call from watch-history sync — if the user has any prior
         explicit record (``interested``, ``watched``, or ``marked_deletion``),

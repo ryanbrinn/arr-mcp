@@ -36,7 +36,13 @@ def test_get_returns_interested_when_no_record(store: InterestStore) -> None:
 
 
 def test_set_and_get_round_trip(store: InterestStore) -> None:
-    store.set("ep-1", "user-a", InterestState.watched, username="Alice", content_type="episode")
+    store.set(
+        "ep-1",
+        "user-a",
+        InterestState.watched,
+        username="Alice",
+        content_type="episode",
+    )
     record = store.get("ep-1", "user-a")
     assert record.state == InterestState.watched
     assert record.username == "Alice"

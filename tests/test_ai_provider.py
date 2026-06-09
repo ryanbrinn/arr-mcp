@@ -134,7 +134,10 @@ async def test_ollama_complete_http_error_returns_empty() -> None:
 
 
 async def test_ollama_complete_structured_success() -> None:
-    payload = {"narrative": "Download failed due to wrong password.", "severity": "warning"}
+    payload = {
+        "narrative": "Download failed due to wrong password.",
+        "severity": "warning",
+    }
     transport = _ollama_transport([(200, {"response": json.dumps(payload)})])
     http = httpx.AsyncClient(transport=transport)
     p = OllamaProvider(url="http://localhost:11434", model="llama3.2:3b", http=http)

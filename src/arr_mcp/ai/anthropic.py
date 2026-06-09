@@ -77,11 +77,17 @@ class AnthropicProvider:
                 result = json.loads(cleaned)
                 if isinstance(result, dict):
                     return result
-                log.warning("Anthropic returned non-dict JSON (attempt %d)", attempt + 1)
+                log.warning(
+                    "Anthropic returned non-dict JSON (attempt %d)", attempt + 1
+                )
             except json.JSONDecodeError:
                 log.warning(
-                    "Anthropic returned invalid JSON (attempt %d): %.100s", attempt + 1, raw
+                    "Anthropic returned invalid JSON (attempt %d): %.100s",
+                    attempt + 1,
+                    raw,
                 )
 
-        log.error("Anthropic structured completion failed after %d retries", _MAX_RETRIES)
+        log.error(
+            "Anthropic structured completion failed after %d retries", _MAX_RETRIES
+        )
         return {}

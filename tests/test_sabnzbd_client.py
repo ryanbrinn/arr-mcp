@@ -77,7 +77,9 @@ async def test_get_injects_apikey_automatically() -> None:
 
     def handler(req: httpx.Request) -> httpx.Response:
         captured.append(req)
-        return httpx.Response(200, content=b"{}", headers={"content-type": "application/json"})
+        return httpx.Response(
+            200, content=b"{}", headers={"content-type": "application/json"}
+        )
 
     http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     client = SabnzbdClient("http://sabnzbd:8080", "mykey", http=http)
@@ -96,7 +98,9 @@ async def test_get_caller_apikey_not_overridden() -> None:
 
     def handler(req: httpx.Request) -> httpx.Response:
         captured.append(req)
-        return httpx.Response(200, content=b"{}", headers={"content-type": "application/json"})
+        return httpx.Response(
+            200, content=b"{}", headers={"content-type": "application/json"}
+        )
 
     http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     client = SabnzbdClient("http://sabnzbd:8080", "mykey", http=http)

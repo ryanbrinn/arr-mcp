@@ -56,7 +56,10 @@ class OllamaProvider:
         Returns an empty dict if all retries are exhausted.
         """
         schema_hint = json.dumps(schema, indent=2)
-        full_prompt = f"{prompt}\n\nRespond with a JSON object matching this schema:\n{schema_hint}"
+        full_prompt = (
+            f"{prompt}\n\nRespond with a JSON object"
+            f" matching this schema:\n{schema_hint}"
+        )
         payload: dict[str, object] = {
             "model": self._model,
             "prompt": full_prompt,
@@ -74,7 +77,11 @@ class OllamaProvider:
                     return result
                 log.warning("Ollama returned non-dict JSON (attempt %d)", attempt + 1)
             except json.JSONDecodeError:
-                log.warning("Ollama returned invalid JSON (attempt %d): %.100s", attempt + 1, raw)
+                log.warning(
+                    "Ollama returned invalid JSON (attempt %d): %.100s",
+                    attempt + 1,
+                    raw,
+                )
 
         log.error("Ollama structured completion failed after %d retries", _MAX_RETRIES)
         return {}

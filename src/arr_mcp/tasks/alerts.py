@@ -29,7 +29,11 @@ RULE_LOG_ERRORS = "log_errors"
 
 # Stalled/warning queue statuses
 _STALLED_STATUSES = {"warning", "failed"}
-_STALLED_DOWNLOAD_STATES = {"importFailed", "importFailedNotADirectory", "importPending"}
+_STALLED_DOWNLOAD_STATES = {
+    "importFailed",
+    "importFailedNotADirectory",
+    "importPending",
+}
 
 
 @dataclass
@@ -179,7 +183,9 @@ class AlertStore:
         if not self._rules_path.exists():
             return {}
         try:
-            loaded: dict[str, dict[str, object]] = json.loads(self._rules_path.read_text())
+            loaded: dict[str, dict[str, object]] = json.loads(
+                self._rules_path.read_text()
+            )
             return loaded if isinstance(loaded, dict) else {}
         except Exception:
             return {}
@@ -267,7 +273,9 @@ class AlertWatcher:
             except ServiceNotConfiguredError:
                 continue
             except Exception:
-                log.warning("stuck_download check failed for %s", service_name, exc_info=True)
+                log.warning(
+                    "stuck_download check failed for %s", service_name, exc_info=True
+                )
 
         if stalled:
             self._fire(
@@ -285,14 +293,19 @@ class AlertWatcher:
             if not p.exists():
                 continue
             try:
-                usage = await anyio.to_thread.run_sync(lambda: shutil.disk_usage(str(p)))
+                usage = await anyio.to_thread.run_sync(  # type: ignore[attr-defined]
+                    lambda: shutil.disk_usage(str(p))
+                )
                 pct = 100.0 * usage.used / usage.total if usage.total > 0 else 0.0
                 if pct >= rule.threshold:
                     self._fire(
                         rule,
                         service=dir_path,
                         severity="warning",
-                        message=f"Disk usage at {pct:.1f}% (threshold {rule.threshold:.0f}%)",
+                        message=(
+                            f"Disk usage at {pct:.1f}%"
+                            f" (threshold {rule.threshold:.0f}%)"
+                        ),
                     )
                     return  # one alert per poll cycle is enough
             except Exception:
@@ -341,9 +354,13 @@ class AlertWatcher:
         try:
             for log_file in services_path.rglob("*.txt"):
                 try:
-                    text = await anyio.to_thread.run_sync(log_file.read_text)
+                    text = await anyio.to_thread.run_sync(  # type: ignore[attr-defined]
+                        log_file.read_text
+                    )
                     errors = sum(
-                        1 for line in text.splitlines() if "[Error]" in line or "[Fatal]" in line
+                        1
+                        for line in text.splitlines()
+                        if "[Error]" in line or "[Fatal]" in line
                     )
                     total_errors += errors
                     if total_errors >= rule.threshold:
@@ -365,7 +382,9 @@ class AlertWatcher:
     # Helper
     # ------------------------------------------------------------------
 
-    def _fire(self, rule: AlertRule, *, service: str, severity: str, message: str) -> None:
+    def _fire(
+        self, rule: AlertRule, *, service: str, severity: str, message: str
+    ) -> None:
         entry = AlertEntry(
             rule=rule.name,
             service=service,

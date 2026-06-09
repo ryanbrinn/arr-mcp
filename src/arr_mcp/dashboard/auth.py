@@ -180,7 +180,9 @@ def build_plex_auth_url(pin: PlexPin, callback_url: str) -> str:
     return f"{_PLEX_AUTH_URL}#{params}"
 
 
-async def poll_plex_pin(pin_id: str, *, http: httpx.AsyncClient | None = None) -> str | None:
+async def poll_plex_pin(
+    pin_id: str, *, http: httpx.AsyncClient | None = None
+) -> str | None:
     """Return the auth token once the PIN is claimed, or None if not yet available."""
     url = f"{_PLEX_TV_PINS_URL}/{pin_id}"
     headers = {

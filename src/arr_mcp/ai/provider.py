@@ -50,14 +50,19 @@ def get_provider(settings: Settings) -> AIProvider:
         case "ollama":
             from arr_mcp.ai.ollama import OllamaProvider
 
-            log.info("AI provider: Ollama (%s @ %s)", settings.ollama_model, settings.ollama_url)
+            log.info(
+                "AI provider: Ollama (%s @ %s)",
+                settings.ollama_model,
+                settings.ollama_url,
+            )
             return OllamaProvider(url=settings.ollama_url, model=settings.ollama_model)
         case "anthropic":
             from arr_mcp.ai.anthropic import AnthropicProvider
 
             if not settings.anthropic_api_key:
                 raise ValueError(
-                    "ARR_MCP_ANTHROPIC_API_KEY is required when ARR_MCP_AI_PROVIDER=anthropic"
+                    "ARR_MCP_ANTHROPIC_API_KEY is required when"
+                    " ARR_MCP_AI_PROVIDER=anthropic"
                 )
             log.info("AI provider: Anthropic (%s)", settings.anthropic_model)
             return AnthropicProvider(

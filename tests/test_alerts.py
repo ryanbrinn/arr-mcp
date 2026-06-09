@@ -150,7 +150,11 @@ def test_recent_alerts_returns_newest_first(store: AlertStore) -> None:
         )
     alerts = store.recent_alerts(limit=10)
     messages = [a.message for a in alerts]
-    assert messages == list(reversed(messages)) or messages == ["Alert 2", "Alert 1", "Alert 0"]
+    assert messages == list(reversed(messages)) or messages == [
+        "Alert 2",
+        "Alert 1",
+        "Alert 0",
+    ]
 
 
 def test_recent_alerts_respects_limit(store: AlertStore) -> None:
@@ -243,12 +247,20 @@ async def test_watcher_fires_stuck_download_for_stalled_items(settings) -> None:
     mock_client.get_queue = AsyncMock(return_value=ApiResult(ok=True, data=[stalled]))
 
     with (
-        patch("arr_mcp.services.registry.ServiceRegistry.get_client", return_value=mock_client),
-        patch("arr_mcp.services.registry.ServiceRegistry.available", return_value=["sonarr"]),
+        patch(
+            "arr_mcp.services.registry.ServiceRegistry.get_client",
+            return_value=mock_client,
+        ),
+        patch(
+            "arr_mcp.services.registry.ServiceRegistry.available",
+            return_value=["sonarr"],
+        ),
     ):
         from arr_mcp.tasks.alerts import AlertRule
 
-        rule = AlertRule(name=RULE_STUCK_DOWNLOAD, enabled=True, threshold=60, cooldown_minutes=60)
+        rule = AlertRule(
+            name=RULE_STUCK_DOWNLOAD, enabled=True, threshold=60, cooldown_minutes=60
+        )
         await watcher._check_stuck_downloads(rule)
 
     store = AlertStore(settings.services_dir)
@@ -267,13 +279,23 @@ async def test_watcher_fires_service_down_after_threshold_failures(settings) -> 
 
     watcher = AlertWatcher(settings)
     mock_client = AsyncMock()
-    mock_client.health = AsyncMock(return_value=ApiResult(ok=False, error="unreachable"))
+    mock_client.health = AsyncMock(
+        return_value=ApiResult(ok=False, error="unreachable")
+    )
 
     with (
-        patch("arr_mcp.services.registry.ServiceRegistry.get_client", return_value=mock_client),
-        patch("arr_mcp.services.registry.ServiceRegistry.available", return_value=["sonarr"]),
+        patch(
+            "arr_mcp.services.registry.ServiceRegistry.get_client",
+            return_value=mock_client,
+        ),
+        patch(
+            "arr_mcp.services.registry.ServiceRegistry.available",
+            return_value=["sonarr"],
+        ),
     ):
-        rule = AlertRule(name=RULE_SERVICE_DOWN, enabled=True, threshold=3, cooldown_minutes=30)
+        rule = AlertRule(
+            name=RULE_SERVICE_DOWN, enabled=True, threshold=3, cooldown_minutes=30
+        )
         # Simulate 3 consecutive failures
         for _ in range(3):
             await watcher._check_service_down(rule)
@@ -292,10 +314,18 @@ async def test_watcher_resets_failure_count_on_recovery(settings) -> None:
     mock_client = AsyncMock()
 
     with (
-        patch("arr_mcp.services.registry.ServiceRegistry.get_client", return_value=mock_client),
-        patch("arr_mcp.services.registry.ServiceRegistry.available", return_value=["sonarr"]),
+        patch(
+            "arr_mcp.services.registry.ServiceRegistry.get_client",
+            return_value=mock_client,
+        ),
+        patch(
+            "arr_mcp.services.registry.ServiceRegistry.available",
+            return_value=["sonarr"],
+        ),
     ):
-        rule = AlertRule(name=RULE_SERVICE_DOWN, enabled=True, threshold=3, cooldown_minutes=30)
+        rule = AlertRule(
+            name=RULE_SERVICE_DOWN, enabled=True, threshold=3, cooldown_minutes=30
+        )
         # 2 failures
         mock_client.health = AsyncMock(return_value=ApiResult(ok=False, error="down"))
         await watcher._check_service_down(rule)
@@ -313,7 +343,9 @@ async def test_watcher_resets_failure_count_on_recovery(settings) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_watcher_fires_log_errors_when_threshold_exceeded(settings, tmp_path) -> None:
+async def test_watcher_fires_log_errors_when_threshold_exceeded(
+    settings, tmp_path
+) -> None:
     watcher = AlertWatcher(settings)
     store = AlertStore(settings.services_dir)
     store.set_rule(RULE_LOG_ERRORS, threshold=2.0)
@@ -363,7 +395,8 @@ async def test_alert_rules_set_tool(tmp_path) -> None:
     register_alert_tools(mcp, settings)
 
     result = await mcp.call_tool(
-        "alert_rules_set", {"rule": RULE_DISK_USAGE, "threshold": 85.0, "enabled": False}
+        "alert_rules_set",
+        {"rule": RULE_DISK_USAGE, "threshold": 85.0, "enabled": False},
     )
     payload = json.loads(result[0][0].text)
     assert payload["threshold"] == 85.0

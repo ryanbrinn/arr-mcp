@@ -53,7 +53,11 @@ _FALLBACK_REMEDIES: dict[str, list[dict[str, object]]] = {
         {"label": "Restart container", "tool": "container_restart", "args": {}},
     ],
     "service_unreachable": [
-        {"label": "Check service health via API", "tool": "service_api_health", "args": {}},
+        {
+            "label": "Check service health via API",
+            "tool": "service_api_health",
+            "args": {},
+        },
         {"label": "View service logs", "tool": "log_read", "args": {}},
     ],
     "disk_pressure": [

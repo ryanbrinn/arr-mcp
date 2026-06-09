@@ -159,9 +159,13 @@ def test_get_recommendations_excludes_empty_versions(store: VersionStore) -> Non
 
 
 async def test_fetch_github_release_success(settings) -> None:
-    http = _mock_http({"Sonarr/Sonarr": (200, _github_response("v4.1.0", "- Fix broken thing"))})
+    http = _mock_http(
+        {"Sonarr/Sonarr": (200, _github_response("v4.1.0", "- Fix broken thing"))}
+    )
     checker = VersionChecker(settings, http=http)
-    version, release_date, changelog = await checker._fetch_github_release("Sonarr/Sonarr")
+    version, release_date, changelog = await checker._fetch_github_release(
+        "Sonarr/Sonarr"
+    )
     assert version == "4.1.0"
     assert release_date == "2026-06-01"
     assert "Fix broken thing" in changelog
@@ -203,8 +207,14 @@ async def test_poll_updates_cache_for_configured_services(settings) -> None:
     )
 
     with (
-        patch("arr_mcp.services.registry.ServiceRegistry.get_client", return_value=mock_client),
-        patch("arr_mcp.services.registry.ServiceRegistry.available", return_value=["sonarr"]),
+        patch(
+            "arr_mcp.services.registry.ServiceRegistry.get_client",
+            return_value=mock_client,
+        ),
+        patch(
+            "arr_mcp.services.registry.ServiceRegistry.available",
+            return_value=["sonarr"],
+        ),
     ):
         await checker._poll()
 
@@ -219,8 +229,13 @@ async def test_poll_updates_cache_for_configured_services(settings) -> None:
 async def test_poll_skips_service_without_github_repo(settings) -> None:
     mock_client = AsyncMock()
     with (
-        patch("arr_mcp.services.registry.ServiceRegistry.get_client", return_value=mock_client),
-        patch("arr_mcp.services.registry.ServiceRegistry.available", return_value=["plex"]),
+        patch(
+            "arr_mcp.services.registry.ServiceRegistry.get_client",
+            return_value=mock_client,
+        ),
+        patch(
+            "arr_mcp.services.registry.ServiceRegistry.available", return_value=["plex"]
+        ),
     ):
         checker = VersionChecker(settings)
         await checker._poll()

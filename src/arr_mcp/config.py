@@ -129,9 +129,7 @@ class Settings(BaseSettings):
 
     alert_interval_seconds: int = Field(
         default=300,
-        description=(
-            "How often AlertWatcher polls for threshold violations (seconds)"
-        ),
+        description=("How often AlertWatcher polls for threshold violations (seconds)"),
     )
 
     @field_validator("allowed_stacks", "admin_plex_users", mode="before")

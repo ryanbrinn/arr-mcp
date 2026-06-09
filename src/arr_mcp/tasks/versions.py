@@ -209,10 +209,16 @@ class VersionChecker:
     async def _fetch_github_release(
         self, repo: str, *, token: str | None = None
     ) -> tuple[str, str, str]:
-        """Return (version, release_date, changelog_summary) for the latest GitHub release."""
+        """Fetch the latest GitHub release for ``repo``.
+
+        Returns (version, release_date, changelog_summary).
+        """
         owner, name = repo.split("/", 1)
         url = _GITHUB_API.format(owner=owner, repo=name)
-        headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
         if token:
             headers["Authorization"] = f"Bearer {token}"
 
