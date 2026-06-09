@@ -62,6 +62,9 @@ def _parse_series(raw: dict) -> Series:  # type: ignore[type-arg]
         id=raw.get("id", 0),
         title=raw.get("title", ""),
         path=raw.get("path", ""),
+        year=raw.get("year", 0),
+        status=raw.get("status", ""),
+        monitored=raw.get("monitored", True),
         seasons=seasons,
     )
 

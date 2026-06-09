@@ -21,6 +21,9 @@ class Series:
     id: int
     title: str
     path: str
+    year: int = 0
+    status: str = ""
+    monitored: bool = True
     seasons: list[SeasonSummary] = field(default_factory=list)
 
 
@@ -56,6 +59,9 @@ class Movie:
     title: str
     path: str
     has_file: bool
+    year: int = 0
+    status: str = ""
+    monitored: bool = True
     movie_file_id: int | None = None
 
 
