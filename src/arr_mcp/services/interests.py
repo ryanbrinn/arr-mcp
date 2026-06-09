@@ -184,13 +184,15 @@ class InterestStore:
         username: str,
         content_type: str,
     ) -> None:
-        """Set state to ``watched`` unless already ``marked_deletion``.
+        """Seed ``watched`` state on first encounter; never overwrite an existing record.
 
-        Safe to call from watch-history sync — never downgrades an explicit
-        deletion intent.
+        Safe to call from watch-history sync — if the user has any prior
+        explicit record (``interested``, ``watched``, or ``marked_deletion``),
+        their state is left unchanged.
         """
-        existing = self.get(content_id, user_id)
-        if existing.state == InterestState.marked_deletion:
+        data = self._read()
+        key = _record_key(content_id, user_id)
+        if key in data:
             return
         self.set(
             content_id,

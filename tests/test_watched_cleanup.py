@@ -8,9 +8,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from arr_mcp.services.base import ApiResult
+from arr_mcp.services.interests import InterestState, InterestStore
 from arr_mcp.services.models import Episode, EpisodeFile, SeasonSummary, Series
 from arr_mcp.services.plex import PlexEpisode, PlexUser
-from arr_mcp.tools.media import _find_candidates
+from arr_mcp.tools.media import CleanupCandidate, _apply_interest_gate, _find_candidates
 
 # ---------------------------------------------------------------------------
 # Helpers — build mock service clients
@@ -182,6 +183,85 @@ def test_multiple_candidates_across_series() -> None:
 
     candidates = _find_candidates(series, episodes, files, watched, all_user_count=1)
     assert len(candidates) == 2
+
+
+# ---------------------------------------------------------------------------
+# _apply_interest_gate
+# ---------------------------------------------------------------------------
+
+
+def test_interest_gate_syncs_watched_state(tmp_path: Path) -> None:
+    """After running the gate, watch history is persisted to the interest store."""
+    store = InterestStore(str(tmp_path))
+    users = [PlexUser("u1", "alice", "Alice", "tok")]
+    candidates = [
+        CleanupCandidate(
+            series_title="Show",
+            season_number=1,
+            episode_number=1,
+            episode_title="Pilot",
+            episode_file_id=42,
+            file_path="/media/show.mkv",
+            file_size_bytes=1000,
+            watched_by=["Alice"],
+            all_users_watched=True,
+        )
+    ]
+    eligible, protected = _apply_interest_gate(candidates, users, store)
+    assert len(eligible) == 1
+    assert len(protected) == 0
+    # State should be persisted to the store
+    record = store.get("42", "u1")
+    assert record.state == InterestState.watched
+
+
+def test_interest_gate_blocks_interested_user(tmp_path: Path) -> None:
+    """A user who watched but later set interested state blocks deletion."""
+    store = InterestStore(str(tmp_path))
+    users = [PlexUser("u1", "alice", "Alice", "tok")]
+    # Pre-set Alice's interest state to 'interested' (e.g. she wants to rewatch)
+    store.set("42", "u1", InterestState.interested)
+
+    candidates = [
+        CleanupCandidate(
+            series_title="Show",
+            season_number=1,
+            episode_number=1,
+            episode_title="Pilot",
+            episode_file_id=42,
+            file_path="/media/show.mkv",
+            file_size_bytes=1000,
+            watched_by=["Alice"],
+            all_users_watched=True,
+        )
+    ]
+    eligible, protected = _apply_interest_gate(candidates, users, store)
+    assert len(eligible) == 0
+    assert len(protected) == 1
+
+
+def test_interest_gate_allows_marked_deletion(tmp_path: Path) -> None:
+    """A user who explicitly marked deletion keeps the episode eligible."""
+    store = InterestStore(str(tmp_path))
+    users = [PlexUser("u1", "alice", "Alice", "tok")]
+    store.set("42", "u1", InterestState.marked_deletion)
+
+    candidates = [
+        CleanupCandidate(
+            series_title="Show",
+            season_number=1,
+            episode_number=1,
+            episode_title="Pilot",
+            episode_file_id=42,
+            file_path="/media/show.mkv",
+            file_size_bytes=1000,
+            watched_by=["Alice"],
+            all_users_watched=True,
+        )
+    ]
+    eligible, protected = _apply_interest_gate(candidates, users, store)
+    assert len(eligible) == 1
+    assert len(protected) == 0
 
 
 # ---------------------------------------------------------------------------

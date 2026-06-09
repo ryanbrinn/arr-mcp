@@ -168,10 +168,11 @@ def test_sync_watched_does_not_overwrite_marked_deletion(store: InterestStore) -
     assert store.get("ep-1", "user-a").state == InterestState.marked_deletion
 
 
-def test_sync_watched_overwrites_interested(store: InterestStore) -> None:
+def test_sync_watched_preserves_explicit_interested(store: InterestStore) -> None:
+    # Explicit 'interested' protection must survive watch-history sync.
     store.set("ep-1", "user-a", InterestState.interested)
     store.sync_watched("ep-1", "user-a", "Alice", "episode")
-    assert store.get("ep-1", "user-a").state == InterestState.watched
+    assert store.get("ep-1", "user-a").state == InterestState.interested
 
 
 # ---------------------------------------------------------------------------
