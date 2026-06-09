@@ -10,17 +10,29 @@ from mcp.types import TextContent
 
 from arr_mcp.config import Settings
 
+# File types blocked via log tools when the path is outside /var/log.
+# This prevents log_read from being used to read config.xml or SQLite
+# files that happen to sit alongside log files in services_dir.
+_LOG_BLOCKED_NAMES = {"config.xml"}
+_LOG_BLOCKED_SUFFIXES = {".db", ".db-shm", ".db-wal"}
+
+_VARLOG = Path("/var/log")
+
 
 def _check_log_path(path: str, extra_roots: list[Path] | None = None) -> Path:
     try:
         p = Path(path).resolve()
     except ValueError as exc:
         raise PermissionError(f"Invalid path: {exc}") from exc
-    allowed = [Path("/var/log")]
+    allowed = [_VARLOG]
     if extra_roots:
         allowed.extend(extra_roots)
     if not any(str(p).startswith(str(a)) for a in allowed):
         raise PermissionError(f"Log path not allowed: {p}")
+    # Outside /var/log, block sensitive file names and extensions.
+    if not str(p).startswith(str(_VARLOG)):
+        if p.name in _LOG_BLOCKED_NAMES or p.suffix in _LOG_BLOCKED_SUFFIXES:
+            raise PermissionError(f"Access to this file is blocked via log tools: {p.name}")
     return p
 
 

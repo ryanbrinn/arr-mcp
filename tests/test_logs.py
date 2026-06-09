@@ -29,6 +29,34 @@ def test_log_traversal_blocked() -> None:
         _check_log_path("/var/log/../../etc/passwd")
 
 
+def test_config_xml_blocked_outside_varlog(tmp_path: Path) -> None:
+    config = tmp_path / "config.xml"
+    config.touch()
+    with pytest.raises(PermissionError, match="blocked"):
+        _check_log_path(str(config), extra_roots=[tmp_path])
+
+
+def test_sqlite_db_blocked_outside_varlog(tmp_path: Path) -> None:
+    db = tmp_path / "sonarr.db"
+    db.touch()
+    with pytest.raises(PermissionError, match="blocked"):
+        _check_log_path(str(db), extra_roots=[tmp_path])
+
+
+def test_db_wal_blocked_outside_varlog(tmp_path: Path) -> None:
+    wal = tmp_path / "sonarr.db-wal"
+    wal.touch()
+    with pytest.raises(PermissionError, match="blocked"):
+        _check_log_path(str(wal), extra_roots=[tmp_path])
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Linux path test")
+def test_config_xml_under_varlog_allowed() -> None:
+    # Inside /var/log the blocklist is not applied (system logs can have any name)
+    result = _check_log_path("/var/log/config.xml")
+    assert result.name == "config.xml"
+
+
 async def test_log_read_missing_file(settings: Settings, mock_client: MagicMock) -> None:
     server = FastMCP("test")
     register_log_tools(server, settings)
