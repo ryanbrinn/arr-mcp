@@ -13,90 +13,217 @@
       <img class="logo-img" src="/static/logo.svg" alt="arr-mcp logo">
       <span class="logo">arr-mcp</span>
     </span>
-    <span class="updated">Last updated: {{ status.generated_at | replace("T", " ") | replace("Z", " UTC") }}</span>
+    <nav class="tabs">
+      <a href="#infrastructure" class="tab" data-tab="infrastructure">Infrastructure</a>
+      <a href="#media" class="tab" data-tab="media">Media Library</a>
+    </nav>
+    <span class="updated">Updated {{ status.generated_at | replace("T", " ") | replace("Z", " UTC") }}</span>
   </header>
 
-  <main>
+  <!-- ================================================================
+       Tab 1 — Infrastructure
+       ================================================================ -->
+  <div id="infrastructure" class="tab-panel">
+    <main>
 
-    <!-- Disk Usage -->
-    {% if status.disk %}
-    <section>
-      <h2>Disk Usage</h2>
-      <table class="disk-table">
-        {% for d in status.disk %}
-        <tr>
-          <td class="path">{{ d.path }}</td>
-          <td class="bar-cell">
-            <div class="bar-track">
-              <div class="bar-fill {% if d.used_pct > 90 %}bar-danger{% elif d.used_pct > 75 %}bar-warn{% endif %}"
-                   style="width: {{ d.used_pct }}%"></div>
-            </div>
-          </td>
-          <td class="pct">{{ d.used_pct }}%</td>
-          <td class="detail">{{ d.used_gb }} / {{ d.total_gb }} GB</td>
-        </tr>
-        {% endfor %}
-      </table>
-    </section>
-    {% endif %}
+      <!-- Stat Tiles -->
+      <section class="stat-grid">
+        <div class="stat-tile {% if status.stats.containers_running < status.stats.containers_total %}stat-warn{% endif %}">
+          <div class="stat-value">{{ status.stats.containers_running }}<span class="stat-denom"> / {{ status.stats.containers_total }}</span></div>
+          <div class="stat-label">Containers Running</div>
+        </div>
+        <div class="stat-tile {% if status.stats.disk_max_pct > 90 %}stat-danger{% elif status.stats.disk_max_pct > 75 %}stat-warn{% endif %}">
+          <div class="stat-value">{{ "%.0f"|format(status.stats.disk_max_pct) }}<span class="stat-denom">%</span></div>
+          <div class="stat-label">Disk Used</div>
+        </div>
+        <div class="stat-tile {% if status.stats.alerts_count > 0 %}stat-warn{% endif %}">
+          <div class="stat-value">{{ status.stats.alerts_count }}</div>
+          <div class="stat-label">Active Alerts</div>
+        </div>
+        <div class="stat-tile {% if status.stats.upgrades_count > 0 %}stat-info{% endif %}">
+          <div class="stat-value">{{ status.stats.upgrades_count }}</div>
+          <div class="stat-label">Upgrades Available</div>
+        </div>
+      </section>
 
-    <!-- Containers -->
-    <section>
-      <h2>Containers</h2>
-      {% if status.containers %}
-      <table class="container-table">
-        <thead>
-          <tr><th>Name</th><th>Image</th><th>Status</th><th>Health</th><th>Uptime</th></tr>
-        </thead>
-        <tbody>
-          {% for c in status.containers %}
-          <tr>
-            <td>
-              <span class="name-cell">
-                <span class="dot {% if c.status == 'running' %}dot-green{% elif c.status in ('restarting', 'paused') %}dot-amber{% else %}dot-red{% endif %}"></span>
-                <span class="svc-icon">{{ c.name | service_icon }}</span>
-                {{ c.name }}
-              </span>
-            </td>
-            <td class="image">{{ c.image }}</td>
-            <td>{{ c.status }}</td>
-            <td>{{ c.health or "—" }}</td>
-            <td>{{ c.uptime_seconds | uptime if c.uptime_seconds else "—" }}</td>
-          </tr>
+      <!-- Service Connectivity -->
+      {% if status.connectivity %}
+      <section>
+        <h2>Service Connectivity</h2>
+        <div class="conn-grid">
+          {% for svc in status.connectivity %}
+          <div class="conn-item">
+            <span class="conn-dot {% if svc.reachable %}dot-green{% elif svc.status == 'unconfigured' %}dot-muted{% else %}dot-red{% endif %}"></span>
+            <span class="conn-name">{{ svc.name }}</span>
+            <span class="conn-status {% if svc.reachable %}text-green{% elif svc.status == 'unconfigured' %}text-muted{% else %}text-red{% endif %}">
+              {% if svc.reachable %}ok{% elif svc.status == 'unconfigured' %}no creds{% else %}unreachable{% endif %}
+            </span>
+          </div>
           {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <p class="empty">No containers found.</p>
+        </div>
+      </section>
       {% endif %}
-    </section>
 
-    <!-- Stacks -->
-    {% if status.stacks %}
-    <section>
-      <h2>Stacks</h2>
-      <table class="stack-table">
-        <thead>
-          <tr><th>Name</th><th>Running</th><th>Status</th></tr>
-        </thead>
-        <tbody>
-          {% for s in status.stacks %}
+      <!-- Active Alerts -->
+      {% if status.alerts_recent %}
+      <section>
+        <h2>Recent Alerts</h2>
+        <table class="alert-table">
+          <thead>
+            <tr><th>Rule</th><th>Service</th><th>Severity</th><th>Message</th><th>Fired</th></tr>
+          </thead>
+          <tbody>
+            {% for a in status.alerts_recent %}
+            <tr>
+              <td class="mono">{{ a.rule }}</td>
+              <td class="mono">{{ a.service }}</td>
+              <td><span class="badge badge-{{ a.severity }}">{{ a.severity }}</span></td>
+              <td>{{ a.message }}</td>
+              <td class="fg-dim mono small">{{ a.fired_at[:19] | replace("T", " ") }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% endif %}
+
+      <!-- Upgrade Recommendations -->
+      {% if status.upgrades %}
+      <section>
+        <h2>Upgrade Recommendations</h2>
+        <table class="upgrade-table">
+          <thead>
+            <tr><th>Service</th><th>Current</th><th>Latest</th><th>Risk</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            {% for u in status.upgrades %}
+            <tr>
+              <td><span class="svc-icon">{{ u.service | service_icon }}</span> {{ u.service }}</td>
+              <td class="mono fg-dim">{{ u.current_version }}</td>
+              <td class="mono text-green">{{ u.latest_version }}</td>
+              <td><span class="badge badge-{{ u.risk }}">{{ u.risk }}</span></td>
+              <td class="fg-dim small">{{ u.changelog_summary }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% endif %}
+
+      <!-- Disk Usage -->
+      {% if status.disk %}
+      <section>
+        <h2>Disk Usage</h2>
+        <table class="disk-table">
+          {% for d in status.disk %}
           <tr>
-            <td>
-              <span class="name-cell">
-                <span class="dot {% if s.status == 'healthy' %}dot-green{% elif s.status == 'degraded' %}dot-amber{% else %}dot-red{% endif %}"></span>
-                {{ s.name }}
-              </span>
+            <td class="path">{{ d.path }}</td>
+            <td class="bar-cell">
+              <div class="bar-track">
+                <div class="bar-fill {% if d.used_pct > 90 %}bar-danger{% elif d.used_pct > 75 %}bar-warn{% endif %}"
+                     style="width: {{ d.used_pct }}%"></div>
+              </div>
             </td>
-            <td>{{ s.running_count }} / {{ s.container_count }}</td>
-            <td>{{ s.status }}</td>
+            <td class="pct">{{ d.used_pct }}%</td>
+            <td class="detail">{{ d.used_gb }} / {{ d.total_gb }} GB</td>
           </tr>
           {% endfor %}
-        </tbody>
-      </table>
-    </section>
-    {% endif %}
+        </table>
+      </section>
+      {% endif %}
 
-  </main>
+      <!-- Containers -->
+      <section>
+        <h2>Containers</h2>
+        {% if status.containers %}
+        <table class="container-table">
+          <thead>
+            <tr><th>Name</th><th>Image</th><th>Status</th><th>Health</th><th>Uptime</th></tr>
+          </thead>
+          <tbody>
+            {% for c in status.containers %}
+            <tr>
+              <td>
+                <span class="name-cell">
+                  <span class="dot {% if c.status == 'running' %}dot-green{% elif c.status in ('restarting', 'paused') %}dot-amber{% else %}dot-red{% endif %}"></span>
+                  <span class="svc-icon">{{ c.name | service_icon }}</span>
+                  {{ c.name }}
+                </span>
+              </td>
+              <td class="image">{{ c.image }}</td>
+              <td>{{ c.status }}</td>
+              <td>{{ c.health or "—" }}</td>
+              <td>{{ c.uptime_seconds | uptime if c.uptime_seconds else "—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="empty">No containers found.</p>
+        {% endif %}
+      </section>
+
+      <!-- Stacks -->
+      {% if status.stacks %}
+      <section>
+        <h2>Stacks</h2>
+        <table class="stack-table">
+          <thead>
+            <tr><th>Name</th><th>Running</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            {% for s in status.stacks %}
+            <tr>
+              <td>
+                <span class="name-cell">
+                  <span class="dot {% if s.status == 'healthy' %}dot-green{% elif s.status == 'degraded' %}dot-amber{% else %}dot-red{% endif %}"></span>
+                  {{ s.name }}
+                </span>
+              </td>
+              <td>{{ s.running_count }} / {{ s.container_count }}</td>
+              <td>{{ s.status }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% endif %}
+
+    </main>
+  </div>
+
+  <!-- ================================================================
+       Tab 2 — Media Library
+       ================================================================ -->
+  <div id="media" class="tab-panel" hidden>
+    <main>
+      <section class="coming-soon">
+        <h2>Media Library</h2>
+        <p class="empty">
+          Media library management requires Sonarr, Radarr, and Plex credentials.
+          Configure them with <code>credential_set</code> and the library view will
+          appear here on the next refresh.
+        </p>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      var panels = document.querySelectorAll('.tab-panel');
+      var tabs = document.querySelectorAll('.tab');
+
+      function show(id) {
+        if (!id) id = 'infrastructure';
+        panels.forEach(function (p) { p.hidden = p.id !== id; });
+        tabs.forEach(function (t) { t.classList.toggle('active', t.dataset.tab === id); });
+      }
+
+      show(location.hash.replace('#', ''));
+      window.addEventListener('hashchange', function () {
+        show(location.hash.replace('#', ''));
+      });
+    })();
+  </script>
 </body>
 </html>

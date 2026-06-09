@@ -120,6 +120,66 @@ async def test_api_status_shape(public_settings: Settings) -> None:
     assert "stacks" in data
     assert "disk" in data
     assert "runtime" in data
+    assert "alerts_recent" in data
+    assert "upgrades" in data
+    assert "connectivity" in data
+    assert "stats" in data
+
+
+async def test_api_status_stats_shape(public_settings: Settings) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get("/api/status")
+    stats = r.json()["stats"]
+    assert "containers_running" in stats
+    assert "containers_total" in stats
+    assert "disk_max_pct" in stats
+    assert "alerts_count" in stats
+    assert "upgrades_count" in stats
+
+
+async def test_api_status_alerts_empty_when_no_log(public_settings: Settings) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get("/api/status")
+    assert r.json()["alerts_recent"] == []
+
+
+async def test_api_status_upgrades_empty_when_no_cache(public_settings: Settings) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get("/api/status")
+    assert r.json()["upgrades"] == []
+
+
+async def test_api_status_connectivity_empty_when_no_credentials(
+    public_settings: Settings,
+) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get("/api/status")
+    # No services configured — connectivity list should be empty
+    assert r.json()["connectivity"] == []
+
+
+async def test_dashboard_tab_structure(public_settings: Settings) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get("/")
+    assert 'id="infrastructure"' in r.text
+    assert 'id="media"' in r.text
+    assert 'data-tab="infrastructure"' in r.text
+    assert 'data-tab="media"' in r.text
 
 
 async def test_api_status_disk_fields(public_settings: Settings) -> None:
