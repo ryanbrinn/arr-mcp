@@ -20,6 +20,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 from starlette.types import ASGIApp
 
+from arr_mcp.ai.provider import AIProvider, get_provider
 from arr_mcp.config import Settings
 from arr_mcp.dashboard.routes import make_dashboard_routes
 from arr_mcp.runtime.client import ContainerClient
@@ -40,7 +41,9 @@ log = logging.getLogger(__name__)
 _STATIC_DIR = Path(__file__).parent / "dashboard" / "static"
 
 
-def build_mcp_server(settings: Settings, client: ContainerClient) -> FastMCP:
+def build_mcp_server(
+    settings: Settings, client: ContainerClient, ai_provider: AIProvider
+) -> FastMCP:
     """Build and configure the FastMCP server with all tool registrations."""
     # Disable DNS rebinding protection — we use API key auth instead and the
     # server is accessed from external hosts (not just localhost).
@@ -82,7 +85,8 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 def create_app(settings: Settings) -> Starlette:
     """Build the Starlette ASGI app with auth middleware and MCP route."""
     client = ContainerClient(settings)
-    mcp_server = build_mcp_server(settings, client)
+    ai_provider = get_provider(settings)
+    mcp_server = build_mcp_server(settings, client, ai_provider)
     dashboard = make_dashboard_routes(client, settings)
 
     # Initialise the session manager and extract the /mcp route handler.

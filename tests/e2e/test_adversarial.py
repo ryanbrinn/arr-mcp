@@ -166,7 +166,9 @@ def _mcp(_settings: Settings):
     client.post = AsyncMock(return_value={})
     client.delete = AsyncMock(return_value={})
     client.socket_path = "unix:///fake.sock"
-    return build_mcp_server(_settings, client)
+    from arr_mcp.ai.null import NullProvider
+
+    return build_mcp_server(_settings, client, NullProvider())
 
 
 async def test_file_write_outside_allowed_roots_raises(_mcp: FastMCP) -> None:

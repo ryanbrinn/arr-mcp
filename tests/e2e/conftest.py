@@ -102,7 +102,9 @@ def mcp(e2e_settings: Settings, e2e_client: ContainerClient, fake_docker: FakeDo
     Also patches ``httpx.AsyncHTTPTransport`` inside the containers module so
     that ``container_logs`` (which opens its own transport) uses the fake too.
     """
-    server = build_mcp_server(e2e_settings, e2e_client)
+    from arr_mcp.ai.null import NullProvider
+
+    server = build_mcp_server(e2e_settings, e2e_client, NullProvider())
 
     class _FakeTransportFactory(httpx.AsyncBaseTransport):
         """Replaces httpx.AsyncHTTPTransport(uds=...) inside container_logs."""

@@ -79,6 +79,31 @@ class Settings(BaseSettings):
     )
     log_level: str = Field(default="info", description="Logging level")
 
+    # ------------------------------------------------------------------
+    # AI provider
+    # ------------------------------------------------------------------
+
+    ai_provider: str = Field(
+        default="ollama",
+        description="AI backend: ollama | anthropic | none",
+    )
+    ollama_url: str = Field(
+        default="http://localhost:11434",
+        description="Base URL for the local Ollama instance",
+    )
+    ollama_model: str = Field(
+        default="llama3.2:3b",
+        description="Ollama model name to use for completions",
+    )
+    anthropic_api_key: str = Field(
+        default="",
+        description="Anthropic API key — required when ARR_MCP_AI_PROVIDER=anthropic",
+    )
+    anthropic_model: str = Field(
+        default="claude-haiku-4-5-20251001",
+        description="Anthropic model ID to use for completions",
+    )
+
     @field_validator("allowed_stacks", mode="before")
     @classmethod
     def _parse_allowed_stacks(cls, v: object) -> list[str]:
