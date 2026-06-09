@@ -6,7 +6,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 from mcp.server.fastmcp import FastMCP
 
-from arr_mcp.tools.containers import _calc_cpu_pct, _decode_log_stream, register_container_tools
+from arr_mcp.tools.containers import (
+    _calc_cpu_pct,
+    _decode_log_stream,
+    register_container_tools,
+)
 
 
 def _make_server(mock_client: MagicMock) -> FastMCP:
@@ -17,7 +21,9 @@ def _make_server(mock_client: MagicMock) -> FastMCP:
 
 async def test_container_remove_without_confirm_is_safe(mock_client: MagicMock) -> None:
     server = _make_server(mock_client)
-    result = await server.call_tool("container_remove", {"name": "plex", "confirm": False})
+    result = await server.call_tool(
+        "container_remove", {"name": "plex", "confirm": False}
+    )
     assert "confirm=True" in result[0][0].text
     mock_client.delete.assert_not_called()
 
@@ -29,7 +35,9 @@ async def test_container_remove_default_is_safe(mock_client: MagicMock) -> None:
     mock_client.delete.assert_not_called()
 
 
-async def test_container_remove_with_confirm_calls_delete(mock_client: MagicMock) -> None:
+async def test_container_remove_with_confirm_calls_delete(
+    mock_client: MagicMock,
+) -> None:
     server = _make_server(mock_client)
     await server.call_tool("container_remove", {"name": "plex", "confirm": True})
     mock_client.delete.assert_called_once()
@@ -127,14 +135,19 @@ def test_calc_cpu_pct_empty_stats_returns_na() -> None:
     assert "N/A" in result
 
 
-async def test_container_stats_podman_shows_mem_when_cpu_na(mock_client: MagicMock) -> None:
-    """Memory and net I/O must appear even when CPU% is unavailable (Podman rootless)."""
+async def test_container_stats_podman_shows_mem_when_cpu_na(
+    mock_client: MagicMock,
+) -> None:
+    """Memory and net I/O appear even when CPU% is unavailable (Podman rootless)."""
     mock_client.get = AsyncMock(
         side_effect=[
             [{"Id": "abc123", "Names": ["/sonarr"]}],
             {
                 **_PODMAN_STATS,
-                "memory_stats": {"usage": 256 * 1024 * 1024, "limit": 2048 * 1024 * 1024},
+                "memory_stats": {
+                    "usage": 256 * 1024 * 1024,
+                    "limit": 2048 * 1024 * 1024,
+                },
                 "networks": {"eth0": {"rx_bytes": 1024, "tx_bytes": 512}},
             },
         ]

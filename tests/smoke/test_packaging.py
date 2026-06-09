@@ -59,7 +59,8 @@ def test_package_importable(installed_package: dict[str, Path | str]) -> None:
     for module in ("arr_mcp", "arr_helper"):
         result = _run([str(python), "-c", f"import {module}"])
         assert result.returncode == 0, (
-            f"`import {module}` failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+            f"`import {module}` failed:\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
 

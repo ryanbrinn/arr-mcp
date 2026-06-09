@@ -69,7 +69,9 @@ async def test_service_api_reachability_no_credentials(tmp_path: Path) -> None:
         register_reachability_tools(server, settings)
 
     tool_fn = next(
-        t for t in server._tool_manager._tools.values() if t.name == "service_api_reachability"
+        t
+        for t in server._tool_manager._tools.values()
+        if t.name == "service_api_reachability"
     )
     result = await tool_fn.fn()
     assert "No service credentials" in result[0].text
@@ -97,7 +99,9 @@ async def test_service_api_reachability_returns_results(tmp_path: Path) -> None:
         register_reachability_tools(server, settings)
 
     tool_fn = next(
-        t for t in server._tool_manager._tools.values() if t.name == "service_api_reachability"
+        t
+        for t in server._tool_manager._tools.values()
+        if t.name == "service_api_reachability"
     )
     result = await tool_fn.fn()
     payload = json.loads(result[0].text)
@@ -131,7 +135,9 @@ async def test_service_api_reachability_auth_failure(tmp_path: Path) -> None:
         register_reachability_tools(server, settings)
 
     tool_fn = next(
-        t for t in server._tool_manager._tools.values() if t.name == "service_api_reachability"
+        t
+        for t in server._tool_manager._tools.values()
+        if t.name == "service_api_reachability"
     )
     result = await tool_fn.fn()
     payload = json.loads(result[0].text)
@@ -149,7 +155,8 @@ def _write_db(db_path: Path, clients: list[tuple]) -> None:  # type: ignore[type
     conn = sqlite3.connect(str(db_path))
     conn.execute(
         "CREATE TABLE DownloadClients "
-        "(Id INTEGER PRIMARY KEY, Name TEXT, Implementation TEXT, Settings TEXT, Enable INTEGER)"
+        "(Id INTEGER PRIMARY KEY, Name TEXT, Implementation TEXT,"
+        " Settings TEXT, Enable INTEGER)"
     )
     for row in clients:
         conn.execute("INSERT INTO DownloadClients VALUES (?,?,?,?,?)", row)
@@ -171,14 +178,18 @@ async def test_inter_service_reachability_no_dbs(tmp_path: Path) -> None:
         register_reachability_tools(server, settings)
 
     tool_fn = next(
-        t for t in server._tool_manager._tools.values() if t.name == "inter_service_reachability"
+        t
+        for t in server._tool_manager._tools.values()
+        if t.name == "inter_service_reachability"
     )
     result = await tool_fn.fn()
     assert "No download client" in result[0].text
 
 
 @pytest.mark.anyio
-async def test_inter_service_reachability_checks_configured_clients(tmp_path: Path) -> None:
+async def test_inter_service_reachability_checks_configured_clients(
+    tmp_path: Path,
+) -> None:
     from mcp.server.fastmcp import FastMCP
 
     from arr_mcp.config import Settings
@@ -188,7 +199,13 @@ async def test_inter_service_reachability_checks_configured_clients(tmp_path: Pa
     sonarr_dir = tmp_path / "sonarr"
     sonarr_dir.mkdir()
     dc_settings = json.dumps(
-        {"host": "sabnzbd", "port": 8080, "useSsl": False, "urlBase": "", "apiKey": "sab-key"}
+        {
+            "host": "sabnzbd",
+            "port": 8080,
+            "useSsl": False,
+            "urlBase": "",
+            "apiKey": "sab-key",
+        }
     )
     _write_db(sonarr_dir / "sonarr.db", [(1, "SABnzbd", "Sabnzbd", dc_settings, 1)])
 
@@ -199,7 +216,9 @@ async def test_inter_service_reachability_checks_configured_clients(tmp_path: Pa
         register_reachability_tools(server, settings)
 
     tool_fn = next(
-        t for t in server._tool_manager._tools.values() if t.name == "inter_service_reachability"
+        t
+        for t in server._tool_manager._tools.values()
+        if t.name == "inter_service_reachability"
     )
 
     # Mock the HTTP check so we don't need a live sabnzbd
@@ -218,7 +237,9 @@ async def test_inter_service_reachability_checks_configured_clients(tmp_path: Pa
 
 
 @pytest.mark.anyio
-async def test_inter_service_reachability_skips_disabled_clients(tmp_path: Path) -> None:
+async def test_inter_service_reachability_skips_disabled_clients(
+    tmp_path: Path,
+) -> None:
     from mcp.server.fastmcp import FastMCP
 
     from arr_mcp.config import Settings
@@ -226,7 +247,9 @@ async def test_inter_service_reachability_skips_disabled_clients(tmp_path: Path)
 
     sonarr_dir = tmp_path / "sonarr"
     sonarr_dir.mkdir()
-    dc_settings = json.dumps({"host": "sabnzbd", "port": 8080, "useSsl": False, "urlBase": ""})
+    dc_settings = json.dumps(
+        {"host": "sabnzbd", "port": 8080, "useSsl": False, "urlBase": ""}
+    )
     # Enable=0 → disabled
     _write_db(sonarr_dir / "sonarr.db", [(1, "SABnzbd", "Sabnzbd", dc_settings, 0)])
 
@@ -237,7 +260,9 @@ async def test_inter_service_reachability_skips_disabled_clients(tmp_path: Path)
         register_reachability_tools(server, settings)
 
     tool_fn = next(
-        t for t in server._tool_manager._tools.values() if t.name == "inter_service_reachability"
+        t
+        for t in server._tool_manager._tools.values()
+        if t.name == "inter_service_reachability"
     )
     result = await tool_fn.fn()
     assert "No download client" in result[0].text

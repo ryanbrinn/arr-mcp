@@ -52,18 +52,22 @@ class Settings(BaseSettings):
 
     @property
     def is_compose(self) -> bool:
-        """True when running Docker Compose — enables stack tools and dashboard stacks view."""
+        """True when running Docker Compose — enables stack tools and dashboard view."""
         return self.container_runtime == "docker-compose"
 
     socket_path: str = Field(
         default="",
-        description="Explicit socket path (e.g. unix:///run/user/1000/podman/podman.sock). "
-        "When set, skips runtime auto-detection. Required when running inside a container.",
+        description=(
+            "Explicit socket path (e.g. unix:///run/user/1000/podman/podman.sock). "
+            "When set, skips auto-detection. Required inside a container."
+        ),
     )
     helper_socket: str = Field(
         default="/run/arr-agent/arr-agent.sock",
-        description="Path to the arr-agent Unix socket. "
-        "Override with ARR_MCP_HELPER_SOCKET env var if the socket is mounted elsewhere.",
+        description=(
+            "Path to the arr-agent Unix socket. "
+            "Override with ARR_MCP_HELPER_SOCKET if mounted elsewhere."
+        ),
     )
     dashboard_public: bool = Field(
         default=False,
@@ -72,9 +76,9 @@ class Settings(BaseSettings):
     allowed_stacks: list[str] = Field(
         default_factory=list,
         description=(
-            "Comma-separated list of stack names the MCP server is permitted to operate on. "
-            "When empty (default) all stacks under compose_dir are allowed. "
-            "Set ARR_MCP_ALLOWED_STACKS=media,downloads to restrict to specific stacks."
+            "Comma-separated stack names the MCP server may operate on. "
+            "When empty all stacks under compose_dir are allowed. "
+            "Set ARR_MCP_ALLOWED_STACKS=media,downloads to restrict."
         ),
     )
     log_level: str = Field(default="info", description="Logging level")

@@ -9,7 +9,11 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent
 
 from arr_mcp.config import Settings
-from arr_mcp.helper.client import HelperClient, HelperUnavailableError, unavailable_message
+from arr_mcp.helper.client import (
+    HelperClient,
+    HelperUnavailableError,
+    unavailable_message,
+)
 from arr_mcp.runtime.client import ContainerClient
 from arr_mcp.tools.utils import is_owned_by_current_user
 
@@ -31,7 +35,9 @@ def _has_quadlet_for(name: str) -> bool:
     )
 
 
-def register_stack_tools(server: FastMCP, client: ContainerClient, settings: Settings) -> None:
+def register_stack_tools(
+    server: FastMCP, client: ContainerClient, settings: Settings
+) -> None:
     """Register stack management tools with the MCP server."""
     stacks_root = Path(settings.compose_dir)
     helper = HelperClient(settings.helper_socket)
@@ -62,11 +68,17 @@ def register_stack_tools(server: FastMCP, client: ContainerClient, settings: Set
     async def stack_list() -> list[TextContent]:
         """List all stacks in the stacks directory."""
         if not stacks_root.exists():
-            return [TextContent(type="text", text=f"Stacks directory not found: {stacks_root}")]
+            return [
+                TextContent(
+                    type="text", text=f"Stacks directory not found: {stacks_root}"
+                )
+            ]
         stacks = [
             d.name
             for d in sorted(stacks_root.iterdir())
-            if d.is_dir() and is_owned_by_current_user(d) and (not allowed or d.name in allowed)
+            if d.is_dir()
+            and is_owned_by_current_user(d)
+            and (not allowed or d.name in allowed)
         ]
         return [TextContent(type="text", text="\n".join(stacks) or "No stacks found.")]
 
@@ -80,7 +92,11 @@ def register_stack_tools(server: FastMCP, client: ContainerClient, settings: Set
     async def stack_down(name: str, confirm: bool = False) -> list[TextContent]:
         """Stop a stack. Requires confirm=True."""
         if not confirm:
-            return [TextContent(type="text", text="Pass confirm=True to bring the stack down.")]
+            return [
+                TextContent(
+                    type="text", text="Pass confirm=True to bring the stack down."
+                )
+            ]
         _stack_path(name)
         return await _helper_call("stack_down", stack=name)
 

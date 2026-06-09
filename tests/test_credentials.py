@@ -34,7 +34,9 @@ def test_encrypt_different_secrets_differ() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_get_returns_env_var_credential(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_returns_env_var_credential(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("SONARR_API_KEY", "env-key-123")
     store = CredentialStore(str(tmp_path))
     cred = store.get("sonarr")
@@ -42,7 +44,9 @@ def test_get_returns_env_var_credential(tmp_path: Path, monkeypatch: pytest.Monk
     assert cred.api_key == "env-key-123"
 
 
-def test_env_var_takes_priority_over_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_env_var_takes_priority_over_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("SONARR_API_KEY", "env-key")
     store = CredentialStore(str(tmp_path))
     store.set("sonarr", ServiceCredential(api_key="file-key"))
@@ -58,7 +62,9 @@ def test_env_var_takes_priority_over_file(tmp_path: Path, monkeypatch: pytest.Mo
 
 def test_set_and_get_stored_credential(tmp_path: Path) -> None:
     store = CredentialStore(str(tmp_path))
-    store.set("radarr", ServiceCredential(api_key="radarr-key", base_url="http://radarr:7878"))
+    store.set(
+        "radarr", ServiceCredential(api_key="radarr-key", base_url="http://radarr:7878")
+    )
     cred = store.get("radarr")
     assert cred is not None
     assert cred.api_key == "radarr-key"
@@ -181,7 +187,9 @@ def test_list_configured_never_returns_key_values(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_encrypted_storage_roundtrip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_encrypted_storage_roundtrip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("ARR_MCP_SECRET", "test-secret-key")
     store = CredentialStore(str(tmp_path))
     store.set("sonarr", ServiceCredential(api_key="secret-key"))
@@ -196,7 +204,9 @@ def test_encrypted_storage_roundtrip(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert cred.api_key == "secret-key"
 
 
-def test_plaintext_storage_when_no_secret(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_plaintext_storage_when_no_secret(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.delenv("ARR_MCP_SECRET", raising=False)
     store = CredentialStore(str(tmp_path))
     store.set("sonarr", ServiceCredential(api_key="plainkey"))

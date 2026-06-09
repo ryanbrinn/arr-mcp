@@ -76,7 +76,9 @@ async def test_service_scan_empty_services_dir(server: FastMCP) -> None:
     assert data == []
 
 
-async def test_service_scan_known_service_detected(server: FastMCP, settings: Settings) -> None:
+async def test_service_scan_known_service_detected(
+    server: FastMCP, settings: Settings
+) -> None:
     (Path(settings.services_dir) / "sonarr").mkdir()
     result = await server.call_tool("service_scan", {})
     data = json.loads(result[0][0].text)
@@ -85,14 +87,18 @@ async def test_service_scan_known_service_detected(server: FastMCP, settings: Se
     assert data[0]["known"] is True
 
 
-async def test_service_scan_unknown_service(server: FastMCP, settings: Settings) -> None:
+async def test_service_scan_unknown_service(
+    server: FastMCP, settings: Settings
+) -> None:
     (Path(settings.services_dir) / "mycustom-app").mkdir()
     result = await server.call_tool("service_scan", {})
     data = json.loads(result[0][0].text)
     assert data[0]["known"] is False
 
 
-async def test_service_scan_has_config_true(server: FastMCP, settings: Settings) -> None:
+async def test_service_scan_has_config_true(
+    server: FastMCP, settings: Settings
+) -> None:
     svc_dir = Path(settings.services_dir) / "radarr"
     svc_dir.mkdir()
     (svc_dir / "config.xml").write_text("<Config/>")
@@ -146,7 +152,9 @@ async def test_service_scan_container_prefix_match(
 # ---------------------------------------------------------------------------
 
 
-async def test_service_diagnose_missing_config(server: FastMCP, settings: Settings) -> None:
+async def test_service_diagnose_missing_config(
+    server: FastMCP, settings: Settings
+) -> None:
     svc_dir = Path(settings.services_dir) / "sonarr"
     svc_dir.mkdir()
     result = await server.call_tool(
@@ -157,7 +165,9 @@ async def test_service_diagnose_missing_config(server: FastMCP, settings: Settin
     assert any(i["category"] == "missing" for i in data["issues"])
 
 
-async def test_service_diagnose_valid_sonarr_healthy(server: FastMCP, settings: Settings) -> None:
+async def test_service_diagnose_valid_sonarr_healthy(
+    server: FastMCP, settings: Settings
+) -> None:
     svc_dir = Path(settings.services_dir) / "sonarr"
     svc_dir.mkdir()
     (svc_dir / "config.xml").write_text(
@@ -193,7 +203,9 @@ async def test_service_diagnose_localhost_binding_degraded(
     assert any(w["category"] == "port" for w in data["warnings"])
 
 
-async def test_service_diagnose_unknown_service(server: FastMCP, settings: Settings) -> None:
+async def test_service_diagnose_unknown_service(
+    server: FastMCP, settings: Settings
+) -> None:
     svc_dir = Path(settings.services_dir) / "mycustom"
     svc_dir.mkdir()
     result = await server.call_tool(
@@ -208,19 +220,29 @@ async def test_service_diagnose_path_outside_services_dir_blocked(
     server: FastMCP,
 ) -> None:
     with pytest.raises(ToolError):
-        await server.call_tool("service_diagnose", {"service": "sonarr", "service_dir": "/etc"})
+        await server.call_tool(
+            "service_diagnose", {"service": "sonarr", "service_dir": "/etc"}
+        )
 
 
-async def test_service_diagnose_db_path_blocked(server: FastMCP, settings: Settings) -> None:
+async def test_service_diagnose_db_path_blocked(
+    server: FastMCP, settings: Settings
+) -> None:
     db_path = str(Path(settings.services_dir) / "sonarr" / "sonarr.db")
     with pytest.raises(ToolError):
-        await server.call_tool("service_diagnose", {"service": "sonarr", "service_dir": db_path})
+        await server.call_tool(
+            "service_diagnose", {"service": "sonarr", "service_dir": db_path}
+        )
 
 
-async def test_service_diagnose_path_traversal_blocked(server: FastMCP, settings: Settings) -> None:
+async def test_service_diagnose_path_traversal_blocked(
+    server: FastMCP, settings: Settings
+) -> None:
     evil = str(Path(settings.services_dir) / ".." / ".." / "etc")
     with pytest.raises(ToolError):
-        await server.call_tool("service_diagnose", {"service": "sonarr", "service_dir": evil})
+        await server.call_tool(
+            "service_diagnose", {"service": "sonarr", "service_dir": evil}
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -267,7 +289,9 @@ async def test_service_health_report_skips_unknown_services(
 # ---------------------------------------------------------------------------
 
 
-async def test_service_fix_requires_confirm(server: FastMCP, settings: Settings) -> None:
+async def test_service_fix_requires_confirm(
+    server: FastMCP, settings: Settings
+) -> None:
     svc_dir = Path(settings.services_dir) / "sonarr"
     svc_dir.mkdir()
     result = await server.call_tool(
@@ -282,10 +306,14 @@ async def test_service_fix_requires_confirm(server: FastMCP, settings: Settings)
     assert "confirm=True" in result[0][0].text
 
 
-async def test_service_fix_update_config_xml_success(server: FastMCP, settings: Settings) -> None:
+async def test_service_fix_update_config_xml_success(
+    server: FastMCP, settings: Settings
+) -> None:
     svc_dir = Path(settings.services_dir) / "sonarr"
     svc_dir.mkdir()
-    (svc_dir / "config.xml").write_text("<Config><ApiKey>abc</ApiKey><Port>8989</Port></Config>")
+    (svc_dir / "config.xml").write_text(
+        "<Config><ApiKey>abc</ApiKey><Port>8989</Port></Config>"
+    )
     result = await server.call_tool(
         "service_fix",
         {
@@ -322,7 +350,9 @@ async def test_service_fix_update_config_xml_key_not_found(
     assert data["changed"] is False
 
 
-async def test_service_fix_unknown_fix_type_raises(server: FastMCP, settings: Settings) -> None:
+async def test_service_fix_unknown_fix_type_raises(
+    server: FastMCP, settings: Settings
+) -> None:
     svc_dir = Path(settings.services_dir) / "sonarr"
     svc_dir.mkdir()
     with pytest.raises(ToolError):
@@ -369,7 +399,9 @@ async def test_service_fix_update_env_var_no_compose_dir(
     assert "compose_dir" in result[0][0].text
 
 
-async def test_service_fix_update_env_var_dict_format(server: FastMCP, settings: Settings) -> None:
+async def test_service_fix_update_env_var_dict_format(
+    server: FastMCP, settings: Settings
+) -> None:
     """update_env_var works when compose environment is a dict."""
     import yaml
 

@@ -79,13 +79,17 @@ async def _handle_connection(
         try:
             payload = json.loads(body_bytes)
             op = str(payload.get("op", ""))
-            args: dict[str, str] = {k: str(v) for k, v in payload.get("args", {}).items()}
+            args: dict[str, str] = {
+                k: str(v) for k, v in payload.get("args", {}).items()
+            }
         except (json.JSONDecodeError, AttributeError):
             writer.write(_error_response(400, "Invalid JSON body"))
             await writer.drain()
             return
 
-        handler: Callable[..., Coroutine[Any, Any, tuple[int, str]]] | None = HANDLERS.get(op)  # type: ignore[assignment]
+        handler: Callable[..., Coroutine[Any, Any, tuple[int, str]]] | None = (
+            HANDLERS.get(op)
+        )  # type: ignore[assignment]
         if handler is None:
             writer.write(_error_response(400, f"Unknown op: {op!r}"))
             await writer.drain()
@@ -134,7 +138,9 @@ async def serve(socket_path: str | None = None) -> None:
     if sock.exists():
         sock.unlink()
 
-    server = await asyncio.start_unix_server(_handle_connection, path=path)
+    server = await asyncio.start_unix_server(  # type: ignore[attr-defined]
+        _handle_connection, path=path
+    )
 
     # Restrict socket to owner only (0600)
     sock.chmod(stat.S_IRUSR | stat.S_IWUSR)

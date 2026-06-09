@@ -83,7 +83,9 @@ def _scan_services(services_dir: Path, running_names: set[str]) -> list[ScannedS
     return results
 
 
-def register_diagnostic_tools(server: FastMCP, settings: Settings, client: ContainerClient) -> None:
+def register_diagnostic_tools(
+    server: FastMCP, settings: Settings, client: ContainerClient
+) -> None:
     """Register service diagnostic tools with the MCP server."""
 
     @server.tool()
@@ -98,13 +100,17 @@ def register_diagnostic_tools(server: FastMCP, settings: Settings, client: Conta
 
         running_names: set[str] = set()
         try:
-            containers: list[dict[str, Any]] = await client.get("/v1.41/containers/json?all=true")
+            containers: list[dict[str, Any]] = await client.get(
+                "/v1.41/containers/json?all=true"
+            )
             running_names = _collect_running_names(containers)
         except Exception as exc:
             log.warning("Could not fetch container list during service_scan: %s", exc)
 
         results = _scan_services(services_root, running_names)
-        return [TextContent(type="text", text=json.dumps([s.to_dict() for s in results]))]
+        return [
+            TextContent(type="text", text=json.dumps([s.to_dict() for s in results]))
+        ]
 
     @server.tool()
     async def service_diagnose(service: str, service_dir: str) -> list[TextContent]:
@@ -157,15 +163,24 @@ def register_diagnostic_tools(server: FastMCP, settings: Settings, client: Conta
 
         running_names: set[str] = set()
         try:
-            containers: list[dict[str, Any]] = await client.get("/v1.41/containers/json?all=true")
+            containers: list[dict[str, Any]] = await client.get(
+                "/v1.41/containers/json?all=true"
+            )
             running_names = _collect_running_names(containers)
         except Exception as exc:
-            log.warning("Could not fetch container list during service_health_report: %s", exc)
+            log.warning(
+                "Could not fetch container list during service_health_report: %s", exc
+            )
 
         scanned = _scan_services(services_root, running_names)
 
         reports: list[dict[str, object]] = []
-        summary: dict[str, int] = {"healthy": 0, "degraded": 0, "critical": 0, "unknown": 0}
+        summary: dict[str, int] = {
+            "healthy": 0,
+            "degraded": 0,
+            "critical": 0,
+            "unknown": 0,
+        }
 
         for svc in scanned:
             if not svc.known:
@@ -200,7 +215,7 @@ def register_diagnostic_tools(server: FastMCP, settings: Settings, client: Conta
 
         - "update_env_var": Update an environment variable in the service's
           compose file. Requires compose_dir to be configured.
-          Required params: {"stack": "<stack name>", "var": "<VAR_NAME>", "value": "<new value>"}
+          Required params: {"stack": "<stack>", "var": "<VAR_NAME>", "value": "<val>"}
           Note: stack restart required.
 
         Returns JSON with changed, before, after, and a note.
@@ -232,7 +247,8 @@ def register_diagnostic_tools(server: FastMCP, settings: Settings, client: Conta
             return _fix_env_var(settings, params)
 
         raise ValueError(
-            f"Unknown fix_type: '{fix_type}'. Supported values: update_config_xml, update_env_var"
+            f"Unknown fix_type: '{fix_type}'."
+            " Supported: update_config_xml, update_env_var"
         )
 
 
@@ -268,7 +284,10 @@ async def _fix_config_xml(
                         "key": key,
                         "before": None,
                         "after": None,
-                        "note": f"Key '{key}' not found in {config_filename}. No changes made.",
+                        "note": (
+                            f"Key '{key}' not found in {config_filename}."
+                            " No changes made."
+                        ),
                     }
                 ),
             )
@@ -317,7 +336,9 @@ def _fix_env_var(settings: Settings, params: dict[str, str]) -> list[TextContent
     if not compose_path.exists():
         compose_path = compose_root / stack / "docker-compose.yml"
     if not compose_path.exists():
-        return [TextContent(type="text", text=f"Compose file not found for stack: {stack}")]
+        return [
+            TextContent(type="text", text=f"Compose file not found for stack: {stack}")
+        ]
 
     raw = compose_path.read_text()
     data: dict[str, Any] = yaml.safe_load(raw) or {}

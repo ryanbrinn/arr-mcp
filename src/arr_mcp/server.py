@@ -46,7 +46,9 @@ def build_mcp_server(settings: Settings, client: ContainerClient) -> FastMCP:
     # server is accessed from external hosts (not just localhost).
     server = FastMCP(
         "arr-mcp",
-        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+        transport_security=TransportSecuritySettings(
+            enable_dns_rebinding_protection=False
+        ),
     )
     register_container_tools(server, client)
     if settings.is_compose:
@@ -66,11 +68,15 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.api_key = api_key
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         # Health, dashboard, and static assets bypass Bearer auth —
         # the dashboard does its own key-in-query-param check.
         path = request.url.path
-        is_dashboard = path in ("/health", "/", "/api/status") or path.startswith("/static/")
+        is_dashboard = path in ("/health", "/", "/api/status") or path.startswith(
+            "/static/"
+        )
         if is_dashboard:
             return await call_next(request)
         auth = request.headers.get("Authorization", "")
@@ -94,7 +100,11 @@ def create_app(settings: Settings) -> Starlette:
 
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
-        log.info("arr-mcp starting — runtime=%s port=%d", settings.container_runtime, settings.port)
+        log.info(
+            "arr-mcp starting — runtime=%s port=%d",
+            settings.container_runtime,
+            settings.port,
+        )
         async with mcp_server.session_manager.run():
             yield
         log.info("arr-mcp stopped")

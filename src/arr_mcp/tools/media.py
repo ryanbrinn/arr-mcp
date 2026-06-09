@@ -68,7 +68,9 @@ def _find_candidates(
     max_season: dict[int, int] = {}
     for s in series_list:
         seasons_with_eps = [
-            sn.season_number for sn in s.seasons if sn.season_number > 0 and sn.episode_count > 0
+            sn.season_number
+            for sn in s.seasons
+            if sn.season_number > 0 and sn.episode_count > 0
         ]
         if seasons_with_eps:
             max_season[s.id] = max(seasons_with_eps)
@@ -87,7 +89,9 @@ def _find_candidates(
             continue
 
         # Find series title for Plex lookup
-        series_title = next((s.title for s in series_list if s.id == episode.series_id), "")
+        series_title = next(
+            (s.title for s in series_list if s.id == episode.series_id), ""
+        )
         plex_key = (series_title.lower(), episode.season_number, episode.episode_number)
         plex_ep = plex_lookup.get(plex_key)
 
@@ -132,7 +136,9 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
 
         series_result = await sonarr.get_series()
         if not series_result.ok:
-            return [TextContent(type="text", text=f"Sonarr error: {series_result.error}")]
+            return [
+                TextContent(type="text", text=f"Sonarr error: {series_result.error}")
+            ]
 
         users_result = await plex.get_home_users()
         if not users_result.ok:
@@ -141,7 +147,9 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
         users: list[PlexUser] = users_result.data  # type: ignore[assignment]
         watched_result = await plex.get_all_watched_episodes(users)
         if not watched_result.ok:
-            return [TextContent(type="text", text=f"Plex error: {watched_result.error}")]
+            return [
+                TextContent(type="text", text=f"Plex error: {watched_result.error}")
+            ]
 
         series_list: list[Series] = series_result.data  # type: ignore[assignment]
         all_user_count = len(users)
@@ -159,7 +167,9 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
                 for ef in ef_result.data:  # type: ignore[union-attr]
                     all_files[ef.id] = ef
 
-        candidates = _find_candidates(series_list, all_episodes, all_files, watched, all_user_count)
+        candidates = _find_candidates(
+            series_list, all_episodes, all_files, watched, all_user_count
+        )
 
         result = {
             "dry_run": True,
@@ -199,7 +209,9 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
 
         series_result = await sonarr.get_series()
         if not series_result.ok:
-            return [TextContent(type="text", text=f"Sonarr error: {series_result.error}")]
+            return [
+                TextContent(type="text", text=f"Sonarr error: {series_result.error}")
+            ]
 
         users_result = await plex.get_home_users()
         if not users_result.ok:
@@ -208,7 +220,9 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
         users: list[PlexUser] = users_result.data  # type: ignore[assignment]
         watched_result = await plex.get_all_watched_episodes(users)
         if not watched_result.ok:
-            return [TextContent(type="text", text=f"Plex error: {watched_result.error}")]
+            return [
+                TextContent(type="text", text=f"Plex error: {watched_result.error}")
+            ]
 
         series_list: list[Series] = series_result.data  # type: ignore[assignment]
         all_user_count = len(users)
@@ -226,7 +240,9 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
                 for ef in ef_result.data:  # type: ignore[union-attr]
                     all_files[ef.id] = ef
 
-        candidates = _find_candidates(series_list, all_episodes, all_files, watched, all_user_count)
+        candidates = _find_candidates(
+            series_list, all_episodes, all_files, watched, all_user_count
+        )
 
         cleanup = CleanupResult()
         for candidate in candidates:

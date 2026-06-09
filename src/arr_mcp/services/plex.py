@@ -101,7 +101,9 @@ class PlexClient(BaseServiceClient):
                     await self._resolve_user_tokens(client, users)
                     return ApiResult(ok=True, status_code=resp.status_code, data=users)
             except Exception as exc:
-                log.warning("plex.tv users endpoint unavailable (%s) — using owner only", exc)
+                log.warning(
+                    "plex.tv users endpoint unavailable (%s) — using owner only", exc
+                )
 
             # Fallback: single owner entry using the main server token
             owner = PlexUser(
@@ -117,7 +119,9 @@ class PlexClient(BaseServiceClient):
         async with httpx.AsyncClient() as client:
             return await _fetch(client)
 
-    async def _resolve_user_tokens(self, client: httpx.AsyncClient, users: list[PlexUser]) -> None:
+    async def _resolve_user_tokens(
+        self, client: httpx.AsyncClient, users: list[PlexUser]
+    ) -> None:
         """Switch into each home user concurrently to populate their token.
 
         The "switch" calls are independent round-trips to plex.tv, so running
@@ -132,7 +136,9 @@ class PlexClient(BaseServiceClient):
             for user in users:
                 tg.start_soon(_resolve, user)
 
-    async def _switch_home_user(self, client: httpx.AsyncClient, user_id: str) -> str | None:
+    async def _switch_home_user(
+        self, client: httpx.AsyncClient, user_id: str
+    ) -> str | None:
         """Switch into a home user and return their personal access token.
 
         Returns ``None`` (and logs a warning) if the switch fails — e.g. the
@@ -146,7 +152,11 @@ class PlexClient(BaseServiceClient):
         try:
             resp = await client.post(url, headers=headers, timeout=10.0)
             if not resp.is_success:
-                log.warning("Could not switch to home user %s: HTTP %s", user_id, resp.status_code)
+                log.warning(
+                    "Could not switch to home user %s: HTTP %s",
+                    user_id,
+                    resp.status_code,
+                )
                 return None
             root = ET.fromstring(resp.text)
             return root.get("authToken") or None
@@ -182,7 +192,9 @@ class PlexClient(BaseServiceClient):
             result.data = _parse_movies(result.data)  # type: ignore[arg-type]
         return result
 
-    async def get_all_watched_episodes(self, users: list[PlexUser] | None = None) -> ApiResult:
+    async def get_all_watched_episodes(
+        self, users: list[PlexUser] | None = None
+    ) -> ApiResult:
         """Aggregate watched episodes across all home users.
 
         Each episode carries a ``watched_by`` list of display names. Pass
@@ -201,7 +213,9 @@ class PlexClient(BaseServiceClient):
         for user in resolved_users:
             result = await self.get_watched_episodes(user.token)
             if not result.ok:
-                log.warning("Could not fetch episodes for user %s: %s", user.title, result.error)
+                log.warning(
+                    "Could not fetch episodes for user %s: %s", user.title, result.error
+                )
                 continue
             for ep in result.data:  # type: ignore[union-attr]
                 key = ep.rating_key
@@ -213,7 +227,9 @@ class PlexClient(BaseServiceClient):
 
         return ApiResult(ok=True, data=list(aggregated.values()))
 
-    async def get_all_watched_movies(self, users: list[PlexUser] | None = None) -> ApiResult:
+    async def get_all_watched_movies(
+        self, users: list[PlexUser] | None = None
+    ) -> ApiResult:
         """Aggregate watched movies across all home users.
 
         Each movie carries a ``watched_by`` list of display names. Pass
@@ -232,7 +248,9 @@ class PlexClient(BaseServiceClient):
         for user in resolved_users:
             result = await self.get_watched_movies(user.token)
             if not result.ok:
-                log.warning("Could not fetch movies for user %s: %s", user.title, result.error)
+                log.warning(
+                    "Could not fetch movies for user %s: %s", user.title, result.error
+                )
                 continue
             for movie in result.data:  # type: ignore[union-attr]
                 key = movie.rating_key
@@ -259,13 +277,17 @@ class PlexClient(BaseServiceClient):
 
         async def _send(client: httpx.AsyncClient) -> ApiResult:
             try:
-                resp = await client.get(url, headers=headers, params=params_dict, timeout=10.0)
+                resp = await client.get(
+                    url, headers=headers, params=params_dict, timeout=10.0
+                )
             except Exception as exc:
                 return ApiResult(ok=False, error=str(exc))
 
             if not resp.is_success:
                 return ApiResult(
-                    ok=False, status_code=resp.status_code, error=f"HTTP {resp.status_code}"
+                    ok=False,
+                    status_code=resp.status_code,
+                    error=f"HTTP {resp.status_code}",
                 )
 
             try:

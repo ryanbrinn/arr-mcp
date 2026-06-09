@@ -228,7 +228,10 @@ def register_reachability_tools(server: FastMCP, settings: Settings) -> None:
             return [
                 TextContent(
                     type="text",
-                    text="No download client configurations found in any arr service database.",
+                    text=(
+                        "No download client configurations found"
+                        " in any arr service database."
+                    ),
                 )
             ]
 

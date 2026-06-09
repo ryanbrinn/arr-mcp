@@ -59,7 +59,9 @@ class TestServiceToQuadlet:
         assert "Network=backend" in content
 
     def test_restart_unless_stopped(self) -> None:
-        content, _ = service_to_quadlet("app", {"image": "x", "restart": "unless-stopped"})
+        content, _ = service_to_quadlet(
+            "app", {"image": "x", "restart": "unless-stopped"}
+        )
         assert "Restart=always" in content
 
     def test_restart_always(self) -> None:
