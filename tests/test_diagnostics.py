@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
 from arr_mcp.config import Settings
+from arr_mcp.services.arr import HealthItem
+from arr_mcp.services.base import ApiResult, ServiceNotConfiguredError
 from arr_mcp.tools.diagnostics import _check_diagnostic_path, register_diagnostic_tools
 
 # ---------------------------------------------------------------------------
@@ -23,6 +25,26 @@ def server(settings: Settings, mock_client: MagicMock) -> FastMCP:
     s = FastMCP("test")
     register_diagnostic_tools(s, settings, mock_client)
     return s
+
+
+def _mock_arr_client(health_items: list[HealthItem]) -> AsyncMock:
+    """Build a mock ArrClient that returns the given health items."""
+    from arr_mcp.services.arr import ArrClient
+
+    mock = MagicMock(spec=ArrClient)
+    mock.get_health = AsyncMock(return_value=ApiResult(ok=True, data=health_items))
+    return mock
+
+
+def _mock_unreachable_client() -> AsyncMock:
+    """Build a mock client that fails health checks."""
+    from arr_mcp.services.arr import ArrClient
+
+    mock = MagicMock(spec=ArrClient)
+    mock.get_health = AsyncMock(
+        return_value=ApiResult(ok=False, error="Connection refused: sonarr:8989")
+    )
+    return mock
 
 
 # ---------------------------------------------------------------------------
@@ -148,101 +170,84 @@ async def test_service_scan_container_prefix_match(
 
 
 # ---------------------------------------------------------------------------
-# service_diagnose
+# service_api_health
 # ---------------------------------------------------------------------------
 
 
-async def test_service_diagnose_missing_config(
-    server: FastMCP, settings: Settings
-) -> None:
-    svc_dir = Path(settings.services_dir) / "sonarr"
-    svc_dir.mkdir()
-    result = await server.call_tool(
-        "service_diagnose", {"service": "sonarr", "service_dir": str(svc_dir)}
-    )
+async def test_service_api_health_not_configured(server: FastMCP) -> None:
+    with patch(
+        "arr_mcp.services.registry.ServiceRegistry.get_client",
+        side_effect=ServiceNotConfiguredError("No credential configured for 'sonarr'"),
+    ):
+        result = await server.call_tool("service_api_health", {"service": "sonarr"})
     data = json.loads(result[0][0].text)
+    assert data["reachable"] is False
+    assert data["status"] == "unknown"
+    assert "error" in data
+
+
+async def test_service_api_health_unreachable(server: FastMCP) -> None:
+    with patch(
+        "arr_mcp.services.registry.ServiceRegistry.get_client",
+        return_value=_mock_unreachable_client(),
+    ):
+        result = await server.call_tool("service_api_health", {"service": "sonarr"})
+    data = json.loads(result[0][0].text)
+    assert data["reachable"] is False
     assert data["status"] == "critical"
-    assert any(i["category"] == "missing" for i in data["issues"])
+    assert "Connection refused" in data["error"]
 
 
-async def test_service_diagnose_valid_sonarr_healthy(
-    server: FastMCP, settings: Settings
-) -> None:
-    svc_dir = Path(settings.services_dir) / "sonarr"
-    svc_dir.mkdir()
-    (svc_dir / "config.xml").write_text(
-        "<Config><ApiKey>abc123def456</ApiKey><Port>8989</Port></Config>"
-    )
-    (svc_dir / "logs").mkdir()
-    result = await server.call_tool(
-        "service_diagnose", {"service": "sonarr", "service_dir": str(svc_dir)}
-    )
+async def test_service_api_health_healthy(server: FastMCP) -> None:
+    with patch(
+        "arr_mcp.services.registry.ServiceRegistry.get_client",
+        return_value=_mock_arr_client([]),
+    ):
+        result = await server.call_tool("service_api_health", {"service": "sonarr"})
     data = json.loads(result[0][0].text)
+    assert data["reachable"] is True
     assert data["status"] == "healthy"
     assert data["issues"] == []
 
 
-async def test_service_diagnose_localhost_binding_degraded(
-    server: FastMCP, settings: Settings
-) -> None:
-    svc_dir = Path(settings.services_dir) / "sonarr"
-    svc_dir.mkdir()
-    (svc_dir / "config.xml").write_text(
-        "<Config>"
-        "<ApiKey>abc123</ApiKey>"
-        "<Port>8989</Port>"
-        "<BindAddress>127.0.0.1</BindAddress>"
-        "</Config>"
-    )
-    (svc_dir / "logs").mkdir()
-    result = await server.call_tool(
-        "service_diagnose", {"service": "sonarr", "service_dir": str(svc_dir)}
-    )
+async def test_service_api_health_degraded_on_warning(server: FastMCP) -> None:
+    items = [
+        HealthItem(
+            source="IndexerRss", type="warning", message="RSS broken", wiki_url=""
+        )
+    ]
+    with patch(
+        "arr_mcp.services.registry.ServiceRegistry.get_client",
+        return_value=_mock_arr_client(items),
+    ):
+        result = await server.call_tool("service_api_health", {"service": "sonarr"})
     data = json.loads(result[0][0].text)
     assert data["status"] == "degraded"
-    assert any(w["category"] == "port" for w in data["warnings"])
+    assert data["issues"][0]["type"] == "warning"
 
 
-async def test_service_diagnose_unknown_service(
-    server: FastMCP, settings: Settings
-) -> None:
-    svc_dir = Path(settings.services_dir) / "mycustom"
-    svc_dir.mkdir()
-    result = await server.call_tool(
-        "service_diagnose", {"service": "mycustom", "service_dir": str(svc_dir)}
-    )
+async def test_service_api_health_critical_on_error_item(server: FastMCP) -> None:
+    items = [
+        HealthItem(
+            source="UpdateCheck", type="error", message="Update failed", wiki_url=""
+        )
+    ]
+    with patch(
+        "arr_mcp.services.registry.ServiceRegistry.get_client",
+        return_value=_mock_arr_client(items),
+    ):
+        result = await server.call_tool("service_api_health", {"service": "sonarr"})
     data = json.loads(result[0][0].text)
-    assert data["status"] == "unknown"
-    assert any(w["severity"] == "info" for w in data["warnings"])
+    assert data["status"] == "critical"
 
 
-async def test_service_diagnose_path_outside_services_dir_blocked(
-    server: FastMCP,
-) -> None:
-    with pytest.raises(ToolError):
-        await server.call_tool(
-            "service_diagnose", {"service": "sonarr", "service_dir": "/etc"}
-        )
-
-
-async def test_service_diagnose_db_path_blocked(
-    server: FastMCP, settings: Settings
-) -> None:
-    db_path = str(Path(settings.services_dir) / "sonarr" / "sonarr.db")
-    with pytest.raises(ToolError):
-        await server.call_tool(
-            "service_diagnose", {"service": "sonarr", "service_dir": db_path}
-        )
-
-
-async def test_service_diagnose_path_traversal_blocked(
-    server: FastMCP, settings: Settings
-) -> None:
-    evil = str(Path(settings.services_dir) / ".." / ".." / "etc")
-    with pytest.raises(ToolError):
-        await server.call_tool(
-            "service_diagnose", {"service": "sonarr", "service_dir": evil}
-        )
+async def test_service_api_health_service_name_lowercased(server: FastMCP) -> None:
+    with patch(
+        "arr_mcp.services.registry.ServiceRegistry.get_client",
+        return_value=_mock_arr_client([]),
+    ) as mock_get:
+        await server.call_tool("service_api_health", {"service": "Sonarr"})
+    mock_get.assert_called_once_with("sonarr")
 
 
 # ---------------------------------------------------------------------------
@@ -258,23 +263,6 @@ async def test_service_health_report_empty(server: FastMCP) -> None:
     assert data["summary"]["healthy"] == 0
 
 
-async def test_service_health_report_aggregates_services(
-    server: FastMCP, settings: Settings
-) -> None:
-    for name, port in [("sonarr", "8989"), ("radarr", "7878")]:
-        svc_dir = Path(settings.services_dir) / name
-        svc_dir.mkdir()
-        (svc_dir / "config.xml").write_text(
-            f"<Config><ApiKey>key{name}</ApiKey><Port>{port}</Port></Config>"
-        )
-        (svc_dir / "logs").mkdir()
-
-    result = await server.call_tool("service_health_report", {})
-    data = json.loads(result[0][0].text)
-    assert len(data["services"]) == 2
-    assert data["summary"]["healthy"] == 2
-
-
 async def test_service_health_report_skips_unknown_services(
     server: FastMCP, settings: Settings
 ) -> None:
@@ -282,6 +270,74 @@ async def test_service_health_report_skips_unknown_services(
     result = await server.call_tool("service_health_report", {})
     data = json.loads(result[0][0].text)
     assert data["services"] == []
+
+
+async def test_service_health_report_no_credentials_shows_unknown(
+    server: FastMCP, settings: Settings
+) -> None:
+    (Path(settings.services_dir) / "sonarr").mkdir()
+    with patch(
+        "arr_mcp.services.registry.ServiceRegistry.get_client",
+        side_effect=ServiceNotConfiguredError("No credential"),
+    ):
+        result = await server.call_tool("service_health_report", {})
+    data = json.loads(result[0][0].text)
+    assert len(data["services"]) == 1
+    assert data["services"][0]["status"] == "unknown"
+    assert data["summary"]["unknown"] == 1
+
+
+async def test_service_health_report_unreachable_shows_critical(
+    server: FastMCP, settings: Settings
+) -> None:
+    (Path(settings.services_dir) / "sonarr").mkdir()
+    with patch(
+        "arr_mcp.services.registry.ServiceRegistry.get_client",
+        return_value=_mock_unreachable_client(),
+    ):
+        result = await server.call_tool("service_health_report", {})
+    data = json.loads(result[0][0].text)
+    assert data["services"][0]["status"] == "critical"
+    assert data["summary"]["critical"] == 1
+
+
+async def test_service_health_report_healthy_service(
+    server: FastMCP, settings: Settings
+) -> None:
+    (Path(settings.services_dir) / "sonarr").mkdir()
+    with patch(
+        "arr_mcp.services.registry.ServiceRegistry.get_client",
+        return_value=_mock_arr_client([]),
+    ):
+        result = await server.call_tool("service_health_report", {})
+    data = json.loads(result[0][0].text)
+    assert data["services"][0]["status"] == "healthy"
+    assert data["summary"]["healthy"] == 1
+
+
+async def test_service_health_report_aggregates_multiple(
+    server: FastMCP, settings: Settings
+) -> None:
+    (Path(settings.services_dir) / "sonarr").mkdir()
+    (Path(settings.services_dir) / "radarr").mkdir()
+
+    healthy_client = _mock_arr_client([])
+    warning_items = [
+        HealthItem(source="Indexer", type="warning", message="RSS broken", wiki_url="")
+    ]
+    degraded_client = _mock_arr_client(warning_items)
+
+    def _get_client(name: str):  # type: ignore[return]
+        return healthy_client if name == "sonarr" else degraded_client
+
+    with patch(
+        "arr_mcp.services.registry.ServiceRegistry.get_client",
+        side_effect=_get_client,
+    ):
+        result = await server.call_tool("service_health_report", {})
+    data = json.loads(result[0][0].text)
+    assert data["summary"]["healthy"] == 1
+    assert data["summary"]["degraded"] == 1
 
 
 # ---------------------------------------------------------------------------

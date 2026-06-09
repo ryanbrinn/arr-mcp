@@ -127,6 +127,13 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
     fi
   done
 
+  # Seed credentials with correct base_url overrides so arr-mcp (running on the
+  # host) hits the mapped ports rather than the in-network hostnames, which are
+  # only resolvable from inside the container network.
+  cat > test-stack/data/.arr-mcp-credentials.json <<'CREDS'
+{"sonarr":{"api_key":"testsonarrapikey1234567890abcdef","base_url":"http://localhost:18989"},"radarr":{"api_key":"testradarrapikey1234567890abcdef","base_url":"http://localhost:17878"},"sabnzbd":{"api_key":"testsabnzbdapikey1234567890abcd","base_url":"http://localhost:18080"}}
+CREDS
+
   # Start test stack containers (bring down first to ensure clean state)
   podman compose -f test-stack/compose.yaml down 2>/dev/null || true
   podman compose -f test-stack/compose.yaml up -d

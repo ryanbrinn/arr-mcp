@@ -6,11 +6,6 @@ import json
 import sqlite3
 from pathlib import Path
 
-import pytest
-from mcp.server.fastmcp import FastMCP
-
-from arr_mcp.config import Settings
-from arr_mcp.tools.diagnostics import register_diagnostic_tools
 from arr_mcp.tools.services import (
     read_download_clients,
     read_indexers,
@@ -47,7 +42,8 @@ def _insert_download_client(
     with sqlite3.connect(str(path)) as conn:
         conn.execute(
             "INSERT INTO DownloadClients"
-            " (Name, Implementation, Settings, Enable) VALUES (?,?,?,?)",
+            " (Name, Implementation, Settings, Enable)"
+            " VALUES (?,?,?,?)",
             (name, impl, s, int(enable)),
         )
         conn.commit()
@@ -105,7 +101,8 @@ def test_read_download_clients_bad_settings_json(tmp_path: Path) -> None:
     with sqlite3.connect(str(db)) as conn:
         conn.execute(
             "INSERT INTO DownloadClients"
-            " (Name, Implementation, Settings, Enable) VALUES (?,?,?,?)",
+            " (Name, Implementation, Settings, Enable)"
+            " VALUES (?,?,?,?)",
             ("Bad", "Sabnzbd", "not-json{{{", 1),
         )
         conn.commit()
@@ -144,117 +141,3 @@ def test_read_indexers_no_table(tmp_path: Path) -> None:
         conn.execute("CREATE TABLE Foo (Id INTEGER PRIMARY KEY)")
         conn.commit()
     assert read_indexers(db) == []
-
-
-# ---------------------------------------------------------------------------
-# service_diagnose DB integration
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def server(settings: Settings, mock_client) -> FastMCP:
-    s = FastMCP("test")
-    register_diagnostic_tools(s, settings, mock_client)
-    return s
-
-
-async def test_service_diagnose_reports_enabled_download_client(
-    server: FastMCP, settings: Settings
-) -> None:
-    svc_dir = Path(settings.services_dir) / "sonarr"
-    svc_dir.mkdir()
-    (svc_dir / "config.xml").write_text(
-        "<Config><ApiKey>abc123</ApiKey><Port>8989</Port></Config>"
-    )
-    (svc_dir / "logs").mkdir()
-    db = svc_dir / "sonarr.db"
-    _make_db(db)
-    _insert_download_client(db, "SABnzbd")
-
-    result = await server.call_tool(
-        "service_diagnose", {"service": "sonarr", "service_dir": str(svc_dir)}
-    )
-    data = json.loads(result[0][0].text)
-    assert any("SABnzbd" in msg for msg in data["ok"])
-
-
-async def test_service_diagnose_warns_no_download_clients(
-    server: FastMCP, settings: Settings
-) -> None:
-    svc_dir = Path(settings.services_dir) / "sonarr"
-    svc_dir.mkdir()
-    (svc_dir / "config.xml").write_text(
-        "<Config><ApiKey>abc123</ApiKey><Port>8989</Port></Config>"
-    )
-    (svc_dir / "logs").mkdir()
-    db = svc_dir / "sonarr.db"
-    _make_db(db)
-
-    result = await server.call_tool(
-        "service_diagnose", {"service": "sonarr", "service_dir": str(svc_dir)}
-    )
-    data = json.loads(result[0][0].text)
-    assert data["status"] == "degraded"
-    assert any(w["category"] == "integration" for w in data["warnings"])
-
-
-async def test_service_diagnose_warns_disabled_download_client(
-    server: FastMCP, settings: Settings
-) -> None:
-    svc_dir = Path(settings.services_dir) / "sonarr"
-    svc_dir.mkdir()
-    (svc_dir / "config.xml").write_text(
-        "<Config><ApiKey>abc123</ApiKey><Port>8989</Port></Config>"
-    )
-    (svc_dir / "logs").mkdir()
-    db = svc_dir / "sonarr.db"
-    _make_db(db)
-    _insert_download_client(db, "SABnzbd", enable=False)
-
-    result = await server.call_tool(
-        "service_diagnose", {"service": "sonarr", "service_dir": str(svc_dir)}
-    )
-    data = json.loads(result[0][0].text)
-    assert data["status"] == "degraded"
-    assert any("disabled" in w["message"] for w in data["warnings"])
-
-
-async def test_service_diagnose_reports_enabled_indexer(
-    server: FastMCP, settings: Settings
-) -> None:
-    svc_dir = Path(settings.services_dir) / "sonarr"
-    svc_dir.mkdir()
-    (svc_dir / "config.xml").write_text(
-        "<Config><ApiKey>abc123</ApiKey><Port>8989</Port></Config>"
-    )
-    (svc_dir / "logs").mkdir()
-    db = svc_dir / "sonarr.db"
-    _make_db(db)
-    _insert_download_client(db, "SABnzbd")
-    _insert_indexer(db, "NZBgeek")
-
-    result = await server.call_tool(
-        "service_diagnose", {"service": "sonarr", "service_dir": str(svc_dir)}
-    )
-    data = json.loads(result[0][0].text)
-    assert any("NZBgeek" in msg for msg in data["ok"])
-
-
-async def test_service_diagnose_no_db_skips_db_checks(
-    server: FastMCP, settings: Settings
-) -> None:
-    """When DB file is absent, no DB-related warnings should appear."""
-    svc_dir = Path(settings.services_dir) / "sonarr"
-    svc_dir.mkdir()
-    (svc_dir / "config.xml").write_text(
-        "<Config><ApiKey>abc123</ApiKey><Port>8989</Port></Config>"
-    )
-    (svc_dir / "logs").mkdir()
-    # No DB file created
-
-    result = await server.call_tool(
-        "service_diagnose", {"service": "sonarr", "service_dir": str(svc_dir)}
-    )
-    data = json.loads(result[0][0].text)
-    assert data["status"] == "healthy"
-    assert not any(w["category"] == "integration" for w in data["warnings"])

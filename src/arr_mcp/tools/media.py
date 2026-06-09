@@ -11,6 +11,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent
 
 from arr_mcp.config import Settings
+from arr_mcp.services.interests import InterestStore
 from arr_mcp.services.models import Episode, EpisodeFile, Series
 from arr_mcp.services.plex import PlexClient, PlexEpisode, PlexUser
 from arr_mcp.services.registry import ServiceRegistry
@@ -116,9 +117,43 @@ def _find_candidates(
     return candidates
 
 
+def _apply_interest_gate(
+    candidates: list[CleanupCandidate],
+    users: list[PlexUser],
+    store: InterestStore,
+) -> tuple[list[CleanupCandidate], list[CleanupCandidate]]:
+    """Sync watch history into the InterestStore and split candidates.
+
+    Returns ``(eligible, protected)`` where *protected* are episodes that at
+    least one user has explicitly marked ``interested`` (wants to keep).
+    Syncing sets ``watched`` state without overwriting ``marked_deletion``.
+    """
+    title_to_user = {u.title: u for u in users}
+    all_user_ids = [u.id for u in users]
+
+    for candidate in candidates:
+        content_id = str(candidate.episode_file_id)
+        for title in candidate.watched_by:
+            user = title_to_user.get(title)
+            if user:
+                store.sync_watched(content_id, user.id, title, "episode")
+
+    eligible: list[CleanupCandidate] = []
+    protected: list[CleanupCandidate] = []
+    for candidate in candidates:
+        content_id = str(candidate.episode_file_id)
+        if store.is_deletion_eligible(content_id, all_user_ids):
+            eligible.append(candidate)
+        else:
+            protected.append(candidate)
+
+    return eligible, protected
+
+
 def register_media_tools(server: FastMCP, settings: Settings) -> None:
     """Register watched content cleanup tools with the MCP server."""
     registry = ServiceRegistry(settings.services_dir)
+    interest_store = InterestStore(settings.services_dir)
 
     @server.tool()
     async def watched_cleanup_preview() -> list[TextContent]:
@@ -170,12 +205,24 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
         candidates = _find_candidates(
             series_list, all_episodes, all_files, watched, all_user_count
         )
+        eligible, protected = _apply_interest_gate(candidates, users, interest_store)
 
         result = {
             "dry_run": True,
-            "candidate_count": len(candidates),
-            "total_size_bytes": sum(c.file_size_bytes for c in candidates),
-            "candidates": [asdict(c) for c in candidates],
+            "candidate_count": len(eligible),
+            "protected_count": len(protected),
+            "total_size_bytes": sum(c.file_size_bytes for c in eligible),
+            "candidates": [asdict(c) for c in eligible],
+            "protected": [
+                {
+                    "series_title": c.series_title,
+                    "season_number": c.season_number,
+                    "episode_number": c.episode_number,
+                    "episode_file_id": c.episode_file_id,
+                    "reason": "Protected — a user has 'interested' state.",
+                }
+                for c in protected
+            ],
         }
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
@@ -243,9 +290,20 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
         candidates = _find_candidates(
             series_list, all_episodes, all_files, watched, all_user_count
         )
+        eligible, protected = _apply_interest_gate(candidates, users, interest_store)
 
         cleanup = CleanupResult()
-        for candidate in candidates:
+        cleanup.skipped.extend(
+            {
+                "series_title": c.series_title,
+                "season_number": c.season_number,
+                "episode_number": c.episode_number,
+                "episode_file_id": c.episode_file_id,
+                "reason": "Protected by user interest state.",
+            }
+            for c in protected
+        )
+        for candidate in eligible:
             delete_result = await sonarr.delete_episode_file(candidate.episode_file_id)
             entry = {
                 "series_title": candidate.series_title,

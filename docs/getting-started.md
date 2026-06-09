@@ -262,6 +262,19 @@ See [Configuration](configuration.md#dashboard) for the full auth options.
 
 ## Connecting to Claude
 
+### A note on SSH access
+
+arr-mcp's guardrails restrict what the AI can read and return through the MCP tools — service config files containing API keys, for example, are explicitly blocked. These restrictions only apply to the MCP channel.
+
+If the AI agent you connect to arr-mcp also has SSH credentials (or any other shell access) to the same server, it can read those files directly and the MCP guardrails provide no protection. This is not a flaw in arr-mcp — it is an inherent property of how access channels compose.
+
+**Recommendation:** treat SSH and MCP as separate channels with different trust levels.
+
+- Give the AI MCP access to arr-mcp for media stack operations.
+- Keep SSH credentials for yourself. Do not provide them to the same AI session unless you have a specific reason and understand that doing so removes the credential-protection guarantees.
+
+For more detail on what the guardrails do and do not cover, see [Security — Guardrail scope](security.md#guardrail-scope).
+
 ### Claude.ai (web)
 
 Claude.ai supports remote MCP servers natively. Go to **Settings → Integrations** and add:

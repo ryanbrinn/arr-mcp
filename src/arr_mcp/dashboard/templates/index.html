@@ -13,90 +13,598 @@
       <img class="logo-img" src="/static/logo.svg" alt="arr-mcp logo">
       <span class="logo">arr-mcp</span>
     </span>
-    <span class="updated">Last updated: {{ status.generated_at | replace("T", " ") | replace("Z", " UTC") }}</span>
+    <nav class="tabs">
+      <a href="#infrastructure" class="tab" data-tab="infrastructure">Infrastructure</a>
+      <a href="#media" class="tab" data-tab="media">Media Library</a>
+    </nav>
+    <span class="updated">Updated {{ status.generated_at | replace("T", " ") | replace("Z", " UTC") }}</span>
   </header>
 
-  <main>
+  <!-- ================================================================
+       Tab 1 — Infrastructure
+       ================================================================ -->
+  <div id="infrastructure" class="tab-panel">
+    <main>
 
-    <!-- Disk Usage -->
-    {% if status.disk %}
-    <section>
-      <h2>Disk Usage</h2>
-      <table class="disk-table">
-        {% for d in status.disk %}
-        <tr>
-          <td class="path">{{ d.path }}</td>
-          <td class="bar-cell">
-            <div class="bar-track">
-              <div class="bar-fill {% if d.used_pct > 90 %}bar-danger{% elif d.used_pct > 75 %}bar-warn{% endif %}"
-                   style="width: {{ d.used_pct }}%"></div>
-            </div>
-          </td>
-          <td class="pct">{{ d.used_pct }}%</td>
-          <td class="detail">{{ d.used_gb }} / {{ d.total_gb }} GB</td>
-        </tr>
-        {% endfor %}
-      </table>
-    </section>
-    {% endif %}
+      <!-- Stat Tiles -->
+      <section class="stat-grid">
+        <div class="stat-tile {% if status.stats.containers_running < status.stats.containers_total %}stat-warn{% endif %}">
+          <div class="stat-value">{{ status.stats.containers_running }}<span class="stat-denom"> / {{ status.stats.containers_total }}</span></div>
+          <div class="stat-label">Containers Running</div>
+        </div>
+        <div class="stat-tile {% if status.stats.disk_max_pct > 90 %}stat-danger{% elif status.stats.disk_max_pct > 75 %}stat-warn{% endif %}">
+          <div class="stat-value">{{ "%.0f"|format(status.stats.disk_max_pct) }}<span class="stat-denom">%</span></div>
+          <div class="stat-label">Disk Used</div>
+          {% if status.stats.disk_max_pct > 75 and status.disk %}
+          {% set warn_disks = status.disk | selectattr('used_pct', 'gt', 75) | list %}
+          {% if warn_disks %}
+          <button class="diagnose-btn"
+                  data-issue="disk_pressure"
+                  data-path="{{ warn_disks[0].path | e }}"
+                  data-pct="{{ warn_disks[0].used_pct }}">✦ Diagnose</button>
+          {% endif %}
+          {% endif %}
+        </div>
+        <div class="stat-tile {% if status.stats.alerts_count > 0 %}stat-warn{% endif %}">
+          <div class="stat-value">{{ status.stats.alerts_count }}</div>
+          <div class="stat-label">Active Alerts</div>
+          {% if status.stats.alerts_count > 0 and status.alerts_recent %}
+          <button class="diagnose-btn"
+                  data-issue="service_unreachable"
+                  data-service="{{ status.alerts_recent[0].service | e }}">✦ Diagnose</button>
+          {% endif %}
+        </div>
+        <div class="stat-tile {% if status.stats.upgrades_count > 0 %}stat-info{% endif %}">
+          <div class="stat-value">{{ status.stats.upgrades_count }}</div>
+          <div class="stat-label">Upgrades Available</div>
+        </div>
+      </section>
 
-    <!-- Containers -->
-    <section>
-      <h2>Containers</h2>
-      {% if status.containers %}
-      <table class="container-table">
-        <thead>
-          <tr><th>Name</th><th>Image</th><th>Status</th><th>Health</th><th>Uptime</th></tr>
-        </thead>
-        <tbody>
-          {% for c in status.containers %}
-          <tr>
-            <td>
-              <span class="name-cell">
-                <span class="dot {% if c.status == 'running' %}dot-green{% elif c.status in ('restarting', 'paused') %}dot-amber{% else %}dot-red{% endif %}"></span>
-                <span class="svc-icon">{{ c.name | service_icon }}</span>
-                {{ c.name }}
-              </span>
-            </td>
-            <td class="image">{{ c.image }}</td>
-            <td>{{ c.status }}</td>
-            <td>{{ c.health or "—" }}</td>
-            <td>{{ c.uptime_seconds | uptime if c.uptime_seconds else "—" }}</td>
-          </tr>
+      <!-- Service Connectivity -->
+      {% if status.connectivity %}
+      <section>
+        <h2>Service Connectivity</h2>
+        <div class="conn-grid">
+          {% for svc in status.connectivity %}
+          <div class="conn-item">
+            <span class="conn-dot {% if svc.reachable %}dot-green{% elif svc.status == 'unconfigured' %}dot-muted{% else %}dot-red{% endif %}"></span>
+            <span class="conn-name">{{ svc.name }}</span>
+            <span class="conn-status {% if svc.reachable %}text-green{% elif svc.status == 'unconfigured' %}text-muted{% else %}text-red{% endif %}">
+              {% if svc.reachable %}ok{% elif svc.status == 'unconfigured' %}no creds{% else %}unreachable{% endif %}
+            </span>
+          </div>
           {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <p class="empty">No containers found.</p>
+        </div>
+      </section>
       {% endif %}
-    </section>
 
-    <!-- Stacks -->
-    {% if status.stacks %}
-    <section>
-      <h2>Stacks</h2>
-      <table class="stack-table">
-        <thead>
-          <tr><th>Name</th><th>Running</th><th>Status</th></tr>
-        </thead>
-        <tbody>
-          {% for s in status.stacks %}
+      <!-- Active Alerts -->
+      {% if status.alerts_recent %}
+      <section>
+        <h2>Recent Alerts</h2>
+        <table class="alert-table">
+          <thead>
+            <tr><th>Rule</th><th>Service</th><th>Severity</th><th>Message</th><th>Fired</th></tr>
+          </thead>
+          <tbody>
+            {% for a in status.alerts_recent %}
+            <tr>
+              <td class="mono">{{ a.rule }}</td>
+              <td class="mono">{{ a.service }}</td>
+              <td><span class="badge badge-{{ a.severity }}">{{ a.severity }}</span></td>
+              <td>{{ a.message }}</td>
+              <td class="fg-dim mono small">{{ a.fired_at[:19] | replace("T", " ") }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% endif %}
+
+      <!-- AI Insights -->
+      {% if insights %}
+      <section>
+        <h2>AI Insights</h2>
+        {% for insight in insights %}
+        <div class="insight-card">
+          <div class="insight-type">{{ insight.type | replace("_", " ") | title }}</div>
+          {% if insight.narrative %}
+          <p class="insight-narrative">{{ insight.narrative }}</p>
+          {% endif %}
+          {% if insight.remedies %}
+          <div class="insight-remedies">
+            {% for remedy in insight.remedies %}
+            <button class="remedy-btn" data-tool="{{ remedy.tool | e }}">{{ remedy.label }}</button>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </section>
+      {% endif %}
+
+      <!-- Upgrade Recommendations -->
+      {% if status.upgrades %}
+      <section>
+        <h2>Upgrade Recommendations</h2>
+        <table class="upgrade-table">
+          <thead>
+            <tr><th>Service</th><th>Current</th><th>Latest</th><th>Risk</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            {% for u in status.upgrades %}
+            <tr>
+              <td><span class="svc-icon">{{ u.service | service_icon }}</span> {{ u.service }}</td>
+              <td class="mono fg-dim">{{ u.current_version }}</td>
+              <td class="mono text-green">{{ u.latest_version }}</td>
+              <td><span class="badge badge-{{ u.risk }}">{{ u.risk }}</span></td>
+              <td class="fg-dim small">{{ u.changelog_summary }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% endif %}
+
+      <!-- Disk Usage -->
+      {% if status.disk %}
+      <section>
+        <h2>Disk Usage</h2>
+        <table class="disk-table">
+          {% for d in status.disk %}
           <tr>
-            <td>
-              <span class="name-cell">
-                <span class="dot {% if s.status == 'healthy' %}dot-green{% elif s.status == 'degraded' %}dot-amber{% else %}dot-red{% endif %}"></span>
-                {{ s.name }}
-              </span>
+            <td class="path">{{ d.path }}</td>
+            <td class="bar-cell">
+              <div class="bar-track">
+                <div class="bar-fill {% if d.used_pct > 90 %}bar-danger{% elif d.used_pct > 75 %}bar-warn{% endif %}"
+                     style="width: {{ d.used_pct }}%"></div>
+              </div>
             </td>
-            <td>{{ s.running_count }} / {{ s.container_count }}</td>
-            <td>{{ s.status }}</td>
+            <td class="pct">{{ d.used_pct }}%</td>
+            <td class="detail">{{ d.used_gb }} / {{ d.total_gb }} GB</td>
           </tr>
           {% endfor %}
-        </tbody>
-      </table>
-    </section>
-    {% endif %}
+        </table>
+      </section>
+      {% endif %}
 
-  </main>
+      <!-- Containers -->
+      <section>
+        <h2>Containers</h2>
+        {% if status.containers %}
+        <table class="container-table">
+          <thead>
+            <tr><th>Name</th><th>Image</th><th>Status</th><th>Health</th><th>Uptime</th></tr>
+          </thead>
+          <tbody>
+            {% for c in status.containers %}
+            <tr>
+              <td>
+                <span class="name-cell">
+                  <span class="dot {% if c.status == 'running' %}dot-green{% elif c.status in ('restarting', 'paused') %}dot-amber{% else %}dot-red{% endif %}"></span>
+                  <span class="svc-icon">{{ c.name | service_icon }}</span>
+                  {{ c.name }}
+                </span>
+              </td>
+              <td class="image">{{ c.image }}</td>
+              <td>{{ c.status }}</td>
+              <td>{{ c.health or "—" }}</td>
+              <td>{{ c.uptime_seconds | uptime if c.uptime_seconds else "—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="empty">No containers found.</p>
+        {% endif %}
+      </section>
+
+      <!-- Stacks -->
+      {% if status.stacks %}
+      <section>
+        <h2>Stacks</h2>
+        <table class="stack-table">
+          <thead>
+            <tr><th>Name</th><th>Running</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            {% for s in status.stacks %}
+            <tr>
+              <td>
+                <span class="name-cell">
+                  <span class="dot {% if s.status == 'healthy' %}dot-green{% elif s.status == 'degraded' %}dot-amber{% else %}dot-red{% endif %}"></span>
+                  {{ s.name }}
+                </span>
+              </td>
+              <td>{{ s.running_count }} / {{ s.container_count }}</td>
+              <td>{{ s.status }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% endif %}
+
+    </main>
+  </div>
+
+  <!-- ================================================================
+       Tab 2 — Media Library
+       ================================================================ -->
+  <div id="media" class="tab-panel" hidden>
+    <main>
+      {% if status.media.configured %}
+        {% set has_data = status.media.series_count is not none or status.media.movie_count is not none %}
+        {% if has_data %}
+
+        {# ── Stats bar ── #}
+        <div class="media-stats-bar">
+          {% if status.media.series_count is not none %}
+          <div class="media-stat">
+            <div class="media-stat-n">{{ status.media.series_count }}</div>
+            <div class="media-stat-l">TV Series</div>
+          </div>
+          {% endif %}
+          {% if status.media.movie_count is not none %}
+          <div class="media-stat">
+            <div class="media-stat-n">{{ status.media.movie_count }}</div>
+            <div class="media-stat-l">Movies</div>
+          </div>
+          {% endif %}
+          {% if status.media.wanted_count %}
+          <div class="media-stat">
+            <div class="media-stat-n" style="color:var(--amber)">{{ status.media.wanted_count }}</div>
+            <div class="media-stat-l">Wanted</div>
+          </div>
+          {% endif %}
+        </div>
+
+        {# ── Filter chips ── #}
+        <div class="filter-row" id="media-filters">
+          <button class="chip active" data-filter="all">All</button>
+          <button class="chip" data-filter="tv">TV</button>
+          <button class="chip" data-filter="movies">Movies</button>
+          <button class="chip" data-filter="wanted">Wanted</button>
+          <button class="chip" data-filter="unmonitored">Unmonitored</button>
+        </div>
+
+        {# ── Poster grid ── #}
+        <div class="poster-grid" id="poster-grid">
+
+          {% for s in status.media.series %}
+          <div class="poster-card"
+               data-type="tv"
+               data-badge="{{ s.badge }}"
+               data-id="{{ s.id }}"
+               data-title="{{ s.title | e }}"
+               data-year="{{ s.year }}"
+               data-status="{{ s.status | e }}"
+               data-art="{{ s.art }}"
+               data-season-count="{{ s.season_count }}"
+               data-seasons='{{ s.seasons | tojson }}'>
+            <div class="poster-img art-{{ s.art }}">
+              <span class="poster-type">TV</span>
+              <span class="poster-badge badge-{{ s.badge }}">
+                {%- if s.badge == "complete" %}COMPLETE
+                {%- elif s.badge == "partial" %}PARTIAL
+                {%- elif s.badge == "wanted" %}WANTED
+                {%- else %}UNMONITORED
+                {%- endif -%}
+              </span>
+              <div class="poster-title-overlay">
+                {{ s.title }}
+                <small>{% if s.year %}{{ s.year }} · {% endif %}{{ s.season_count }} season{% if s.season_count != 1 %}s{% endif %}</small>
+              </div>
+            </div>
+            <div class="card-footer">
+              {% if s.seasons %}
+              <div class="season-progress">
+                {% for season in s.seasons %}
+                <div class="season-bar-row">
+                  <span class="season-lbl">S{{ season.number }}</span>
+                  <div class="season-bar">
+                    <div class="season-bar-fill" style="width:{{ season.pct }}%"></div>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+              {% endif %}
+              {% if s.eligible %}
+              <div class="eligible-strip">eligible for deletion</div>
+              {% elif s.pending %}
+              <div class="pending-strip">pending admin review</div>
+              {% endif %}
+              <div class="card-meta">
+                <span>{{ s.status }}</span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+
+          {% for m in status.media.movies %}
+          <div class="poster-card"
+               data-type="movies"
+               data-badge="{{ m.badge }}"
+               data-id="{{ m.id }}"
+               data-title="{{ m.title | e }}"
+               data-year="{{ m.year }}"
+               data-status="{{ m.status | e }}"
+               data-art="{{ m.art }}">
+            <div class="poster-img art-{{ m.art }}">
+              <span class="poster-type">MOVIE</span>
+              <span class="poster-badge badge-{{ m.badge }}">
+                {%- if m.badge == "complete" %}COMPLETE
+                {%- elif m.badge == "wanted" %}WANTED
+                {%- else %}UNMONITORED
+                {%- endif -%}
+              </span>
+              <div class="poster-title-overlay">
+                {{ m.title }}
+                <small>{% if m.year %}{{ m.year }}{% endif %}</small>
+              </div>
+            </div>
+            <div class="card-footer">
+              {% if m.eligible %}
+              <div class="eligible-strip">eligible for deletion</div>
+              {% elif m.pending %}
+              <div class="pending-strip">pending admin review</div>
+              {% endif %}
+              <div class="card-meta">
+                <span>{{ m.status }}</span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+
+        </div><!-- /poster-grid -->
+
+        {% else %}
+        <section class="coming-soon">
+          <h2>Media Library</h2>
+          <p class="empty">Services are configured but currently unreachable. The grid will appear when Sonarr and Radarr are online.</p>
+        </section>
+        {% endif %}
+      {% else %}
+      <section class="coming-soon">
+        <h2>Media Library</h2>
+        <p class="empty">
+          Media library management requires Sonarr and Radarr credentials.
+          Configure them with <code>credential_set</code> and the library view will
+          appear here on the next refresh.
+        </p>
+      </section>
+      {% endif %}
+    </main>
+  </div>
+
+  <!-- Poster drawer -->
+  <div class="drawer-overlay" id="media-drawer-overlay"></div>
+  <div class="drawer" id="media-drawer" hidden>
+    <div class="drawer-header">
+      <div class="drawer-poster" id="drawer-poster-img"></div>
+      <div class="drawer-title-block">
+        <div class="drawer-title" id="drawer-title"></div>
+        <div class="drawer-subtitle" id="drawer-subtitle"></div>
+        <div class="drawer-badge-row" id="drawer-badge-row"></div>
+      </div>
+      <button class="drawer-close" id="drawer-close" aria-label="Close">✕</button>
+    </div>
+    <div class="drawer-body" id="drawer-body"></div>
+    <div class="drawer-footer" id="drawer-footer" hidden>
+      <div class="drawer-footer-note" id="drawer-footer-note"></div>
+    </div>
+  </div>
+
+  <script>
+    // Tab switching
+    (function () {
+      var panels = document.querySelectorAll('.tab-panel');
+      var tabs = document.querySelectorAll('.tab');
+
+      function show(id) {
+        if (!id) id = 'infrastructure';
+        panels.forEach(function (p) { p.hidden = p.id !== id; });
+        tabs.forEach(function (t) { t.classList.toggle('active', t.dataset.tab === id); });
+      }
+
+      show(location.hash.replace('#', ''));
+      window.addEventListener('hashchange', function () {
+        show(location.hash.replace('#', ''));
+      });
+    })();
+
+    // Media filter chips
+    (function () {
+      var filterBar = document.getElementById('media-filters');
+      if (!filterBar) return;
+      filterBar.addEventListener('click', function (e) {
+        var chip = e.target.closest('.chip');
+        if (!chip) return;
+        filterBar.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
+        chip.classList.add('active');
+        var f = chip.dataset.filter;
+        document.querySelectorAll('#poster-grid .poster-card').forEach(function (card) {
+          var show = f === 'all'
+            || card.dataset.type === f
+            || card.dataset.badge === f;
+          card.hidden = !show;
+        });
+      });
+    })();
+
+    // Poster drawer
+    (function () {
+      var overlay = document.getElementById('media-drawer-overlay');
+      var drawer  = document.getElementById('media-drawer');
+      if (!overlay || !drawer) return;
+
+      var drawerTitle    = document.getElementById('drawer-title');
+      var drawerSubtitle = document.getElementById('drawer-subtitle');
+      var drawerBadgeRow = document.getElementById('drawer-badge-row');
+      var drawerPoster   = document.getElementById('drawer-poster-img');
+      var drawerBody     = document.getElementById('drawer-body');
+      var drawerFooter   = document.getElementById('drawer-footer');
+      var drawerFooterNote = document.getElementById('drawer-footer-note');
+      var closeBtn       = document.getElementById('drawer-close');
+
+      function openDrawer(card) {
+        var type   = card.dataset.type;
+        var title  = card.dataset.title  || '';
+        var year   = card.dataset.year   || '';
+        var status = card.dataset.status || '';
+        var art    = card.dataset.art    || '0';
+        var badge  = card.dataset.badge  || '';
+
+        drawerTitle.textContent    = title;
+        drawerSubtitle.textContent = year ? year + (status ? ' · ' + status : '') : status;
+        drawerPoster.className     = 'drawer-poster drawer-poster-art art-' + art;
+
+        drawerBadgeRow.innerHTML = '';
+        if (badge) {
+          var b = document.createElement('span');
+          b.className = 'poster-badge badge-' + badge;
+          b.textContent = badge.toUpperCase();
+          drawerBadgeRow.appendChild(b);
+        }
+
+        drawerBody.innerHTML = '';
+
+        if (type === 'tv') {
+          var seasonCount = parseInt(card.dataset.seasonCount || '0', 10);
+          var seasons = [];
+          try { seasons = JSON.parse(card.dataset.seasons || '[]'); } catch (e) {}
+
+          if (seasons.length) {
+            var label = document.createElement('div');
+            label.className = 'drawer-section-label';
+            label.textContent = seasonCount + ' Season' + (seasonCount !== 1 ? 's' : '');
+            drawerBody.appendChild(label);
+
+            var block = document.createElement('div');
+            block.className = 'drawer-season-block';
+            seasons.forEach(function (s) {
+              var row = document.createElement('div');
+              row.className = 'drawer-season-row';
+              row.innerHTML =
+                '<span class="drawer-season-lbl">S' + s.number + '</span>' +
+                '<div class="season-bar" style="flex:1">' +
+                  '<div class="season-bar-fill" style="width:' + s.pct + '%"></div>' +
+                '</div>' +
+                '<span class="drawer-season-pct">' + s.pct + '%</span>';
+              block.appendChild(row);
+            });
+            drawerBody.appendChild(block);
+          }
+        }
+
+        var eligible = card.querySelector('.eligible-strip');
+        var pending  = card.querySelector('.pending-strip');
+        if (eligible || pending) {
+          drawerFooter.hidden = false;
+          drawerFooterNote.textContent = eligible ? 'Eligible for deletion' : 'Pending admin review';
+        } else {
+          drawerFooter.hidden = true;
+          drawerFooterNote.textContent = '';
+        }
+
+        overlay.classList.add('open');
+        drawer.hidden = false;
+        requestAnimationFrame(function () { drawer.classList.add('open'); });
+      }
+
+      function closeDrawer() {
+        drawer.classList.remove('open');
+        overlay.classList.remove('open');
+        drawer.addEventListener('transitionend', function handler() {
+          drawer.hidden = true;
+          drawer.removeEventListener('transitionend', handler);
+        });
+      }
+
+      document.getElementById('poster-grid') && document.getElementById('poster-grid').addEventListener('click', function (e) {
+        var card = e.target.closest('.poster-card');
+        if (!card) return;
+        if (e.target.closest('.remedy-btn') || e.target.closest('.diagnose-btn')) return;
+        openDrawer(card);
+      });
+
+      closeBtn.addEventListener('click', closeDrawer);
+      overlay.addEventListener('click', closeDrawer);
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeDrawer();
+      });
+    })();
+
+    // Diagnose buttons on stat tiles
+    (function () {
+      document.querySelectorAll('.diagnose-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var tile = btn.closest('.stat-tile');
+          var resultEl = tile.querySelector('.stat-insight');
+          if (!resultEl) {
+            resultEl = document.createElement('div');
+            resultEl.className = 'stat-insight';
+            tile.appendChild(resultEl);
+          }
+          resultEl.innerHTML = '<span class="insight-loading">Diagnosing…</span>';
+
+          var issueType = btn.dataset.issue;
+          var context = {};
+          if (issueType === 'disk_pressure') {
+            context = { path: btn.dataset.path, used_pct: parseFloat(btn.dataset.pct) };
+          } else if (issueType === 'service_unreachable') {
+            context = { service: btn.dataset.service };
+          }
+
+          fetch('/api/diagnose', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ issue_type: issueType, context: context })
+          })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var html = '';
+            if (data.narrative) {
+              html += '<p class="insight-narrative">' + _esc(data.narrative) + '</p>';
+            }
+            if (data.remedies && data.remedies.length) {
+              html += '<div class="insight-remedies">';
+              data.remedies.forEach(function (rem) {
+                html += '<button class="remedy-btn" data-tool="' + _esc(rem.tool) + '">' + _esc(rem.label) + '</button>';
+              });
+              html += '</div>';
+            }
+            resultEl.innerHTML = html || '<p class="insight-narrative">No diagnosis available.</p>';
+          })
+          .catch(function () {
+            resultEl.innerHTML = '<p class="insight-narrative">Diagnosis failed.</p>';
+          });
+        });
+      });
+
+      function _esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+    })();
+
+    // Remedy buttons — copy tool name to clipboard
+    (function () {
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.remedy-btn');
+        if (!btn || !btn.dataset.tool) return;
+        var tool = btn.dataset.tool;
+        navigator.clipboard && navigator.clipboard.writeText(tool).then(function () {
+          btn.classList.add('copied');
+          var orig = btn.textContent;
+          btn.textContent = 'Copied: ' + tool;
+          setTimeout(function () {
+            btn.classList.remove('copied');
+            btn.textContent = orig;
+          }, 2000);
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

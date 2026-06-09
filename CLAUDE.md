@@ -100,7 +100,7 @@ This document contains critical information about working with this codebase. Fo
 
 ## Project Phase
 
-**Current phase: Phase 2 — Media Intelligence**
+**Current phase: Phase 3 — Installation Wizard**
 
 See `docs/roadmap.md` for the full public roadmap. This section governs how sessions should operate.
 

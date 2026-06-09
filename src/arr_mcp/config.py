@@ -73,6 +73,21 @@ class Settings(BaseSettings):
         default=False,
         description="Serve dashboard without auth (safe for LAN-only deployments)",
     )
+    admin_plex_users: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Comma-separated Plex usernames that receive admin role on the dashboard. "
+            "Set ARR_MCP_ADMIN_PLEX_USERS=alice,bob"
+        ),
+    )
+    session_secret: str = Field(
+        default="",
+        description=(
+            "Secret key for signing dashboard session cookies. "
+            'Generate with: python -c "import secrets; print(secrets.token_hex(32))". '
+            "Sessions survive restarts only when this is set."
+        ),
+    )
     allowed_stacks: list[str] = Field(
         default_factory=list,
         description=(
@@ -83,7 +98,43 @@ class Settings(BaseSettings):
     )
     log_level: str = Field(default="info", description="Logging level")
 
-    @field_validator("allowed_stacks", mode="before")
+    # ------------------------------------------------------------------
+    # AI provider
+    # ------------------------------------------------------------------
+
+    ai_provider: str = Field(
+        default="ollama",
+        description="AI backend: ollama | anthropic | none",
+    )
+    ollama_url: str = Field(
+        default="http://localhost:11434",
+        description="Base URL for the local Ollama instance",
+    )
+    ollama_model: str = Field(
+        default="llama3.2:3b",
+        description="Ollama model name to use for completions",
+    )
+    anthropic_api_key: str = Field(
+        default="",
+        description="Anthropic API key — required when ARR_MCP_AI_PROVIDER=anthropic",
+    )
+    anthropic_model: str = Field(
+        default="claude-haiku-4-5-20251001",
+        description="Anthropic model ID to use for completions",
+    )
+
+    # ------------------------------------------------------------------
+    # Alert watcher
+    # ------------------------------------------------------------------
+
+    alert_interval_seconds: int = Field(
+        default=300,
+        description=(
+            "How often AlertWatcher polls for threshold violations (seconds)"
+        ),
+    )
+
+    @field_validator("allowed_stacks", "admin_plex_users", mode="before")
     @classmethod
     def _parse_allowed_stacks(cls, v: object) -> list[str]:
         """Accept a comma-separated string or a list."""
