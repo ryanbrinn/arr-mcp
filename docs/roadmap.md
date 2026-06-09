@@ -22,16 +22,16 @@ gantt
         Compose and Quadlet conversion          :done,    p1f, 2026-07, 2026-08
         Read-only dashboard                     :done,    p1g, 2026-08, 2026-09
     section Phase 2 - Media Intelligence
-        Service diagnostics redesign (#112)     :         p2z, 2026-06, 2026-07
-        CredentialStore                         :         p2a, 2026-06, 2026-07
-        BaseServiceClient + ArrClient           :         p2b, 2026-06, 2026-07
-        SonarrClient + RadarrClient             :         p2c, 2026-07, 2026-08
-        PlexClient                              :         p2d, 2026-07, 2026-08
-        Watched content cleanup                 :         p2e, 2026-08, 2026-09
-        AlertWatcher — threshold monitoring     :         p2f, 2026-09, 2026-10
-        VersionChecker — upgrade tracking       :         p2g, 2026-10, 2026-11
-        Log monitoring and alerting             :         p2h, 2026-10, 2026-12
-        Plex auth and per-user watchlists       :         p2i, 2026-11, 2027-01
+        Service diagnostics redesign (#112)     :done,    p2z, 2026-06, 2026-07
+        CredentialStore                         :done,    p2a, 2026-06, 2026-07
+        BaseServiceClient + ArrClient           :done,    p2b, 2026-06, 2026-07
+        SonarrClient + RadarrClient             :done,    p2c, 2026-07, 2026-08
+        PlexClient                              :done,    p2d, 2026-07, 2026-08
+        Watched content cleanup                 :done,    p2e, 2026-08, 2026-09
+        AlertWatcher — threshold monitoring     :done,    p2f, 2026-09, 2026-10
+        VersionChecker — upgrade tracking       :done,    p2g, 2026-10, 2026-11
+        Log monitoring and alerting             :done,    p2h, 2026-10, 2026-12
+        Plex auth and per-user watchlists       :done,    p2i, 2026-11, 2027-01
 
     section Phase 3 - Installation Wizard
         System check and runtime setup          :         p3a, 2027-01, 2027-03
