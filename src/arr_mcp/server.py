@@ -55,7 +55,9 @@ def build_mcp_server(
     # server is accessed from external hosts (not just localhost).
     server = FastMCP(
         "arr-mcp",
-        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+        transport_security=TransportSecuritySettings(
+            enable_dns_rebinding_protection=False
+        ),
     )
     register_container_tools(server, client)
     if settings.is_compose:
@@ -78,7 +80,9 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.api_key = api_key
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         # Health, dashboard, and static assets bypass Bearer auth —
         # the dashboard does its own key-in-query-param check.
         path = request.url.path
@@ -114,7 +118,11 @@ def create_app(settings: Settings) -> Starlette:
 
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
-        log.info("arr-mcp starting — runtime=%s port=%d", settings.container_runtime, settings.port)
+        log.info(
+            "arr-mcp starting — runtime=%s port=%d",
+            settings.container_runtime,
+            settings.port,
+        )
         async with mcp_server.session_manager.run():
             async with anyio.create_task_group() as tg:
                 tg.start_soon(alert_watcher.run)
@@ -131,7 +139,9 @@ def create_app(settings: Settings) -> Starlette:
         Route("/auth/signin", endpoint=dashboard["auth_signin"]),
         Route("/auth/plex/start", endpoint=dashboard["auth_plex_start"]),
         Route("/auth/plex/callback", endpoint=dashboard["auth_plex_callback"]),
-        Route("/auth/logout", endpoint=dashboard["auth_logout"], methods=["GET", "POST"]),
+        Route(
+            "/auth/logout", endpoint=dashboard["auth_logout"], methods=["GET", "POST"]
+        ),
         Mount("/static", app=StaticFiles(directory=str(_STATIC_DIR)), name="static"),
         mcp_route,
     ]

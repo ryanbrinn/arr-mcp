@@ -44,7 +44,9 @@ def _encrypt(data: str, secret: str) -> str:
     """XOR-encrypt data with secret and base64-encode the result."""
     key_bytes = secret.encode()
     data_bytes = data.encode()
-    encrypted = bytes(b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(data_bytes))
+    encrypted = bytes(
+        b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(data_bytes)
+    )
     return base64.b64encode(encrypted).decode()
 
 
@@ -52,7 +54,9 @@ def _decrypt(data: str, secret: str) -> str:
     """Base64-decode and XOR-decrypt data with secret."""
     key_bytes = secret.encode()
     encrypted = base64.b64decode(data.encode())
-    decrypted = bytes(b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(encrypted))
+    decrypted = bytes(
+        b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(encrypted)
+    )
     return decrypted.decode()
 
 
@@ -76,7 +80,9 @@ def _load_file(path: Path, secret: str | None) -> dict[str, dict[str, str | None
         return {}
 
 
-def _save_file(path: Path, data: dict[str, dict[str, str | None]], secret: str | None) -> None:
+def _save_file(
+    path: Path, data: dict[str, dict[str, str | None]], secret: str | None
+) -> None:
     raw = json.dumps(data)
     if secret:
         raw = _encrypt(raw, secret)

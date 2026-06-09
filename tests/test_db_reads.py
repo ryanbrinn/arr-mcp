@@ -41,13 +41,17 @@ def _insert_download_client(
     s = json.dumps(settings or {"host": "sabnzbd", "port": 8080, "apiKey": "abc"})
     with sqlite3.connect(str(path)) as conn:
         conn.execute(
-            "INSERT INTO DownloadClients (Name, Implementation, Settings, Enable) VALUES (?,?,?,?)",
+            "INSERT INTO DownloadClients"
+            " (Name, Implementation, Settings, Enable)"
+            " VALUES (?,?,?,?)",
             (name, impl, s, int(enable)),
         )
         conn.commit()
 
 
-def _insert_indexer(path: Path, name: str, impl: str = "Newznab", enable: bool = True) -> None:
+def _insert_indexer(
+    path: Path, name: str, impl: str = "Newznab", enable: bool = True
+) -> None:
     with sqlite3.connect(str(path)) as conn:
         conn.execute(
             "INSERT INTO Indexers (Name, Implementation, Enable) VALUES (?,?,?)",
@@ -96,7 +100,9 @@ def test_read_download_clients_bad_settings_json(tmp_path: Path) -> None:
     _make_db(db)
     with sqlite3.connect(str(db)) as conn:
         conn.execute(
-            "INSERT INTO DownloadClients (Name, Implementation, Settings, Enable) VALUES (?,?,?,?)",
+            "INSERT INTO DownloadClients"
+            " (Name, Implementation, Settings, Enable)"
+            " VALUES (?,?,?,?)",
             ("Bad", "Sabnzbd", "not-json{{{", 1),
         )
         conn.commit()

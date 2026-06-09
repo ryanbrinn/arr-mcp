@@ -155,7 +155,8 @@ def running_server(
         proc.terminate()
         out, _ = proc.communicate(timeout=5)
         raise RuntimeError(
-            f"Server failed to start.\nOutput:\n{out.decode(errors='replace') if out else '(none)'}"
+            "Server failed to start.\nOutput:\n"
+            f"{out.decode(errors='replace') if out else '(none)'}"
         )
 
     yield {

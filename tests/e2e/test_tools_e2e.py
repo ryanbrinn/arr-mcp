@@ -29,7 +29,9 @@ async def test_container_list_returns_seeded_containers(
     assert "sonarr" in text
 
 
-async def test_container_list_shows_ports(mcp: FastMCP, fake_docker: FakeDockerTransport) -> None:
+async def test_container_list_shows_ports(
+    mcp: FastMCP, fake_docker: FakeDockerTransport
+) -> None:
     result = await mcp.call_tool("container_list", {})
     assert "32400" in result[0][0].text
 
@@ -42,12 +44,16 @@ async def test_container_start_updates_state(
     assert fake_docker.containers["sonarr"].status == "running"
 
 
-async def test_container_start_returns_name(mcp: FastMCP, fake_docker: FakeDockerTransport) -> None:
+async def test_container_start_returns_name(
+    mcp: FastMCP, fake_docker: FakeDockerTransport
+) -> None:
     result = await mcp.call_tool("container_start", {"name": "plex"})
     assert "plex" in result[0][0].text
 
 
-async def test_container_stop_updates_state(mcp: FastMCP, fake_docker: FakeDockerTransport) -> None:
+async def test_container_stop_updates_state(
+    mcp: FastMCP, fake_docker: FakeDockerTransport
+) -> None:
     await mcp.call_tool("container_stop", {"name": "plex"})
     assert fake_docker.containers["plex"].status == "stopped"
 
@@ -124,7 +130,9 @@ async def test_stack_list_empty(mcp: FastMCP, e2e_settings) -> None:
     assert "No stacks found" in result[0][0].text
 
 
-async def test_stack_down_without_confirm_is_refused(mcp: FastMCP, e2e_settings) -> None:
+async def test_stack_down_without_confirm_is_refused(
+    mcp: FastMCP, e2e_settings
+) -> None:
     _require_compose(e2e_settings)
     stacks_root = Path(e2e_settings.compose_dir)
     (stacks_root / "arr").mkdir()
@@ -138,7 +146,9 @@ async def test_compose_read_returns_file_contents(mcp: FastMCP, e2e_settings) ->
     stacks_root = Path(e2e_settings.compose_dir)
     stack_dir = stacks_root / "media"
     stack_dir.mkdir()
-    (stack_dir / "compose.yaml").write_text("services:\n  plex:\n    image: plexinc/pms-docker\n")
+    (stack_dir / "compose.yaml").write_text(
+        "services:\n  plex:\n    image: plexinc/pms-docker\n"
+    )
     with patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True):
         result = await mcp.call_tool("compose_read", {"stack": "media"})
     assert "plex" in result[0][0].text
@@ -205,7 +215,9 @@ async def test_log_read_returns_tail(mcp: FastMCP, e2e_settings) -> None:
 async def test_log_search_finds_matching_lines(mcp: FastMCP, e2e_settings) -> None:
     log_file = Path(e2e_settings.compose_dir) / "app.log"
     log_file.write_text("INFO startup ok\nERROR disk full\nINFO shutdown\n")
-    result = await mcp.call_tool("log_search", {"path": str(log_file), "query": "error"})
+    result = await mcp.call_tool(
+        "log_search", {"path": str(log_file), "query": "error"}
+    )
     text = result[0][0].text
     assert "disk full" in text
     assert "startup" not in text
@@ -214,7 +226,9 @@ async def test_log_search_finds_matching_lines(mcp: FastMCP, e2e_settings) -> No
 async def test_log_search_is_case_insensitive(mcp: FastMCP, e2e_settings) -> None:
     log_file = Path(e2e_settings.compose_dir) / "mixed.log"
     log_file.write_text("WARNING: low memory\nwarning: cpu spike\n")
-    result = await mcp.call_tool("log_search", {"path": str(log_file), "query": "WARNING"})
+    result = await mcp.call_tool(
+        "log_search", {"path": str(log_file), "query": "WARNING"}
+    )
     text = result[0][0].text
     assert "low memory" in text
     assert "cpu spike" in text

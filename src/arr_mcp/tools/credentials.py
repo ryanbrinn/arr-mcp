@@ -55,4 +55,6 @@ def register_credential_tools(server: FastMCP, settings: Settings) -> None:
             service: Service name to remove credential for.
         """
         store.delete(service)
-        return [TextContent(type="text", text=f"Stored credential removed for {service}.")]
+        return [
+            TextContent(type="text", text=f"Stored credential removed for {service}.")
+        ]

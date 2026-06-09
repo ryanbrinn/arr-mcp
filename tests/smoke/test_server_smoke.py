@@ -189,7 +189,9 @@ def test_mcp_tools_list(running_server: dict[str, str]) -> None:
     assert len(tools) > 0, "Expected at least one registered tool"
 
     tool_names = {t["name"] for t in tools}
-    assert "container_list" in tool_names, f"container_list missing from tools: {tool_names}"
+    assert "container_list" in tool_names, (
+        f"container_list missing from tools: {tool_names}"
+    )
 
 
 def test_mcp_tools_include_filesystem(running_server: dict[str, str]) -> None:

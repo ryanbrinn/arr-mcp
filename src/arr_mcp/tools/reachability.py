@@ -106,7 +106,8 @@ def register_reachability_tools(server: FastMCP, settings: Settings) -> None:
                 TextContent(
                     type="text",
                     text=(
-                        "No service credentials configured. Use credential_set to add credentials."
+                        "No service credentials configured."
+                        " Use credential_set to add credentials."
                     ),
                 )
             ]
@@ -227,7 +228,10 @@ def register_reachability_tools(server: FastMCP, settings: Settings) -> None:
             return [
                 TextContent(
                     type="text",
-                    text="No download client configurations found in any arr service database.",
+                    text=(
+                        "No download client configurations found"
+                        " in any arr service database."
+                    ),
                 )
             ]
 

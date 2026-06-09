@@ -57,7 +57,9 @@ def test_config_xml_under_varlog_allowed() -> None:
     assert result.name == "config.xml"
 
 
-async def test_log_read_missing_file(settings: Settings, mock_client: MagicMock) -> None:
+async def test_log_read_missing_file(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     server = FastMCP("test")
     register_log_tools(server, settings)
     result = await server.call_tool(
@@ -66,7 +68,9 @@ async def test_log_read_missing_file(settings: Settings, mock_client: MagicMock)
     assert "not found" in result[0][0].text.lower()
 
 
-async def test_log_read_services_dir(settings: Settings, mock_client: MagicMock) -> None:
+async def test_log_read_services_dir(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     server = FastMCP("test")
     register_log_tools(server, settings)
     log_dir = Path(settings.services_dir) / "radarr" / "logs"
@@ -77,7 +81,9 @@ async def test_log_read_services_dir(settings: Settings, mock_client: MagicMock)
     assert "broken" in result[0][0].text
 
 
-async def test_log_read_returns_last_n_lines(settings: Settings, mock_client: MagicMock) -> None:
+async def test_log_read_returns_last_n_lines(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     server = FastMCP("test")
     register_log_tools(server, settings)
     log_file = Path(settings.compose_dir) / "test.log"
@@ -89,30 +95,42 @@ async def test_log_read_returns_last_n_lines(settings: Settings, mock_client: Ma
     assert "line 15" not in text
 
 
-async def test_log_search_finds_matches(settings: Settings, mock_client: MagicMock) -> None:
+async def test_log_search_finds_matches(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     server = FastMCP("test")
     register_log_tools(server, settings)
     log_file = Path(settings.compose_dir) / "app.log"
-    log_file.write_text("INFO starting\nERROR something broke\nINFO running\nERROR disk full\n")
-    result = await server.call_tool("log_search", {"path": str(log_file), "query": "error"})
+    log_file.write_text(
+        "INFO starting\nERROR something broke\nINFO running\nERROR disk full\n"
+    )
+    result = await server.call_tool(
+        "log_search", {"path": str(log_file), "query": "error"}
+    )
     text = result[0][0].text
     assert "something broke" in text
     assert "disk full" in text
     assert "starting" not in text
 
 
-async def test_log_search_case_insensitive(settings: Settings, mock_client: MagicMock) -> None:
+async def test_log_search_case_insensitive(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     server = FastMCP("test")
     register_log_tools(server, settings)
     log_file = Path(settings.compose_dir) / "app.log"
     log_file.write_text("ERROR big problem\nerror small problem\nINFO fine\n")
-    result = await server.call_tool("log_search", {"path": str(log_file), "query": "ERROR"})
+    result = await server.call_tool(
+        "log_search", {"path": str(log_file), "query": "ERROR"}
+    )
     text = result[0][0].text
     assert "big problem" in text
     assert "small problem" in text
 
 
-async def test_log_search_missing_file(settings: Settings, mock_client: MagicMock) -> None:
+async def test_log_search_missing_file(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     server = FastMCP("test")
     register_log_tools(server, settings)
     result = await server.call_tool(

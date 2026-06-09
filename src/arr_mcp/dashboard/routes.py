@@ -203,13 +203,17 @@ def make_dashboard_routes(
                 status_code=302,
             )
         callback_url = f"{base}/auth/plex/callback?pin_id={pin.id}"
-        return RedirectResponse(url=build_plex_auth_url(pin, callback_url), status_code=302)
+        return RedirectResponse(
+            url=build_plex_auth_url(pin, callback_url), status_code=302
+        )
 
     async def handle_auth_plex_callback(request: Request) -> Response:
-        """Exchange a claimed Plex PIN for an auth token, then issue a session cookie."""
+        """Exchange a Plex PIN for an auth token, then issue a session cookie."""
         pin_id = request.query_params.get("pin_id", "")
         if not pin_id:
-            return RedirectResponse(url="/auth/signin?error=Missing+PIN+ID.", status_code=302)
+            return RedirectResponse(
+                url="/auth/signin?error=Missing+PIN+ID.", status_code=302
+            )
 
         auth_token = await poll_plex_pin(pin_id)
         if not auth_token:

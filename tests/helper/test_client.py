@@ -28,7 +28,9 @@ async def test_is_available_returns_false_on_connect_error(tmp_path: Path) -> No
     client = HelperClient(str(sock))
     import httpx
 
-    with patch.object(client._client, "post", side_effect=httpx.ConnectError("refused")):
+    with patch.object(
+        client._client, "post", side_effect=httpx.ConnectError("refused")
+    ):
         result = await client.is_available()
     assert result is False
 
@@ -40,7 +42,9 @@ async def test_call_raises_helper_unavailable_on_connect_error(tmp_path: Path) -
     client = HelperClient(str(sock))
     import httpx
 
-    with patch.object(client._client, "post", side_effect=httpx.ConnectError("refused")):
+    with patch.object(
+        client._client, "post", side_effect=httpx.ConnectError("refused")
+    ):
         with pytest.raises(HelperUnavailableError):
             await client.call("quadlet_list")
 

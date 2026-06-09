@@ -25,7 +25,9 @@ async def test_stack_list_empty(settings: Settings, mock_client: MagicMock) -> N
     assert "No stacks found" in result[0][0].text
 
 
-async def test_stack_list_returns_stack_names(settings: Settings, mock_client: MagicMock) -> None:
+async def test_stack_list_returns_stack_names(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     (Path(settings.compose_dir) / "media-server").mkdir()
     (Path(settings.compose_dir) / "monitoring").mkdir()
     server = _make_server(settings, mock_client)
@@ -44,15 +46,19 @@ async def test_stack_down_without_confirm_is_safe(
     assert "confirm=True" in result[0][0].text
 
 
-async def test_stack_down_default_is_safe(settings: Settings, mock_client: MagicMock) -> None:
-    """stack_down must default to confirm=False so it never runs without explicit opt-in."""
+async def test_stack_down_default_is_safe(
+    settings: Settings, mock_client: MagicMock
+) -> None:
+    """stack_down must default to confirm=False — never runs without explicit opt-in."""
     (Path(settings.compose_dir) / "mystack").mkdir()
     server = _make_server(settings, mock_client)
     result = await server.call_tool("stack_down", {"name": "mystack"})
     assert "confirm=True" in result[0][0].text
 
 
-async def test_stack_down_with_confirm_runs(settings: Settings, mock_client: MagicMock) -> None:
+async def test_stack_down_with_confirm_runs(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     (Path(settings.compose_dir) / "mystack").mkdir()
     server = _make_server(settings, mock_client)
     from arr_mcp.helper.client import HelperResponse
@@ -60,15 +66,21 @@ async def test_stack_down_with_confirm_runs(settings: Settings, mock_client: Mag
     with (
         patch(
             "arr_mcp.tools.stacks.HelperClient.call",
-            new=AsyncMock(return_value=HelperResponse(ok=True, output="done", exit_code=0)),
+            new=AsyncMock(
+                return_value=HelperResponse(ok=True, output="done", exit_code=0)
+            ),
         ),
         patch("arr_mcp.tools.stacks.is_owned_by_current_user", return_value=True),
     ):
-        result = await server.call_tool("stack_down", {"name": "mystack", "confirm": True})
+        result = await server.call_tool(
+            "stack_down", {"name": "mystack", "confirm": True}
+        )
         assert "done" in result[0][0].text
 
 
-async def test_stack_tools_degrade_gracefully(settings: Settings, mock_client: MagicMock) -> None:
+async def test_stack_tools_degrade_gracefully(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     """Stack tools return a helpful message when the helper is unavailable."""
     (Path(settings.compose_dir) / "mystack").mkdir()
     server = _make_server(settings, mock_client)
@@ -85,13 +97,17 @@ async def test_stack_tools_degrade_gracefully(settings: Settings, mock_client: M
     assert "arr-agent" in result[0][0].text
 
 
-async def test_stack_up_nonexistent_raises(settings: Settings, mock_client: MagicMock) -> None:
+async def test_stack_up_nonexistent_raises(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     server = _make_server(settings, mock_client)
     with pytest.raises(ToolError, match="Stack not found"):
         await server.call_tool("stack_up", {"name": "nonexistent"})
 
 
-async def test_compose_read_returns_content(settings: Settings, mock_client: MagicMock) -> None:
+async def test_compose_read_returns_content(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     stack_dir = Path(settings.compose_dir) / "mystack"
     stack_dir.mkdir()
     (stack_dir / "compose.yaml").write_text("services:\n  app:\n    image: nginx\n")
@@ -109,7 +125,9 @@ async def test_compose_read_no_file(settings: Settings, mock_client: MagicMock) 
     assert "No compose file" in result[0][0].text
 
 
-async def test_stack_list_excludes_root_owned(settings: Settings, mock_client: MagicMock) -> None:
+async def test_stack_list_excludes_root_owned(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     """Root-owned directories must not appear in stack_list."""
     (Path(settings.compose_dir) / "my-stack").mkdir()
     (Path(settings.compose_dir) / "root-stack").mkdir()
@@ -123,7 +141,9 @@ async def test_stack_list_excludes_root_owned(settings: Settings, mock_client: M
     assert "root-stack" not in result[0][0].text
 
 
-async def test_stack_path_rejects_root_owned(settings: Settings, mock_client: MagicMock) -> None:
+async def test_stack_path_rejects_root_owned(
+    settings: Settings, mock_client: MagicMock
+) -> None:
     """Directly accessing a root-owned stack must raise ToolError."""
     (Path(settings.compose_dir) / "root-stack").mkdir()
     server = _make_server(settings, mock_client)
@@ -132,7 +152,9 @@ async def test_stack_path_rejects_root_owned(settings: Settings, mock_client: Ma
             await server.call_tool("stack_up", {"name": "root-stack"})
 
 
-async def test_stack_list_respects_allowlist(tmp_path: Path, mock_client: MagicMock) -> None:
+async def test_stack_list_respects_allowlist(
+    tmp_path: Path, mock_client: MagicMock
+) -> None:
     """stack_list only shows allowed stacks when allowed_stacks is configured."""
     stacks = tmp_path / "stacks"
     stacks.mkdir()
@@ -151,7 +173,9 @@ async def test_stack_list_respects_allowlist(tmp_path: Path, mock_client: MagicM
     assert "nginx" not in result[0][0].text
 
 
-async def test_stack_up_blocked_by_allowlist(tmp_path: Path, mock_client: MagicMock) -> None:
+async def test_stack_up_blocked_by_allowlist(
+    tmp_path: Path, mock_client: MagicMock
+) -> None:
     """stack_up raises for stacks not in the allowlist."""
     stacks = tmp_path / "stacks"
     stacks.mkdir()
@@ -167,7 +191,9 @@ async def test_stack_up_blocked_by_allowlist(tmp_path: Path, mock_client: MagicM
         await server.call_tool("stack_up", {"name": "nginx"})
 
 
-async def test_stack_allowlist_empty_allows_all(tmp_path: Path, mock_client: MagicMock) -> None:
+async def test_stack_allowlist_empty_allows_all(
+    tmp_path: Path, mock_client: MagicMock
+) -> None:
     """When allowed_stacks is empty all stacks are accessible."""
     stacks = tmp_path / "stacks"
     stacks.mkdir()

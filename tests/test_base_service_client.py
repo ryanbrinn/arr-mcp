@@ -8,7 +8,13 @@ from pathlib import Path
 import httpx
 import pytest
 
-from arr_mcp.services.arr import ArrClient, HealthItem, QueueItem, SystemStatus, WantedMissing
+from arr_mcp.services.arr import (
+    ArrClient,
+    HealthItem,
+    QueueItem,
+    SystemStatus,
+    WantedMissing,
+)
 from arr_mcp.services.base import BaseServiceClient, ServiceNotConfiguredError
 from arr_mcp.services.credentials import CredentialStore, ServiceCredential
 from arr_mcp.services.registry import ServiceRegistry
@@ -75,7 +81,9 @@ async def test_post_sends_json_body() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         received.append(request.content)
-        return httpx.Response(200, content=b"{}", headers={"content-type": "application/json"})
+        return httpx.Response(
+            200, content=b"{}", headers={"content-type": "application/json"}
+        )
 
     http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     client = BaseServiceClient("http://sonarr:8989", "key", http=http)
@@ -104,7 +112,9 @@ async def test_api_key_sent_in_header() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         received_headers.append(request.headers)
-        return httpx.Response(200, content=b"{}", headers={"content-type": "application/json"})
+        return httpx.Response(
+            200, content=b"{}", headers={"content-type": "application/json"}
+        )
 
     http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     client = BaseServiceClient("http://sonarr:8989", "my-secret-key", http=http)
@@ -155,7 +165,12 @@ async def test_get_queue_returns_dataclasses() -> None:
 @pytest.mark.anyio
 async def test_get_health_returns_dataclasses() -> None:
     health_resp = [
-        {"source": "IndexerCheck", "type": "warning", "message": "No indexers", "wikiUrl": ""}
+        {
+            "source": "IndexerCheck",
+            "type": "warning",
+            "message": "No indexers",
+            "wikiUrl": "",
+        }
     ]
     client = _arr_client({"/api/v3/health": (200, health_resp)})
     result = await client.get_health()
@@ -257,7 +272,9 @@ def test_registry_uses_port_from_xml_config(
     monkeypatch.delenv("SONARR_API_KEY", raising=False)
     svc_dir = tmp_path / "sonarr"
     svc_dir.mkdir()
-    (svc_dir / "config.xml").write_text("<Config><ApiKey>skey</ApiKey><Port>9191</Port></Config>")
+    (svc_dir / "config.xml").write_text(
+        "<Config><ApiKey>skey</ApiKey><Port>9191</Port></Config>"
+    )
 
     registry = ServiceRegistry(str(tmp_path))
     client = registry.get_client("sonarr")

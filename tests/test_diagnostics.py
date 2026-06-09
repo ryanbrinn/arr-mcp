@@ -98,7 +98,9 @@ async def test_service_scan_empty_services_dir(server: FastMCP) -> None:
     assert data == []
 
 
-async def test_service_scan_known_service_detected(server: FastMCP, settings: Settings) -> None:
+async def test_service_scan_known_service_detected(
+    server: FastMCP, settings: Settings
+) -> None:
     (Path(settings.services_dir) / "sonarr").mkdir()
     result = await server.call_tool("service_scan", {})
     data = json.loads(result[0][0].text)
@@ -107,14 +109,18 @@ async def test_service_scan_known_service_detected(server: FastMCP, settings: Se
     assert data[0]["known"] is True
 
 
-async def test_service_scan_unknown_service(server: FastMCP, settings: Settings) -> None:
+async def test_service_scan_unknown_service(
+    server: FastMCP, settings: Settings
+) -> None:
     (Path(settings.services_dir) / "mycustom-app").mkdir()
     result = await server.call_tool("service_scan", {})
     data = json.loads(result[0][0].text)
     assert data[0]["known"] is False
 
 
-async def test_service_scan_has_config_true(server: FastMCP, settings: Settings) -> None:
+async def test_service_scan_has_config_true(
+    server: FastMCP, settings: Settings
+) -> None:
     svc_dir = Path(settings.services_dir) / "radarr"
     svc_dir.mkdir()
     (svc_dir / "config.xml").write_text("<Config/>")
@@ -205,7 +211,11 @@ async def test_service_api_health_healthy(server: FastMCP) -> None:
 
 
 async def test_service_api_health_degraded_on_warning(server: FastMCP) -> None:
-    items = [HealthItem(source="IndexerRss", type="warning", message="RSS broken", wiki_url="")]
+    items = [
+        HealthItem(
+            source="IndexerRss", type="warning", message="RSS broken", wiki_url=""
+        )
+    ]
     with patch(
         "arr_mcp.services.registry.ServiceRegistry.get_client",
         return_value=_mock_arr_client(items),
@@ -217,7 +227,11 @@ async def test_service_api_health_degraded_on_warning(server: FastMCP) -> None:
 
 
 async def test_service_api_health_critical_on_error_item(server: FastMCP) -> None:
-    items = [HealthItem(source="UpdateCheck", type="error", message="Update failed", wiki_url="")]
+    items = [
+        HealthItem(
+            source="UpdateCheck", type="error", message="Update failed", wiki_url=""
+        )
+    ]
     with patch(
         "arr_mcp.services.registry.ServiceRegistry.get_client",
         return_value=_mock_arr_client(items),
@@ -287,7 +301,9 @@ async def test_service_health_report_unreachable_shows_critical(
     assert data["summary"]["critical"] == 1
 
 
-async def test_service_health_report_healthy_service(server: FastMCP, settings: Settings) -> None:
+async def test_service_health_report_healthy_service(
+    server: FastMCP, settings: Settings
+) -> None:
     (Path(settings.services_dir) / "sonarr").mkdir()
     with patch(
         "arr_mcp.services.registry.ServiceRegistry.get_client",
@@ -329,7 +345,9 @@ async def test_service_health_report_aggregates_multiple(
 # ---------------------------------------------------------------------------
 
 
-async def test_service_fix_requires_confirm(server: FastMCP, settings: Settings) -> None:
+async def test_service_fix_requires_confirm(
+    server: FastMCP, settings: Settings
+) -> None:
     svc_dir = Path(settings.services_dir) / "sonarr"
     svc_dir.mkdir()
     result = await server.call_tool(
@@ -344,10 +362,14 @@ async def test_service_fix_requires_confirm(server: FastMCP, settings: Settings)
     assert "confirm=True" in result[0][0].text
 
 
-async def test_service_fix_update_config_xml_success(server: FastMCP, settings: Settings) -> None:
+async def test_service_fix_update_config_xml_success(
+    server: FastMCP, settings: Settings
+) -> None:
     svc_dir = Path(settings.services_dir) / "sonarr"
     svc_dir.mkdir()
-    (svc_dir / "config.xml").write_text("<Config><ApiKey>abc</ApiKey><Port>8989</Port></Config>")
+    (svc_dir / "config.xml").write_text(
+        "<Config><ApiKey>abc</ApiKey><Port>8989</Port></Config>"
+    )
     result = await server.call_tool(
         "service_fix",
         {
@@ -384,7 +406,9 @@ async def test_service_fix_update_config_xml_key_not_found(
     assert data["changed"] is False
 
 
-async def test_service_fix_unknown_fix_type_raises(server: FastMCP, settings: Settings) -> None:
+async def test_service_fix_unknown_fix_type_raises(
+    server: FastMCP, settings: Settings
+) -> None:
     svc_dir = Path(settings.services_dir) / "sonarr"
     svc_dir.mkdir()
     with pytest.raises(ToolError):
@@ -431,7 +455,9 @@ async def test_service_fix_update_env_var_no_compose_dir(
     assert "compose_dir" in result[0][0].text
 
 
-async def test_service_fix_update_env_var_dict_format(server: FastMCP, settings: Settings) -> None:
+async def test_service_fix_update_env_var_dict_format(
+    server: FastMCP, settings: Settings
+) -> None:
     """update_env_var works when compose environment is a dict."""
     import yaml
 

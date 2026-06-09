@@ -51,7 +51,9 @@ def _episode(
     )
 
 
-def _file(id: int, series_id: int, season: int, size: int = 1_000_000_000) -> EpisodeFile:
+def _file(
+    id: int, series_id: int, season: int, size: int = 1_000_000_000
+) -> EpisodeFile:
     return EpisodeFile(
         id=id,
         series_id=series_id,
@@ -61,7 +63,9 @@ def _file(id: int, series_id: int, season: int, size: int = 1_000_000_000) -> Ep
     )
 
 
-def _plex_ep(series_title: str, season: int, ep_num: int, watched_by: list[str]) -> PlexEpisode:
+def _plex_ep(
+    series_title: str, season: int, ep_num: int, watched_by: list[str]
+) -> PlexEpisode:
     return PlexEpisode(
         rating_key=f"{series_title}-s{season}e{ep_num}",
         series_title=series_title,
@@ -294,7 +298,9 @@ def mock_registry(tmp_path: Path) -> MagicMock:
 
 
 @pytest.mark.anyio
-async def test_preview_returns_dry_run_flag(mock_registry: MagicMock, tmp_path: Path) -> None:
+async def test_preview_returns_dry_run_flag(
+    mock_registry: MagicMock, tmp_path: Path
+) -> None:
     import json
 
     from mcp.server.fastmcp import FastMCP
@@ -309,7 +315,9 @@ async def test_preview_returns_dry_run_flag(mock_registry: MagicMock, tmp_path: 
         register_media_tools(server, settings)
 
     tool_fn = next(
-        t for t in server._tool_manager._tools.values() if t.name == "watched_cleanup_preview"
+        t
+        for t in server._tool_manager._tools.values()
+        if t.name == "watched_cleanup_preview"
     )
     result = await tool_fn.fn()
     assert isinstance(result, list)
@@ -334,7 +342,9 @@ async def test_delete_without_confirm_returns_prompt(tmp_path: Path) -> None:
         register_media_tools(server, settings)
 
     tool_fn = next(
-        t for t in server._tool_manager._tools.values() if t.name == "watched_cleanup_delete"
+        t
+        for t in server._tool_manager._tools.values()
+        if t.name == "watched_cleanup_delete"
     )
     result = await tool_fn.fn(confirm=False)
     assert "confirm=True" in result[0].text
