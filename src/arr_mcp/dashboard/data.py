@@ -55,7 +55,10 @@ def _detect_issues(status: dict[str, Any]) -> list[dict[str, Any]]:
             break
 
     for svc in status.get("connectivity", []):
-        if not svc.get("reachable") and svc.get("status") not in ("unconfigured", "timeout"):
+        if not svc.get("reachable") and svc.get("status") not in (
+            "unconfigured",
+            "timeout",
+        ):
             issues.append(
                 {
                     "type": "service_unreachable",
@@ -157,7 +160,13 @@ def _parse_uptime(status: str) -> int | None:
         if len(parts) >= 2:
             n = int(parts[0])
             unit = parts[1].rstrip("s")
-            multipliers = {"second": 1, "minute": 60, "hour": 3600, "day": 86400, "week": 604800}
+            multipliers = {
+                "second": 1,
+                "minute": 60,
+                "hour": 3600,
+                "day": 86400,
+                "week": 604800,
+            }
             return n * multipliers.get(unit, 0)
     except (ValueError, IndexError):
         pass
@@ -221,8 +230,71 @@ def _get_disk(settings: Settings) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+_ART_PALETTE = list(range(8))
+
+
+def _series_badge(s: Any) -> str:
+    real = [ss for ss in s.seasons if ss.season_number > 0]
+    total_eps = sum(ss.episode_count for ss in real)
+    total_files = sum(ss.episode_file_count for ss in real)
+    if total_files == 0:
+        return "wanted" if s.monitored else "unmonitored"
+    if total_files >= total_eps > 0:
+        return "complete"
+    return "partial"
+
+
+def _movie_badge(m: Any) -> str:
+    if m.has_file:
+        return "complete"
+    return "wanted" if m.monitored else "unmonitored"
+
+
+def _series_card(s: Any, idx: int) -> dict[str, Any]:
+    real_seasons = [ss for ss in s.seasons if ss.season_number > 0]
+    return {
+        "id": s.id,
+        "title": s.title,
+        "year": s.year,
+        "status": s.status,
+        "monitored": s.monitored,
+        "season_count": len(real_seasons),
+        "seasons": [
+            {
+                "number": ss.season_number,
+                "pct": (
+                    int(ss.episode_file_count / ss.episode_count * 100)
+                    if ss.episode_count
+                    else 0
+                ),
+            }
+            for ss in real_seasons
+        ],
+        "badge": _series_badge(s),
+        "art": idx % 8,
+        "eligible": False,
+        "pending": False,
+    }
+
+
+def _movie_card(m: Any, idx: int) -> dict[str, Any]:
+    return {
+        "id": m.id,
+        "title": m.title,
+        "year": m.year,
+        "status": m.status,
+        "monitored": m.monitored,
+        "has_file": m.has_file,
+        "badge": _movie_badge(m),
+        "art": idx % 8,
+        "movie_file_id": m.movie_file_id,
+        "eligible": False,
+        "pending": False,
+    }
+
+
 async def _get_media_stats(settings: Settings) -> dict[str, Any]:
-    """Fetch basic media library stats from Sonarr and Radarr."""
+    """Fetch media library cards from Sonarr and Radarr."""
     from arr_mcp.services.base import ServiceNotConfiguredError
     from arr_mcp.services.registry import ServiceRegistry
 
@@ -231,6 +303,9 @@ async def _get_media_stats(settings: Settings) -> dict[str, Any]:
         "configured": False,
         "series_count": None,
         "movie_count": None,
+        "wanted_count": 0,
+        "series": [],
+        "movies": [],
     }
 
     try:
@@ -239,7 +314,10 @@ async def _get_media_stats(settings: Settings) -> dict[str, Any]:
         with anyio.move_on_after(8.0):
             result = await sonarr.get_series()  # type: ignore[attr-defined]
             if result.ok and isinstance(result.data, list):
-                stats["series_count"] = len(result.data)
+                cards = [_series_card(s, i) for i, s in enumerate(result.data)]
+                stats["series"] = cards
+                stats["series_count"] = len(cards)
+                stats["wanted_count"] += sum(1 for c in cards if c["badge"] == "wanted")
     except ServiceNotConfiguredError:
         pass
     except Exception:
@@ -251,13 +329,32 @@ async def _get_media_stats(settings: Settings) -> dict[str, Any]:
         with anyio.move_on_after(8.0):
             result = await radarr.get_movies()  # type: ignore[attr-defined]
             if result.ok and isinstance(result.data, list):
-                stats["movie_count"] = len(result.data)
+                cards = [_movie_card(m, i) for i, m in enumerate(result.data)]
+                _annotate_interest(cards, settings)
+                stats["movies"] = cards
+                stats["movie_count"] = len(cards)
+                stats["wanted_count"] += sum(1 for c in cards if c["badge"] == "wanted")
     except ServiceNotConfiguredError:
         pass
     except Exception:
         pass
 
     return stats
+
+
+def _annotate_interest(movie_cards: list[dict[str, Any]], settings: Settings) -> None:
+    """Populate eligible/pending flags on movie cards from the interest store."""
+    from arr_mcp.services.interests import InterestStore
+
+    store = InterestStore(settings.services_dir)
+    eligible_ids = set(store.get_eligible_for_deletion())
+    pending_ids = set(store.get_pending_review())
+    for card in movie_cards:
+        fid = card.get("movie_file_id")
+        if fid is not None:
+            fid_str = str(fid)
+            card["eligible"] = fid_str in eligible_ids
+            card["pending"] = fid_str in pending_ids
 
 
 # ---------------------------------------------------------------------------
@@ -289,7 +386,12 @@ async def _get_service_connectivity(settings: Settings) -> list[dict[str, Any]]:
                     "error": health.error if not health.ok else None,
                 }
                 return
-            results[idx] = {"name": name, "reachable": False, "status": "timeout", "error": None}
+            results[idx] = {
+                "name": name,
+                "reachable": False,
+                "status": "timeout",
+                "error": None,
+            }
         except ServiceNotConfiguredError:
             results[idx] = {
                 "name": name,
@@ -298,7 +400,12 @@ async def _get_service_connectivity(settings: Settings) -> list[dict[str, Any]]:
                 "error": None,
             }
         except Exception as exc:
-            results[idx] = {"name": name, "reachable": False, "status": "error", "error": str(exc)}
+            results[idx] = {
+                "name": name,
+                "reachable": False,
+                "status": "error",
+                "error": str(exc),
+            }
 
     async with anyio.create_task_group() as tg:
         for i, name in enumerate(available):
@@ -345,7 +452,9 @@ def _get_upgrade_list(settings: Settings) -> list[dict[str, Any]]:
             "current_version": r.current_version,
             "latest_version": r.latest_version,
             "risk": r.risk,
-            "changelog_summary": r.changelog_summary[:120] if r.changelog_summary else "",
+            "changelog_summary": r.changelog_summary[:120]
+            if r.changelog_summary
+            else "",
         }
         for r in recs
     ]

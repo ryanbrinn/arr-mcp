@@ -35,10 +35,24 @@
         <div class="stat-tile {% if status.stats.disk_max_pct > 90 %}stat-danger{% elif status.stats.disk_max_pct > 75 %}stat-warn{% endif %}">
           <div class="stat-value">{{ "%.0f"|format(status.stats.disk_max_pct) }}<span class="stat-denom">%</span></div>
           <div class="stat-label">Disk Used</div>
+          {% if status.stats.disk_max_pct > 75 and status.disk %}
+          {% set warn_disks = status.disk | selectattr('used_pct', 'gt', 75) | list %}
+          {% if warn_disks %}
+          <button class="diagnose-btn"
+                  data-issue="disk_pressure"
+                  data-path="{{ warn_disks[0].path | e }}"
+                  data-pct="{{ warn_disks[0].used_pct }}">✦ Diagnose</button>
+          {% endif %}
+          {% endif %}
         </div>
         <div class="stat-tile {% if status.stats.alerts_count > 0 %}stat-warn{% endif %}">
           <div class="stat-value">{{ status.stats.alerts_count }}</div>
           <div class="stat-label">Active Alerts</div>
+          {% if status.stats.alerts_count > 0 and status.alerts_recent %}
+          <button class="diagnose-btn"
+                  data-issue="service_unreachable"
+                  data-service="{{ status.alerts_recent[0].service | e }}">✦ Diagnose</button>
+          {% endif %}
         </div>
         <div class="stat-tile {% if status.stats.upgrades_count > 0 %}stat-info{% endif %}">
           <div class="stat-value">{{ status.stats.upgrades_count }}</div>
@@ -98,11 +112,11 @@
           <p class="insight-narrative">{{ insight.narrative }}</p>
           {% endif %}
           {% if insight.remedies %}
-          <ul class="insight-remedies">
+          <div class="insight-remedies">
             {% for remedy in insight.remedies %}
-            <li>{{ remedy.label }}</li>
+            <button class="remedy-btn" data-tool="{{ remedy.tool | e }}">{{ remedy.label }}</button>
             {% endfor %}
-          </ul>
+          </div>
           {% endif %}
         </div>
         {% endfor %}
@@ -222,31 +236,139 @@
       {% if status.media.configured %}
         {% set has_data = status.media.series_count is not none or status.media.movie_count is not none %}
         {% if has_data %}
-        <section class="stat-grid">
+
+        {# ── Stats bar ── #}
+        <div class="media-stats-bar">
           {% if status.media.series_count is not none %}
-          <div class="stat-tile">
-            <div class="stat-value">{{ status.media.series_count }}</div>
-            <div class="stat-label">TV Series</div>
+          <div class="media-stat">
+            <div class="media-stat-n">{{ status.media.series_count }}</div>
+            <div class="media-stat-l">TV Series</div>
           </div>
           {% endif %}
           {% if status.media.movie_count is not none %}
-          <div class="stat-tile">
-            <div class="stat-value">{{ status.media.movie_count }}</div>
-            <div class="stat-label">Movies</div>
+          <div class="media-stat">
+            <div class="media-stat-n">{{ status.media.movie_count }}</div>
+            <div class="media-stat-l">Movies</div>
           </div>
           {% endif %}
-        </section>
+          {% if status.media.wanted_count %}
+          <div class="media-stat">
+            <div class="media-stat-n" style="color:var(--amber)">{{ status.media.wanted_count }}</div>
+            <div class="media-stat-l">Wanted</div>
+          </div>
+          {% endif %}
+        </div>
+
+        {# ── Filter chips ── #}
+        <div class="filter-row" id="media-filters">
+          <button class="chip active" data-filter="all">All</button>
+          <button class="chip" data-filter="tv">TV</button>
+          <button class="chip" data-filter="movies">Movies</button>
+          <button class="chip" data-filter="wanted">Wanted</button>
+          <button class="chip" data-filter="unmonitored">Unmonitored</button>
+        </div>
+
+        {# ── Poster grid ── #}
+        <div class="poster-grid" id="poster-grid">
+
+          {% for s in status.media.series %}
+          <div class="poster-card"
+               data-type="tv"
+               data-badge="{{ s.badge }}"
+               data-id="{{ s.id }}"
+               data-title="{{ s.title | e }}"
+               data-year="{{ s.year }}"
+               data-status="{{ s.status | e }}"
+               data-art="{{ s.art }}"
+               data-season-count="{{ s.season_count }}"
+               data-seasons='{{ s.seasons | tojson }}'>
+            <div class="poster-img art-{{ s.art }}">
+              <span class="poster-type">TV</span>
+              <span class="poster-badge badge-{{ s.badge }}">
+                {%- if s.badge == "complete" %}COMPLETE
+                {%- elif s.badge == "partial" %}PARTIAL
+                {%- elif s.badge == "wanted" %}WANTED
+                {%- else %}UNMONITORED
+                {%- endif -%}
+              </span>
+              <div class="poster-title-overlay">
+                {{ s.title }}
+                <small>{% if s.year %}{{ s.year }} · {% endif %}{{ s.season_count }} season{% if s.season_count != 1 %}s{% endif %}</small>
+              </div>
+            </div>
+            <div class="card-footer">
+              {% if s.seasons %}
+              <div class="season-progress">
+                {% for season in s.seasons %}
+                <div class="season-bar-row">
+                  <span class="season-lbl">S{{ season.number }}</span>
+                  <div class="season-bar">
+                    <div class="season-bar-fill" style="width:{{ season.pct }}%"></div>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+              {% endif %}
+              {% if s.eligible %}
+              <div class="eligible-strip">eligible for deletion</div>
+              {% elif s.pending %}
+              <div class="pending-strip">pending admin review</div>
+              {% endif %}
+              <div class="card-meta">
+                <span>{{ s.status }}</span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+
+          {% for m in status.media.movies %}
+          <div class="poster-card"
+               data-type="movies"
+               data-badge="{{ m.badge }}"
+               data-id="{{ m.id }}"
+               data-title="{{ m.title | e }}"
+               data-year="{{ m.year }}"
+               data-status="{{ m.status | e }}"
+               data-art="{{ m.art }}">
+            <div class="poster-img art-{{ m.art }}">
+              <span class="poster-type">MOVIE</span>
+              <span class="poster-badge badge-{{ m.badge }}">
+                {%- if m.badge == "complete" %}COMPLETE
+                {%- elif m.badge == "wanted" %}WANTED
+                {%- else %}UNMONITORED
+                {%- endif -%}
+              </span>
+              <div class="poster-title-overlay">
+                {{ m.title }}
+                <small>{% if m.year %}{{ m.year }}{% endif %}</small>
+              </div>
+            </div>
+            <div class="card-footer">
+              {% if m.eligible %}
+              <div class="eligible-strip">eligible for deletion</div>
+              {% elif m.pending %}
+              <div class="pending-strip">pending admin review</div>
+              {% endif %}
+              <div class="card-meta">
+                <span>{{ m.status }}</span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+
+        </div><!-- /poster-grid -->
+
         {% else %}
         <section class="coming-soon">
           <h2>Media Library</h2>
-          <p class="empty">Services are configured but currently unreachable. Stats will appear when Sonarr and Radarr are online.</p>
+          <p class="empty">Services are configured but currently unreachable. The grid will appear when Sonarr and Radarr are online.</p>
         </section>
         {% endif %}
       {% else %}
       <section class="coming-soon">
         <h2>Media Library</h2>
         <p class="empty">
-          Media library management requires Sonarr, Radarr, and Plex credentials.
+          Media library management requires Sonarr and Radarr credentials.
           Configure them with <code>credential_set</code> and the library view will
           appear here on the next refresh.
         </p>
@@ -255,7 +377,26 @@
     </main>
   </div>
 
+  <!-- Poster drawer -->
+  <div class="drawer-overlay" id="media-drawer-overlay"></div>
+  <div class="drawer" id="media-drawer" hidden>
+    <div class="drawer-header">
+      <div class="drawer-poster" id="drawer-poster-img"></div>
+      <div class="drawer-title-block">
+        <div class="drawer-title" id="drawer-title"></div>
+        <div class="drawer-subtitle" id="drawer-subtitle"></div>
+        <div class="drawer-badge-row" id="drawer-badge-row"></div>
+      </div>
+      <button class="drawer-close" id="drawer-close" aria-label="Close">✕</button>
+    </div>
+    <div class="drawer-body" id="drawer-body"></div>
+    <div class="drawer-footer" id="drawer-footer" hidden>
+      <div class="drawer-footer-note" id="drawer-footer-note"></div>
+    </div>
+  </div>
+
   <script>
+    // Tab switching
     (function () {
       var panels = document.querySelectorAll('.tab-panel');
       var tabs = document.querySelectorAll('.tab');
@@ -269,6 +410,199 @@
       show(location.hash.replace('#', ''));
       window.addEventListener('hashchange', function () {
         show(location.hash.replace('#', ''));
+      });
+    })();
+
+    // Media filter chips
+    (function () {
+      var filterBar = document.getElementById('media-filters');
+      if (!filterBar) return;
+      filterBar.addEventListener('click', function (e) {
+        var chip = e.target.closest('.chip');
+        if (!chip) return;
+        filterBar.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
+        chip.classList.add('active');
+        var f = chip.dataset.filter;
+        document.querySelectorAll('#poster-grid .poster-card').forEach(function (card) {
+          var show = f === 'all'
+            || card.dataset.type === f
+            || card.dataset.badge === f;
+          card.hidden = !show;
+        });
+      });
+    })();
+
+    // Poster drawer
+    (function () {
+      var overlay = document.getElementById('media-drawer-overlay');
+      var drawer  = document.getElementById('media-drawer');
+      if (!overlay || !drawer) return;
+
+      var drawerTitle    = document.getElementById('drawer-title');
+      var drawerSubtitle = document.getElementById('drawer-subtitle');
+      var drawerBadgeRow = document.getElementById('drawer-badge-row');
+      var drawerPoster   = document.getElementById('drawer-poster-img');
+      var drawerBody     = document.getElementById('drawer-body');
+      var drawerFooter   = document.getElementById('drawer-footer');
+      var drawerFooterNote = document.getElementById('drawer-footer-note');
+      var closeBtn       = document.getElementById('drawer-close');
+
+      function openDrawer(card) {
+        var type   = card.dataset.type;
+        var title  = card.dataset.title  || '';
+        var year   = card.dataset.year   || '';
+        var status = card.dataset.status || '';
+        var art    = card.dataset.art    || '0';
+        var badge  = card.dataset.badge  || '';
+
+        drawerTitle.textContent    = title;
+        drawerSubtitle.textContent = year ? year + (status ? ' · ' + status : '') : status;
+        drawerPoster.className     = 'drawer-poster drawer-poster-art art-' + art;
+
+        drawerBadgeRow.innerHTML = '';
+        if (badge) {
+          var b = document.createElement('span');
+          b.className = 'poster-badge badge-' + badge;
+          b.textContent = badge.toUpperCase();
+          drawerBadgeRow.appendChild(b);
+        }
+
+        drawerBody.innerHTML = '';
+
+        if (type === 'tv') {
+          var seasonCount = parseInt(card.dataset.seasonCount || '0', 10);
+          var seasons = [];
+          try { seasons = JSON.parse(card.dataset.seasons || '[]'); } catch (e) {}
+
+          if (seasons.length) {
+            var label = document.createElement('div');
+            label.className = 'drawer-section-label';
+            label.textContent = seasonCount + ' Season' + (seasonCount !== 1 ? 's' : '');
+            drawerBody.appendChild(label);
+
+            var block = document.createElement('div');
+            block.className = 'drawer-season-block';
+            seasons.forEach(function (s) {
+              var row = document.createElement('div');
+              row.className = 'drawer-season-row';
+              row.innerHTML =
+                '<span class="drawer-season-lbl">S' + s.number + '</span>' +
+                '<div class="season-bar" style="flex:1">' +
+                  '<div class="season-bar-fill" style="width:' + s.pct + '%"></div>' +
+                '</div>' +
+                '<span class="drawer-season-pct">' + s.pct + '%</span>';
+              block.appendChild(row);
+            });
+            drawerBody.appendChild(block);
+          }
+        }
+
+        var eligible = card.querySelector('.eligible-strip');
+        var pending  = card.querySelector('.pending-strip');
+        if (eligible || pending) {
+          drawerFooter.hidden = false;
+          drawerFooterNote.textContent = eligible ? 'Eligible for deletion' : 'Pending admin review';
+        } else {
+          drawerFooter.hidden = true;
+          drawerFooterNote.textContent = '';
+        }
+
+        overlay.classList.add('open');
+        drawer.hidden = false;
+        requestAnimationFrame(function () { drawer.classList.add('open'); });
+      }
+
+      function closeDrawer() {
+        drawer.classList.remove('open');
+        overlay.classList.remove('open');
+        drawer.addEventListener('transitionend', function handler() {
+          drawer.hidden = true;
+          drawer.removeEventListener('transitionend', handler);
+        });
+      }
+
+      document.getElementById('poster-grid') && document.getElementById('poster-grid').addEventListener('click', function (e) {
+        var card = e.target.closest('.poster-card');
+        if (!card) return;
+        if (e.target.closest('.remedy-btn') || e.target.closest('.diagnose-btn')) return;
+        openDrawer(card);
+      });
+
+      closeBtn.addEventListener('click', closeDrawer);
+      overlay.addEventListener('click', closeDrawer);
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeDrawer();
+      });
+    })();
+
+    // Diagnose buttons on stat tiles
+    (function () {
+      document.querySelectorAll('.diagnose-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var tile = btn.closest('.stat-tile');
+          var resultEl = tile.querySelector('.stat-insight');
+          if (!resultEl) {
+            resultEl = document.createElement('div');
+            resultEl.className = 'stat-insight';
+            tile.appendChild(resultEl);
+          }
+          resultEl.innerHTML = '<span class="insight-loading">Diagnosing…</span>';
+
+          var issueType = btn.dataset.issue;
+          var context = {};
+          if (issueType === 'disk_pressure') {
+            context = { path: btn.dataset.path, used_pct: parseFloat(btn.dataset.pct) };
+          } else if (issueType === 'service_unreachable') {
+            context = { service: btn.dataset.service };
+          }
+
+          fetch('/api/diagnose', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ issue_type: issueType, context: context })
+          })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var html = '';
+            if (data.narrative) {
+              html += '<p class="insight-narrative">' + _esc(data.narrative) + '</p>';
+            }
+            if (data.remedies && data.remedies.length) {
+              html += '<div class="insight-remedies">';
+              data.remedies.forEach(function (rem) {
+                html += '<button class="remedy-btn" data-tool="' + _esc(rem.tool) + '">' + _esc(rem.label) + '</button>';
+              });
+              html += '</div>';
+            }
+            resultEl.innerHTML = html || '<p class="insight-narrative">No diagnosis available.</p>';
+          })
+          .catch(function () {
+            resultEl.innerHTML = '<p class="insight-narrative">Diagnosis failed.</p>';
+          });
+        });
+      });
+
+      function _esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+    })();
+
+    // Remedy buttons — copy tool name to clipboard
+    (function () {
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.remedy-btn');
+        if (!btn || !btn.dataset.tool) return;
+        var tool = btn.dataset.tool;
+        navigator.clipboard && navigator.clipboard.writeText(tool).then(function () {
+          btn.classList.add('copied');
+          var orig = btn.textContent;
+          btn.textContent = 'Copied: ' + tool;
+          setTimeout(function () {
+            btn.classList.remove('copied');
+            btn.textContent = orig;
+          }, 2000);
+        });
       });
     })();
   </script>
