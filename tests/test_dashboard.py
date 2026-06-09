@@ -311,3 +311,121 @@ async def test_stacks_present_for_compose_runtime(tmp_path) -> None:
     ) as client:
         r = await client.get("/api/status")
     assert len(r.json()["stacks"]) > 0
+
+
+# ---------------------------------------------------------------------------
+# POST /api/diagnose
+# ---------------------------------------------------------------------------
+
+
+async def test_api_diagnose_requires_issue_type(public_settings: Settings) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.post("/api/diagnose", json={"context": {}})
+    assert r.status_code == 400
+    assert "issue_type" in r.json()["error"]
+
+
+async def test_api_diagnose_rejects_missing_key(private_settings: Settings) -> None:
+    app = _make_app(private_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.post("/api/diagnose", json={"issue_type": "disk_pressure", "context": {}})
+    assert r.status_code == 401
+
+
+async def test_api_diagnose_returns_fallback_when_null_provider(
+    public_settings: Settings,
+) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.post(
+            "/api/diagnose",
+            json={"issue_type": "disk_pressure", "context": {"path": "/data", "used_pct": 92}},
+        )
+    assert r.status_code == 200
+    data = r.json()
+    assert "remedies" in data
+    assert len(data["remedies"]) > 0
+    assert all("label" in rem and "tool" in rem for rem in data["remedies"])
+
+
+async def test_api_diagnose_fallback_contains_known_tools(public_settings: Settings) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.post(
+            "/api/diagnose",
+            json={
+                "issue_type": "failed_download",
+                "context": {"title": "Show S01E01", "error": "timeout"},
+            },
+        )
+    data = r.json()
+    tools = [rem["tool"] for rem in data["remedies"]]
+    assert any("sonarr" in t or "sabnzbd" in t for t in tools)
+
+
+async def test_api_diagnose_unknown_issue_type_returns_empty_remedies(
+    public_settings: Settings,
+) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.post(
+            "/api/diagnose",
+            json={"issue_type": "totally_unknown", "context": {}},
+        )
+    assert r.status_code == 200
+    data = r.json()
+    assert "remedies" in data
+    assert data["remedies"] == []
+
+
+async def test_api_diagnose_with_ai_provider_returns_narrative(
+    public_settings: Settings,
+) -> None:
+    """When AI provider returns a valid response, it is passed through."""
+    mock_provider = MagicMock()
+    mock_provider.complete_structured = AsyncMock(
+        return_value={
+            "narrative": "The disk is nearly full.",
+            "remedies": [{"label": "Clean up", "tool": "watched_cleanup_preview", "args": {}}],
+        }
+    )
+
+    from arr_mcp.dashboard.routes import make_dashboard_routes
+    from arr_mcp.runtime.client import ContainerClient
+
+    mock_client = MagicMock(spec=ContainerClient)
+    mock_client.get = AsyncMock(return_value=[])
+
+    routes = make_dashboard_routes(mock_client, public_settings, mock_provider)
+
+    async def _app(scope, receive, send):
+        from starlette.applications import Starlette
+        from starlette.routing import Route
+
+        app = Starlette(
+            routes=[Route("/api/diagnose", endpoint=routes["api_diagnose"], methods=["POST"])]
+        )
+        await app(scope, receive, send)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=_app), base_url="http://test"
+    ) as client:
+        r = await client.post(
+            "/api/diagnose",
+            json={"issue_type": "disk_pressure", "context": {"used_pct": 95}},
+        )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["narrative"] == "The disk is nearly full."
+    assert len(data["remedies"]) == 1

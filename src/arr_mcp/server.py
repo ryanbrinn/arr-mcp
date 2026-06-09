@@ -82,7 +82,9 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         # Health, dashboard, and static assets bypass Bearer auth —
         # the dashboard does its own key-in-query-param check.
         path = request.url.path
-        is_dashboard = path in ("/health", "/", "/api/status") or path.startswith("/static/")
+        is_dashboard = path in ("/health", "/", "/api/status", "/api/diagnose") or path.startswith(
+            "/static/"
+        )
         if is_dashboard:
             return await call_next(request)
         auth = request.headers.get("Authorization", "")
@@ -96,7 +98,6 @@ def create_app(settings: Settings) -> Starlette:
     client = ContainerClient(settings)
     ai_provider = get_provider(settings)
     mcp_server = build_mcp_server(settings, client, ai_provider)
-    dashboard = make_dashboard_routes(client, settings)
 
     # Initialise the session manager and extract the /mcp route handler.
     # We then run session_manager.run() in our own lifespan so the task group
@@ -107,6 +108,7 @@ def create_app(settings: Settings) -> Starlette:
 
     alert_watcher = AlertWatcher(settings)
     version_checker = VersionChecker(settings)
+    dashboard = make_dashboard_routes(client, settings, ai_provider)
 
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
@@ -123,6 +125,7 @@ def create_app(settings: Settings) -> Starlette:
         Route("/health", endpoint=health_check),
         Route("/", endpoint=dashboard["dashboard"]),
         Route("/api/status", endpoint=dashboard["api_status"]),
+        Route("/api/diagnose", endpoint=dashboard["api_diagnose"], methods=["POST"]),
         Mount("/static", app=StaticFiles(directory=str(_STATIC_DIR)), name="static"),
         mcp_route,
     ]

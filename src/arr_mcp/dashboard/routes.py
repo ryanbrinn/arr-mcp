@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from starlette.requests import Request
@@ -12,7 +12,11 @@ from starlette.responses import HTMLResponse, JSONResponse, Response
 
 from arr_mcp.config import Settings
 from arr_mcp.dashboard.data import get_status
+from arr_mcp.dashboard.diagnose import diagnose
 from arr_mcp.runtime.client import ContainerClient
+
+if TYPE_CHECKING:
+    from arr_mcp.ai.provider import AIProvider
 
 log = logging.getLogger(__name__)
 
@@ -88,8 +92,12 @@ def _check_auth(request: Request, settings: Settings) -> bool:
     return key == settings.api_key
 
 
-def make_dashboard_routes(client: ContainerClient, settings: Settings) -> dict[str, Any]:
-    """Return the two dashboard route handlers as a dict."""
+def make_dashboard_routes(
+    client: ContainerClient,
+    settings: Settings,
+    ai_provider: AIProvider | None = None,
+) -> dict[str, Any]:
+    """Return the dashboard route handlers as a dict."""
     jinja = _get_jinja_env()
 
     async def handle_dashboard(request: Request) -> Response:
@@ -117,7 +125,50 @@ def make_dashboard_routes(client: ContainerClient, settings: Settings) -> dict[s
             return JSONResponse({"error": str(exc)}, status_code=500)
         return JSONResponse(status)
 
+    async def handle_api_diagnose(request: Request) -> Response:
+        """Run contextual AI diagnosis on a specific issue type.
+
+        POST /api/diagnose
+        Body: {"issue_type": str, "context": dict}
+
+        Returns: {"narrative": str, "remedies": [{label, tool, args}]}
+
+        When no AI provider is configured, returns rule-based remedies only.
+        """
+        if not _check_auth(request, settings):
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+        issue_type = body.get("issue_type", "")
+        context = body.get("context", {})
+
+        if not issue_type:
+            return JSONResponse({"error": "issue_type is required"}, status_code=400)
+
+        if not isinstance(context, dict):
+            return JSONResponse({"error": "context must be an object"}, status_code=400)
+
+        if ai_provider is None:
+            from arr_mcp.ai.null import NullProvider
+
+            provider = NullProvider()
+        else:
+            provider = ai_provider
+
+        try:
+            result = await diagnose(provider, issue_type, context)
+        except Exception as exc:
+            log.exception("Diagnose handler error for issue_type=%s", issue_type)
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+        return JSONResponse(result)
+
     return {
         "dashboard": handle_dashboard,
         "api_status": handle_api_status,
+        "api_diagnose": handle_api_diagnose,
     }

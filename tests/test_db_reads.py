@@ -135,5 +135,3 @@ def test_read_indexers_no_table(tmp_path: Path) -> None:
         conn.execute("CREATE TABLE Foo (Id INTEGER PRIMARY KEY)")
         conn.commit()
     assert read_indexers(db) == []
-
-
