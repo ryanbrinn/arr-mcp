@@ -7,7 +7,7 @@ import logging
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 from mcp.server.fastmcp import FastMCP
@@ -17,11 +17,11 @@ from arr_mcp.config import Settings
 from arr_mcp.runtime.client import ContainerClient
 from arr_mcp.tools.services import (
     KNOWN_SERVICES,
-    DiagnosticReport,
-    Issue,
     ScannedService,
-    run_diagnostics,
 )
+
+if TYPE_CHECKING:
+    from arr_mcp.services.registry import ServiceRegistry
 
 log = logging.getLogger(__name__)
 
@@ -83,6 +83,67 @@ def _scan_services(services_dir: Path, running_names: set[str]) -> list[ScannedS
     return results
 
 
+async def _check_service_http_health(
+    service_name: str, registry: ServiceRegistry
+) -> dict[str, object]:
+    """Call a service's HTTP health endpoint and return a structured result dict."""
+    from arr_mcp.services.arr import ArrClient, HealthItem
+    from arr_mcp.services.base import ServiceNotConfiguredError
+
+    try:
+        service_client = registry.get_client(service_name)
+    except ServiceNotConfiguredError as exc:
+        return {
+            "service": service_name,
+            "reachable": False,
+            "status": "unknown",
+            "issues": [],
+            "error": str(exc),
+        }
+
+    if isinstance(service_client, ArrClient):
+        health_result = await service_client.get_health()
+    else:
+        health_result = await service_client.health()
+
+    if not health_result.ok:
+        return {
+            "service": service_name,
+            "reachable": False,
+            "status": "critical",
+            "issues": [],
+            "error": health_result.error or f"HTTP {health_result.status_code}",
+        }
+
+    items: list[dict[str, str]] = []
+    if isinstance(health_result.data, list):
+        for item in health_result.data:
+            if isinstance(item, HealthItem):
+                items.append(
+                    {
+                        "source": item.source,
+                        "type": item.type,
+                        "message": item.message,
+                        "wiki_url": item.wiki_url,
+                    }
+                )
+
+    types = {i["type"] for i in items}
+    if "error" in types:
+        status = "critical"
+    elif "warning" in types:
+        status = "degraded"
+    else:
+        status = "healthy"
+
+    return {
+        "service": service_name,
+        "reachable": True,
+        "status": status,
+        "issues": items,
+    }
+
+
 def register_diagnostic_tools(server: FastMCP, settings: Settings, client: ContainerClient) -> None:
     """Register service diagnostic tools with the MCP server."""
 
@@ -107,52 +168,37 @@ def register_diagnostic_tools(server: FastMCP, settings: Settings, client: Conta
         return [TextContent(type="text", text=json.dumps([s.to_dict() for s in results]))]
 
     @server.tool()
-    async def service_diagnose(service: str, service_dir: str) -> list[TextContent]:
-        """Run expert diagnostics on a specific media service.
+    async def service_api_health(service: str) -> list[TextContent]:
+        """Check a service's live health endpoint via its HTTP API.
 
-        Checks config file validity, API key presence, port bindings,
-        integration links, and recent log errors. Returns structured JSON
-        with a status field ("healthy" | "degraded" | "critical" | "unknown"),
-        a list of issues with fix hints, and a list of passing checks.
+        For arr apps (sonarr, radarr, lidarr, prowlarr, readarr) calls
+        /api/v3/health to retrieve the application's internal health checks.
+        For other configured services, pings the status endpoint.
+
+        Returns JSON with reachable (bool), status ("healthy" | "degraded" |
+        "critical" | "unknown"), and a list of health issues. The service must
+        have credentials configured via credential_set.
 
         Args:
             service: App name, e.g. "sonarr", "radarr", "plex".
-            service_dir: Absolute path to the service config directory.
         """
-        p = _check_diagnostic_path(service_dir, settings)
-        info = KNOWN_SERVICES.get(service.lower())
+        from arr_mcp.services.registry import ServiceRegistry
 
-        if info is None:
-            report = DiagnosticReport(
-                service=service,
-                service_dir=str(p),
-                status="unknown",
-                warnings=[
-                    Issue(
-                        severity="info",
-                        category="config",
-                        message=(
-                            f"'{service}' is not in the known service registry — "
-                            "no expert checks available."
-                        ),
-                        fix_hint="",
-                    )
-                ],
-                ok=[f"Directory exists: {p}"] if p.exists() else [],
-            )
-        else:
-            report = run_diagnostics(service.lower(), p, info)
-
-        return [TextContent(type="text", text=json.dumps(report.to_dict()))]
+        registry = ServiceRegistry(settings.services_dir)
+        result = await _check_service_http_health(service.lower(), registry)
+        return [TextContent(type="text", text=json.dumps(result))]
 
     @server.tool()
     async def service_health_report() -> list[TextContent]:
         """Scan all services and return a unified health report.
 
-        Discovers every known service in services_dir, runs expert diagnostics
-        on each, and returns a JSON object containing per-service results and a
-        summary with counts of healthy, degraded, critical, and unknown services.
+        Discovers every known service in services_dir, performs an HTTP health
+        check on each configured service, and returns a JSON object with
+        per-service results and a summary. Services without credentials show as
+        "unknown". Unreachable services are marked "critical".
         """
+        from arr_mcp.services.registry import ServiceRegistry
+
         services_root = Path(settings.services_dir).resolve()
 
         running_names: set[str] = set()
@@ -163,6 +209,7 @@ def register_diagnostic_tools(server: FastMCP, settings: Settings, client: Conta
             log.warning("Could not fetch container list during service_health_report: %s", exc)
 
         scanned = _scan_services(services_root, running_names)
+        registry = ServiceRegistry(settings.services_dir)
 
         reports: list[dict[str, object]] = []
         summary: dict[str, int] = {"healthy": 0, "degraded": 0, "critical": 0, "unknown": 0}
@@ -170,10 +217,10 @@ def register_diagnostic_tools(server: FastMCP, settings: Settings, client: Conta
         for svc in scanned:
             if not svc.known:
                 continue
-            info = KNOWN_SERVICES[svc.name]
-            report = run_diagnostics(svc.name, Path(svc.service_dir), info)
-            reports.append(report.to_dict())
-            summary[report.status] = summary.get(report.status, 0) + 1
+            svc_result = await _check_service_http_health(svc.name, registry)
+            reports.append(svc_result)
+            status = str(svc_result.get("status", "unknown"))
+            summary[status] = summary.get(status, 0) + 1
 
         result: dict[str, object] = {
             "scanned_at": datetime.now(UTC).isoformat(),
