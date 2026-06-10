@@ -49,6 +49,14 @@ class SonarrClient(ArrClient):
 # ---------------------------------------------------------------------------
 
 
+def _parse_poster_url(images: list) -> str:  # type: ignore[type-arg]
+    """Return the remote (TMDB/TVDB-hosted) poster URL, if any."""
+    for image in images:
+        if image.get("coverType") == "poster":
+            return image.get("remoteUrl") or image.get("url") or ""
+    return ""
+
+
 def _parse_series(raw: dict) -> Series:  # type: ignore[type-arg]
     seasons = [
         SeasonSummary(
@@ -66,6 +74,7 @@ def _parse_series(raw: dict) -> Series:  # type: ignore[type-arg]
         status=raw.get("status", ""),
         monitored=raw.get("monitored", True),
         seasons=seasons,
+        poster_url=_parse_poster_url(raw.get("images", [])),
     )
 
 
