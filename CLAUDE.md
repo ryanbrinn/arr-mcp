@@ -159,13 +159,13 @@ chore: advance to Phase N — <phase name>
 
 ## Pre-PR Checklist
 
-Before opening a pull request, run these three commands in order:
+Before opening a pull request, run these commands in order:
 
 1. `/validate` — ruff format + lint + pyright. Fix all errors before continuing.
-2. `/test` — full pytest suite. Fix all failures before continuing.
-3. `/review` — checks implementation against the spec in `docs/specs/`. Fix any blockers.
+2. `/review` — checks implementation against the spec in `docs/specs/`. Fix any blockers.
 
-All three must pass clean before the PR is opened.
+Both must pass clean before the PR is opened. The full pytest suite is not run
+locally before pushing — CI runs it on push.
 
 ## Pull Requests
 
