@@ -229,9 +229,13 @@
                data-year="{{ s.year }}"
                data-status="{{ s.status | e }}"
                data-art="{{ s.art }}"
+               data-poster="{{ s.poster_url | e }}"
                data-season-count="{{ s.season_count }}"
                data-seasons='{{ s.seasons | tojson }}'>
-            <div class="poster-img art-{{ s.art }}">
+            <div class="poster-img {% if not s.poster_url %}art-{{ s.art }}{% endif %}">
+              {% if s.poster_url %}
+              <img class="poster-photo" src="{{ s.poster_url }}" alt="" loading="lazy">
+              {% endif %}
               <span class="poster-type">TV</span>
               <span class="poster-badge badge-{{ s.badge }}">
                 {%- if s.badge == "complete" %}COMPLETE
@@ -246,18 +250,10 @@
               </div>
             </div>
             <div class="card-footer">
-              {% if s.seasons %}
-              <div class="season-progress">
-                {% for season in s.seasons %}
-                <div class="season-bar-row">
-                  <span class="season-lbl">S{{ season.number }}</span>
-                  <div class="season-bar">
-                    <div class="season-bar-fill" style="width:{{ season.pct }}%"></div>
-                  </div>
-                </div>
-                {% endfor %}
+              <div class="availability-row">
+                <div class="season-bar"><div class="season-bar-fill" style="width:{{ s.availability_pct }}%"></div></div>
+                <span class="availability-pct">{{ s.availability_pct }}%</span>
               </div>
-              {% endif %}
               {% if s.eligible %}
               <div class="eligible-strip">eligible for deletion</div>
               {% elif s.pending %}
@@ -278,8 +274,12 @@
                data-title="{{ m.title | e }}"
                data-year="{{ m.year }}"
                data-status="{{ m.status | e }}"
-               data-art="{{ m.art }}">
-            <div class="poster-img art-{{ m.art }}">
+               data-art="{{ m.art }}"
+               data-poster="{{ m.poster_url | e }}">
+            <div class="poster-img {% if not m.poster_url %}art-{{ m.art }}{% endif %}">
+              {% if m.poster_url %}
+              <img class="poster-photo" src="{{ m.poster_url }}" alt="" loading="lazy">
+              {% endif %}
               <span class="poster-type">MOVIE</span>
               <span class="poster-badge badge-{{ m.badge }}">
                 {%- if m.badge == "complete" %}COMPLETE
@@ -293,6 +293,10 @@
               </div>
             </div>
             <div class="card-footer">
+              <div class="availability-row">
+                <div class="season-bar"><div class="season-bar-fill" style="width:{{ m.availability_pct }}%"></div></div>
+                <span class="availability-pct">{{ m.availability_pct }}%</span>
+              </div>
               {% if m.eligible %}
               <div class="eligible-strip">eligible for deletion</div>
               {% elif m.pending %}
@@ -422,6 +426,10 @@
       var drawerFooterNote = document.getElementById('drawer-footer-note');
       var closeBtn       = document.getElementById('drawer-close');
 
+      function _esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
       function openDrawer(card) {
         var type   = card.dataset.type;
         var title  = card.dataset.title  || '';
@@ -429,10 +437,17 @@
         var status = card.dataset.status || '';
         var art    = card.dataset.art    || '0';
         var badge  = card.dataset.badge  || '';
+        var poster = card.dataset.poster || '';
 
         drawerTitle.textContent    = title;
         drawerSubtitle.textContent = year ? year + (status ? ' · ' + status : '') : status;
-        drawerPoster.className     = 'drawer-poster drawer-poster-art art-' + art;
+        if (poster) {
+          drawerPoster.className = 'drawer-poster';
+          drawerPoster.innerHTML = '<img class="drawer-poster-img" src="' + _esc(poster) + '" alt="">';
+        } else {
+          drawerPoster.className = 'drawer-poster drawer-poster-art art-' + art;
+          drawerPoster.innerHTML = '';
+        }
 
         drawerBadgeRow.innerHTML = '';
         if (badge) {

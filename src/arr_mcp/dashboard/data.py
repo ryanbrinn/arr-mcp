@@ -253,6 +253,8 @@ def _movie_badge(m: Any) -> str:
 
 def _series_card(s: Any, idx: int) -> dict[str, Any]:
     real_seasons = [ss for ss in s.seasons if ss.season_number > 0]
+    total_eps = sum(ss.episode_count for ss in real_seasons)
+    total_files = sum(ss.episode_file_count for ss in real_seasons)
     return {
         "id": s.id,
         "title": s.title,
@@ -271,8 +273,10 @@ def _series_card(s: Any, idx: int) -> dict[str, Any]:
             }
             for ss in real_seasons
         ],
+        "availability_pct": (int(total_files / total_eps * 100) if total_eps else 0),
         "badge": _series_badge(s),
         "art": idx % 8,
+        "poster_url": s.poster_url,
         "eligible": False,
         "pending": False,
     }
@@ -286,8 +290,10 @@ def _movie_card(m: Any, idx: int) -> dict[str, Any]:
         "status": m.status,
         "monitored": m.monitored,
         "has_file": m.has_file,
+        "availability_pct": 100 if m.has_file else 0,
         "badge": _movie_badge(m),
         "art": idx % 8,
+        "poster_url": m.poster_url,
         "movie_file_id": m.movie_file_id,
         "eligible": False,
         "pending": False,
