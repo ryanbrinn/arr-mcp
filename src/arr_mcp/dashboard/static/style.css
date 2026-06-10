@@ -991,9 +991,37 @@ h2 {
 .drawer-season-row {
   display: flex; align-items: center; gap: 0.5rem;
   font-size: 0.82rem;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 0.2rem 0.3rem;
+  margin: 0 -0.3rem;
 }
-.drawer-season-lbl { width: 20px; flex-shrink: 0; font-size: 0.72rem; font-weight: 700; color: var(--fg-muted); font-family: ui-monospace, monospace; }
+.drawer-season-row:hover, .drawer-season-row:focus-visible {
+  background: var(--border-hi);
+  outline: none;
+}
+.drawer-season-toggle {
+  width: 14px; flex-shrink: 0; font-size: 0.65rem; color: var(--fg-muted);
+}
+.drawer-season-lbl { width: 70px; flex-shrink: 0; font-size: 0.72rem; font-weight: 700; color: var(--fg-muted); font-family: ui-monospace, monospace; }
 .drawer-season-pct { width: 34px; text-align: right; font-size: 0.72rem; color: var(--fg-muted); flex-shrink: 0; }
+
+.drawer-episode-list {
+  display: flex; flex-direction: column; gap: 0.15rem;
+  padding: 0.3rem 0 0.3rem 1.7rem;
+}
+.drawer-episode-row {
+  display: flex; align-items: center; gap: 0.6rem;
+  font-size: 0.76rem; color: var(--fg-muted);
+}
+.drawer-episode-num {
+  width: 24px; flex-shrink: 0; text-align: right;
+  font-family: ui-monospace, monospace; font-size: 0.7rem;
+}
+.drawer-episode-title { color: var(--fg); }
+.drawer-episode-loading {
+  font-size: 0.76rem; color: var(--fg-muted); padding: 0.2rem 0;
+}
 
 .drawer-footer {
   padding: 1rem 1.5rem;

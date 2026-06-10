@@ -411,3 +411,63 @@ async def test_api_diagnose_with_ai_provider_returns_narrative(
     data = r.json()
     assert data["narrative"] == "The disk is nearly full."
     assert len(data["remedies"]) == 1
+
+
+async def test_api_series_episodes_returns_404_when_unconfigured(
+    public_settings: Settings,
+) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get("/api/series/1/episodes")
+    assert r.status_code == 404
+
+
+async def test_api_series_episodes_returns_episodes(public_settings: Settings) -> None:
+    from arr_mcp.services.base import ApiResult
+    from arr_mcp.services.models import Episode
+
+    episodes = [
+        Episode(
+            id=2,
+            series_id=1,
+            season_number=1,
+            episode_number=2,
+            title="Second",
+            has_file=True,
+        ),
+        Episode(
+            id=1,
+            series_id=1,
+            season_number=1,
+            episode_number=1,
+            title="First",
+            has_file=True,
+        ),
+        Episode(
+            id=3,
+            series_id=1,
+            season_number=2,
+            episode_number=1,
+            title="Other Season",
+            has_file=False,
+        ),
+    ]
+    mock_sonarr = MagicMock()
+    mock_sonarr.get_episodes = AsyncMock(return_value=ApiResult(ok=True, data=episodes))
+
+    app = _make_app(public_settings)
+    with patch(
+        "arr_mcp.services.registry.ServiceRegistry.get_client",
+        return_value=mock_sonarr,
+    ):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            r = await client.get("/api/series/1/episodes?season=1")
+
+    assert r.status_code == 200
+    data = r.json()
+    assert [e["episode_number"] for e in data["episodes"]] == [1, 2]
+    assert data["episodes"][0]["title"] == "First"

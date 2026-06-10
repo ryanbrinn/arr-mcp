@@ -90,6 +90,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             path in ("/health", "/", "/api/status", "/api/diagnose")
             or path.startswith("/static/")
             or path.startswith("/auth/")
+            or (path.startswith("/api/series/") and path.endswith("/episodes"))
         )
         if is_dashboard:
             return await call_next(request)
@@ -136,6 +137,10 @@ def create_app(settings: Settings) -> Starlette:
         Route("/", endpoint=dashboard["dashboard"]),
         Route("/api/status", endpoint=dashboard["api_status"]),
         Route("/api/diagnose", endpoint=dashboard["api_diagnose"], methods=["POST"]),
+        Route(
+            "/api/series/{id:int}/episodes",
+            endpoint=dashboard["api_series_episodes"],
+        ),
         Route("/auth/signin", endpoint=dashboard["auth_signin"]),
         Route("/auth/plex/start", endpoint=dashboard["auth_plex_start"]),
         Route("/auth/plex/callback", endpoint=dashboard["auth_plex_callback"]),

@@ -438,6 +438,7 @@
         var art    = card.dataset.art    || '0';
         var badge  = card.dataset.badge  || '';
         var poster = card.dataset.poster || '';
+        var seriesId = card.dataset.id || '';
 
         drawerTitle.textContent    = title;
         drawerSubtitle.textContent = year ? year + (status ? ' · ' + status : '') : status;
@@ -475,13 +476,60 @@
             seasons.forEach(function (s) {
               var row = document.createElement('div');
               row.className = 'drawer-season-row';
+              row.tabIndex = 0;
               row.innerHTML =
-                '<span class="drawer-season-lbl">S' + s.number + '</span>' +
+                '<span class="drawer-season-toggle">▸</span>' +
+                '<span class="drawer-season-lbl">Season ' + s.number + '</span>' +
                 '<div class="season-bar" style="flex:1">' +
                   '<div class="season-bar-fill" style="width:' + s.pct + '%"></div>' +
                 '</div>' +
                 '<span class="drawer-season-pct">' + s.pct + '%</span>';
+
+              var episodeList = document.createElement('div');
+              episodeList.className = 'drawer-episode-list';
+              episodeList.hidden = true;
+              var loaded = false;
+
+              function toggleSeason() {
+                var toggle = row.querySelector('.drawer-season-toggle');
+                if (!episodeList.hidden) {
+                  episodeList.hidden = true;
+                  toggle.textContent = '▸';
+                  return;
+                }
+                episodeList.hidden = false;
+                toggle.textContent = '▾';
+                if (loaded) return;
+                loaded = true;
+                episodeList.innerHTML = '<div class="drawer-episode-loading">Loading…</div>';
+                fetch('/api/series/' + seriesId + '/episodes?season=' + s.number)
+                  .then(function (r) { return r.json(); })
+                  .then(function (data) {
+                    episodeList.innerHTML = '';
+                    (data.episodes || []).forEach(function (ep) {
+                      var epRow = document.createElement('div');
+                      epRow.className = 'drawer-episode-row';
+                      epRow.innerHTML =
+                        '<span class="drawer-episode-num">' + ep.episode_number + '</span>' +
+                        '<span class="drawer-episode-title">' + _esc(ep.title) + '</span>';
+                      episodeList.appendChild(epRow);
+                    });
+                  })
+                  .catch(function () {
+                    episodeList.innerHTML = '<div class="drawer-episode-loading">Failed to load episodes.</div>';
+                  });
+              }
+
+              row.addEventListener('click', toggleSeason);
+              row.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  toggleSeason();
+                }
+              });
+
               block.appendChild(row);
+              block.appendChild(episodeList);
             });
             drawerBody.appendChild(block);
           }

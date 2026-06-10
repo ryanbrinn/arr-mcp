@@ -138,6 +138,60 @@ def make_dashboard_routes(
 
         return JSONResponse(result)
 
+    async def handle_api_series_episodes(request: Request) -> Response:
+        """Return episodes for a series, optionally filtered by season.
+
+        GET /api/series/{id}/episodes?season=N
+        """
+        if not _check_auth(request, settings):
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+        from arr_mcp.services.base import ServiceNotConfiguredError
+        from arr_mcp.services.registry import ServiceRegistry
+
+        series_id = request.path_params["id"]
+        season = request.query_params.get("season")
+
+        registry = ServiceRegistry(settings.services_dir)
+        try:
+            sonarr = registry.get_client("sonarr")
+        except ServiceNotConfiguredError:
+            return JSONResponse({"error": "Sonarr is not configured"}, status_code=404)
+
+        try:
+            result = await sonarr.get_episodes(series_id)  # type: ignore[attr-defined]
+        except Exception as exc:
+            log.exception("Error fetching episodes for series_id=%s", series_id)
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+        if not result.ok or not isinstance(result.data, list):
+            error = result.error or "Unknown error"
+            return JSONResponse({"error": error}, status_code=502)
+
+        episodes = result.data
+        if season is not None:
+            try:
+                season_num = int(season)
+                episodes = [e for e in episodes if e.season_number == season_num]
+            except ValueError:
+                pass
+
+        episodes.sort(key=lambda e: e.episode_number)
+
+        return JSONResponse(
+            {
+                "episodes": [
+                    {
+                        "episode_number": e.episode_number,
+                        "season_number": e.season_number,
+                        "title": e.title,
+                        "has_file": e.has_file,
+                    }
+                    for e in episodes
+                ]
+            }
+        )
+
     async def handle_auth_signin(request: Request) -> Response:
         """Render the Plex sign-in page."""
         error = request.query_params.get("error", "")
@@ -196,6 +250,7 @@ def make_dashboard_routes(
         "dashboard": handle_dashboard,
         "api_status": handle_api_status,
         "api_diagnose": handle_api_diagnose,
+        "api_series_episodes": handle_api_series_episodes,
         "auth_signin": handle_auth_signin,
         "auth_plex_start": handle_auth_plex_start,
         "auth_plex_callback": handle_auth_plex_callback,
