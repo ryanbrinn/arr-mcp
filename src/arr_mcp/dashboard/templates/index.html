@@ -59,23 +59,27 @@
         </div>
       </section>
 
-      <!-- Service Connectivity -->
+      <!-- Service Health Ring -->
       {% if status.connectivity %}
       <section>
-        <h2>Service Connectivity</h2>
-        <div class="conn-grid">
-          {% for svc in status.connectivity %}
-          <div class="conn-item">
-            <span class="conn-dot {% if svc.reachable %}dot-green{% elif svc.status == 'unconfigured' %}dot-muted{% else %}dot-red{% endif %}"></span>
-            <span class="conn-name">{{ svc.name }}</span>
-            <span class="conn-status {% if svc.reachable %}text-green{% elif svc.status == 'unconfigured' %}text-muted{% else %}text-red{% endif %}">
-              {% if svc.reachable %}ok{% elif svc.status == 'unconfigured' %}no creds{% else %}unreachable{% endif %}
-            </span>
+        <div class="ring-hero">
+          <div class="ring-chart-wrap">
+            <svg class="ring-svg" id="infra-ring" viewBox="0 0 300 300"
+                 role="img" aria-label="Service health ring chart"></svg>
+            <div class="ring-center">
+              <div class="ring-ok-count" id="ring-ok-count">—</div>
+              <div class="ring-ok-label">services OK</div>
+            </div>
           </div>
-          {% endfor %}
+          <div class="ring-legend" id="ring-legend"></div>
         </div>
       </section>
       {% endif %}
+
+      <!-- Embedded service data for ring chart JS -->
+      <script id="infra-data" type="application/json">
+      {{ {"connectivity": status.connectivity, "containers": status.containers, "alerts": status.alerts_recent, "upgrades": status.upgrades} | tojson }}
+      </script>
 
       <!-- Active Alerts -->
       {% if status.alerts_recent %}
@@ -376,6 +380,32 @@
     </main>
   </div>
 
+  <!-- Infrastructure service drawer -->
+  <div class="drawer-overlay" id="infra-overlay"></div>
+  <div class="drawer" id="infra-drawer" hidden>
+    <div class="drawer-header">
+      <div class="infra-drawer-icon" id="infra-drawer-icon"></div>
+      <div class="drawer-title-block">
+        <div class="drawer-title" id="infra-drawer-title"></div>
+        <div class="drawer-subtitle" id="infra-drawer-subtitle"></div>
+        <div class="drawer-badge-row" id="infra-drawer-badges"></div>
+      </div>
+      <button class="drawer-close" id="infra-drawer-close" aria-label="Close">✕</button>
+    </div>
+    <div class="drawer-body" id="infra-drawer-body"></div>
+    <div class="drawer-footer" id="infra-drawer-footer" hidden>
+      <button class="remedy-btn" id="infra-btn-restart">Restart container</button>
+      <button class="remedy-btn" id="infra-btn-logs">View logs</button>
+    </div>
+  </div>
+
+  <!-- Ring tooltip -->
+  <div class="ring-tooltip" id="ring-tooltip" hidden aria-hidden="true">
+    <div class="ring-tooltip-name" id="rtt-name"></div>
+    <div class="ring-tooltip-status" id="rtt-status"></div>
+    <div class="ring-tooltip-detail" id="rtt-detail"></div>
+  </div>
+
   <!-- Poster drawer -->
   <div class="drawer-overlay" id="media-drawer-overlay"></div>
   <div class="drawer" id="media-drawer" hidden>
@@ -603,6 +633,290 @@
           }, 2000);
         });
       });
+    })();
+
+    // Infrastructure ring chart
+    (function () {
+      var dataEl = document.getElementById('infra-data');
+      if (!dataEl) return;
+      var raw = JSON.parse(dataEl.textContent);
+      var connectivity = raw.connectivity || [];
+      var containers   = raw.containers  || [];
+      var alerts       = raw.alerts      || [];
+      var upgrades     = raw.upgrades    || [];
+      if (!connectivity.length) return;
+
+      // Index containers, most-critical alert per service, upgrades
+      var containerOf = {};
+      containers.forEach(function (c) { containerOf[c.name] = c; });
+
+      var SEV = ['critical','major','warning','minor','info','patch','unknown'];
+      var alertOf = {};
+      alerts.forEach(function (a) {
+        var prev = alertOf[a.service];
+        if (!prev || SEV.indexOf(a.severity) < SEV.indexOf(prev.severity)) {
+          alertOf[a.service] = a;
+        }
+      });
+
+      var upgradeOf = {};
+      upgrades.forEach(function (u) { upgradeOf[u.service] = u; });
+
+      // Health colour per service
+      var COLOUR = { green: '#22c55e', amber: '#f59e0b', red: '#ef4444', grey: '#2a2844' };
+      function health(svc) {
+        if (svc.status === 'unconfigured') return 'grey';
+        if (!svc.reachable) return 'red';
+        var a = alertOf[svc.name];
+        if (a && (a.severity === 'critical' || a.severity === 'major')) return 'red';
+        if (a && a.severity === 'warning') return 'amber';
+        if (upgradeOf[svc.name]) return 'amber';
+        return 'green';
+      }
+
+      // Service icon abbreviation
+      var ICONS = {
+        sonarr:'SN',radarr:'RD',prowlarr:'PR',bazarr:'BZ',lidarr:'LI',
+        readarr:'RE',overseerr:'OV',jellyseerr:'JS',plex:'PX',jellyfin:'JF',
+        emby:'EM',sabnzbd:'SAB',nzbget:'NZB',qbittorrent:'QB',deluge:'DL',
+        transmission:'TR',nginx:'NX',traefik:'TK',portainer:'PT',
+        watchtower:'WT','arr-mcp':'MCP','arr-agent':'AG'
+      };
+      function icon(name) {
+        var l = name.toLowerCase();
+        for (var k in ICONS) { if (l.indexOf(k) !== -1) return ICONS[k]; }
+        return name.slice(0,2).toUpperCase() || '??';
+      }
+
+      // SVG arc path (0° = top, clockwise)
+      function arc(cx, cy, R, r, a0, a1) {
+        var s = a0 * Math.PI / 180, e = a1 * Math.PI / 180;
+        var lg = (a1 - a0) > 180 ? 1 : 0;
+        function p(rad, ang) { return [cx + rad*Math.sin(ang), cy - rad*Math.cos(ang)]; }
+        var os=p(R,s),oe=p(R,e),is=p(r,s),ie=p(r,e);
+        return ['M',os[0].toFixed(2),os[1].toFixed(2),
+                'A',R,R,0,lg,1,oe[0].toFixed(2),oe[1].toFixed(2),
+                'L',ie[0].toFixed(2),ie[1].toFixed(2),
+                'A',r,r,0,lg,0,is[0].toFixed(2),is[1].toFixed(2),'Z'].join(' ');
+      }
+
+      // Build SVG segments and legend
+      var svg    = document.getElementById('infra-ring');
+      var legend = document.getElementById('ring-legend');
+      var N = connectivity.length;
+      var CX=150, CY=150, R=115, r=68, GAP=2.5;
+      var step = 360 / N, okCount = 0;
+
+      connectivity.forEach(function (svc, i) {
+        var h = health(svc);
+        var col = COLOUR[h];
+        if (h === 'green') okCount++;
+        var a0 = i * step + GAP/2, a1 = (i+1)*step - GAP/2;
+
+        var path = document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d', arc(CX,CY,R,r,a0,a1));
+        path.setAttribute('fill', col);
+        path.setAttribute('class','ring-seg');
+        path.dataset.idx = i;
+        svg.appendChild(path);
+
+        // Radial label
+        var mid = (a0+a1)/2 * Math.PI/180;
+        var lx = CX + (R+16)*Math.sin(mid), ly = CY - (R+16)*Math.cos(mid);
+        var txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+        txt.setAttribute('x', lx.toFixed(1));
+        txt.setAttribute('y', ly.toFixed(1));
+        txt.setAttribute('text-anchor','middle');
+        txt.setAttribute('dominant-baseline','middle');
+        txt.setAttribute('class','ring-label');
+        txt.setAttribute('fill', h==='grey' ? '#6b6890' : col);
+        txt.dataset.idx = i;
+        txt.textContent = icon(svc.name);
+        svg.appendChild(txt);
+
+        // Legend row
+        var a = alertOf[svc.name], u = upgradeOf[svc.name];
+        var statusTxt = svc.status==='unconfigured' ? 'no creds' : svc.reachable ? 'online' : 'offline';
+        var extra = a ? a.severity+' alert' : u ? '↑ upgrade' : '';
+        var li = document.createElement('div');
+        li.className = 'ring-legend-item';
+        li.dataset.svcName = svc.name;
+        li.innerHTML =
+          '<span class="ring-legend-dot" style="background:'+col+'"></span>'+
+          '<span class="ring-legend-icon">'+_esc(icon(svc.name))+'</span>'+
+          '<span class="ring-legend-name">'+_esc(svc.name)+'</span>'+
+          '<span class="ring-legend-status" style="color:'+col+'">'+_esc(statusTxt)+'</span>'+
+          (extra ? '<span class="ring-legend-extra">'+_esc(extra)+'</span>' : '');
+        legend.appendChild(li);
+      });
+
+      document.getElementById('ring-ok-count').textContent = okCount+'/'+N;
+
+      // Tooltip
+      var tip   = document.getElementById('ring-tooltip');
+      var tName = document.getElementById('rtt-name');
+      var tStat = document.getElementById('rtt-status');
+      var tDet  = document.getElementById('rtt-detail');
+
+      function showTip(svc, evt) {
+        var h = health(svc), col = COLOUR[h];
+        var a = alertOf[svc.name], u = upgradeOf[svc.name], c = containerOf[svc.name];
+        tName.textContent = svc.name;
+        tStat.style.color = col;
+        tStat.textContent = svc.status==='unconfigured' ? 'Not configured'
+          : svc.reachable ? 'Online' : 'Offline';
+        var lines = [];
+        if (c) lines.push('Container: '+c.status);
+        if (a) lines.push(a.severity+': '+a.message.slice(0,60));
+        if (u) lines.push('Upgrade: '+u.current_version+' → '+u.latest_version);
+        tDet.textContent = lines.join('\n');
+        tip.hidden = false;
+        moveTip(evt);
+      }
+      function moveTip(evt) {
+        var x = evt.clientX+14, y = evt.clientY-10;
+        if (x+240 > window.innerWidth) x = evt.clientX-250;
+        tip.style.left = x+'px'; tip.style.top = y+'px';
+      }
+
+      svg.addEventListener('mousemove', function (e) {
+        var t = e.target.closest('[data-idx]');
+        if (!t) { tip.hidden=true; return; }
+        showTip(connectivity[+t.dataset.idx], e);
+      });
+      svg.addEventListener('mouseleave', function () { tip.hidden=true; });
+      legend.addEventListener('mousemove', function (e) {
+        var li = e.target.closest('.ring-legend-item');
+        if (!li) { tip.hidden=true; return; }
+        var svc = connectivity.find(function(s){return s.name===li.dataset.svcName;});
+        if (svc) showTip(svc, e);
+      });
+      legend.addEventListener('mouseleave', function () { tip.hidden=true; });
+      document.addEventListener('mousemove', function (e) {
+        if (!tip.hidden) moveTip(e);
+      });
+
+      // Drawer
+      var overlay  = document.getElementById('infra-overlay');
+      var drawer   = document.getElementById('infra-drawer');
+      var dTitle   = document.getElementById('infra-drawer-title');
+      var dSub     = document.getElementById('infra-drawer-subtitle');
+      var dBadges  = document.getElementById('infra-drawer-badges');
+      var dIcon    = document.getElementById('infra-drawer-icon');
+      var dBody    = document.getElementById('infra-drawer-body');
+      var dFooter  = document.getElementById('infra-drawer-footer');
+      var btnRestart = document.getElementById('infra-btn-restart');
+      var btnLogs    = document.getElementById('infra-btn-logs');
+
+      function openDrawer(svc) {
+        tip.hidden = true;
+        var h = health(svc), col = COLOUR[h];
+        var c = containerOf[svc.name], a = alertOf[svc.name], u = upgradeOf[svc.name];
+
+        dIcon.textContent = icon(svc.name);
+        dIcon.style.background = col+'22'; dIcon.style.color = col;
+        dTitle.textContent = svc.name;
+        dSub.textContent = svc.status==='unconfigured' ? 'Not configured'
+          : svc.reachable ? 'Online' : 'Offline';
+        dSub.style.color = col;
+
+        dBadges.innerHTML = '';
+        if (a) {
+          var ab=document.createElement('span');
+          ab.className='badge badge-'+a.severity; ab.textContent=a.severity+' alert';
+          dBadges.appendChild(ab);
+        }
+        if (u) {
+          var ub=document.createElement('span');
+          ub.className='badge badge-'+u.risk; ub.textContent='↑ '+u.risk;
+          dBadges.appendChild(ub);
+        }
+
+        var html = '';
+        if (c) {
+          html += '<div class="drawer-section"><div class="drawer-section-title">Container</div>';
+          html += '<dl class="drawer-dl">';
+          html += '<dt>Status</dt><dd>'+_esc(c.status)+'</dd>';
+          if (c.health) html += '<dt>Health</dt><dd>'+_esc(c.health)+'</dd>';
+          if (c.uptime_seconds) html += '<dt>Uptime</dt><dd>'+_esc(_uptime(c.uptime_seconds))+'</dd>';
+          html += '<dt>Image</dt><dd class="mono small">'+_esc(c.image||'—')+'</dd>';
+          html += '</dl></div>';
+        }
+
+        html += '<div class="drawer-section"><div class="drawer-section-title">API</div>';
+        html += '<dl class="drawer-dl">';
+        html += '<dt>Reachable</dt><dd style="color:'+col+'">'+_esc(svc.status==='unconfigured'?'no creds':svc.reachable?'yes':'no')+'</dd>';
+        if (!svc.reachable && svc.error) html += '<dt>Error</dt><dd class="small">'+_esc(svc.error)+'</dd>';
+        html += '</dl></div>';
+
+        if (u) {
+          html += '<div class="drawer-section"><div class="drawer-section-title">Upgrade Available</div>';
+          html += '<dl class="drawer-dl">';
+          html += '<dt>Current</dt><dd class="mono">'+_esc(u.current_version)+'</dd>';
+          html += '<dt>Latest</dt><dd class="mono text-green">'+_esc(u.latest_version)+'</dd>';
+          html += '<dt>Risk</dt><dd><span class="badge badge-'+_esc(u.risk)+'">'+_esc(u.risk)+'</span></dd>';
+          if (u.changelog_summary) html += '<dt>Notes</dt><dd class="small fg-dim">'+_esc(u.changelog_summary)+'</dd>';
+          html += '</dl></div>';
+        }
+
+        if (a) {
+          html += '<div class="drawer-section"><div class="drawer-section-title">Active Alert</div>';
+          html += '<dl class="drawer-dl">';
+          html += '<dt>Rule</dt><dd class="mono small">'+_esc(a.rule)+'</dd>';
+          html += '<dt>Message</dt><dd>'+_esc(a.message)+'</dd>';
+          html += '<dt>Fired</dt><dd class="mono small fg-dim">'+_esc((a.fired_at||'').slice(0,19).replace('T',' '))+'</dd>';
+          html += '</dl></div>';
+        }
+
+        dBody.innerHTML = html;
+
+        if (c) {
+          btnRestart.dataset.tool = 'container_restart';
+          btnLogs.dataset.tool    = 'container_logs';
+          dFooter.hidden = false;
+        } else {
+          dFooter.hidden = true;
+        }
+
+        overlay.classList.add('open');
+        drawer.hidden = false;
+        requestAnimationFrame(function () { drawer.classList.add('open'); });
+      }
+
+      function closeDrawer() {
+        drawer.classList.remove('open');
+        overlay.classList.remove('open');
+        drawer.addEventListener('transitionend', function h() {
+          drawer.hidden = true;
+          drawer.removeEventListener('transitionend', h);
+        });
+      }
+
+      svg.addEventListener('click', function (e) {
+        var t = e.target.closest('[data-idx]');
+        if (t) openDrawer(connectivity[+t.dataset.idx]);
+      });
+      legend.addEventListener('click', function (e) {
+        var li = e.target.closest('.ring-legend-item');
+        if (!li) return;
+        var svc = connectivity.find(function(s){return s.name===li.dataset.svcName;});
+        if (svc) openDrawer(svc);
+      });
+      document.getElementById('infra-drawer-close').addEventListener('click', closeDrawer);
+      overlay.addEventListener('click', closeDrawer);
+      document.addEventListener('keydown', function (e) {
+        if (e.key==='Escape' && !drawer.hidden) closeDrawer();
+      });
+
+      function _uptime(s) {
+        if (s<60) return s+'s';
+        if (s<3600) return Math.floor(s/60)+'m';
+        if (s<86400) return Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m';
+        return Math.floor(s/86400)+'d '+Math.floor((s%86400)/3600)+'h';
+      }
+      function _esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
     })();
 
     // Auto-refresh — preserves URL hash (and therefore active tab) unlike meta refresh
