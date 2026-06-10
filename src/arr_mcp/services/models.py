@@ -25,6 +25,7 @@ class Series:
     status: str = ""
     monitored: bool = True
     seasons: list[SeasonSummary] = field(default_factory=list)
+    poster_url: str = ""
 
 
 @dataclass
@@ -63,6 +64,7 @@ class Movie:
     status: str = ""
     monitored: bool = True
     movie_file_id: int | None = None
+    poster_url: str = ""
 
 
 @dataclass

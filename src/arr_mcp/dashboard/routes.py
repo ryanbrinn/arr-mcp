@@ -32,57 +32,6 @@ log = logging.getLogger(__name__)
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
-# Known service name fragments → short label shown in the icon badge.
-# Matched case-insensitively against the container name.
-_SERVICE_LABELS: dict[str, str] = {
-    "sonarr": "SN",
-    "radarr": "RD",
-    "prowlarr": "PR",
-    "bazarr": "BZ",
-    "lidarr": "LI",
-    "readarr": "RE",
-    "overseerr": "OV",
-    "jellyseerr": "JS",
-    "plex": "PX",
-    "jellyfin": "JF",
-    "emby": "EM",
-    "sabnzbd": "SAB",
-    "nzbget": "NZB",
-    "qbittorrent": "QB",
-    "deluge": "DL",
-    "transmission": "TR",
-    "nginx": "NX",
-    "traefik": "TK",
-    "certbot": "CB",
-    "fail2ban": "F2B",
-    "portainer": "PT",
-    "watchtower": "WT",
-    "arr-mcp": "MCP",
-    "arr-agent": "AG",
-}
-
-
-def _service_icon(name: str) -> str:
-    """Return a short label for a known service, or the first two chars of the name."""
-    lower = name.lower()
-    for fragment, label in _SERVICE_LABELS.items():
-        if fragment in lower:
-            return label
-    return name[:2].upper() if name else "?"
-
-
-def _fmt_uptime(seconds: int) -> str:
-    """Format uptime seconds into a human-readable string."""
-    if seconds < 60:
-        return f"{seconds}s"
-    if seconds < 3600:
-        return f"{seconds // 60}m"
-    if seconds < 86400:
-        h, m = divmod(seconds, 3600)
-        return f"{h}h {m // 60}m"
-    d, rem = divmod(seconds, 86400)
-    return f"{d}d {rem // 3600}h"
-
 
 def _get_jinja_env() -> Environment:
     import json
@@ -93,8 +42,6 @@ def _get_jinja_env() -> Environment:
         loader=FileSystemLoader(str(_TEMPLATES_DIR)),
         autoescape=select_autoescape(["html"]),
     )
-    env.filters["uptime"] = _fmt_uptime
-    env.filters["service_icon"] = _service_icon
     env.filters["tojson"] = lambda v: Markup(json.dumps(v))
     return env
 
@@ -191,6 +138,45 @@ def make_dashboard_routes(
 
         return JSONResponse(result)
 
+    async def handle_api_series_episodes(request: Request) -> Response:
+        """Return per-episode availability for a Sonarr series.
+
+        GET /api/series/{id}/episodes
+        """
+        if not _check_auth(request, settings):
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+        from arr_mcp.services.base import ServiceNotConfiguredError
+        from arr_mcp.services.registry import ServiceRegistry
+
+        series_id = request.path_params["id"]
+        registry = ServiceRegistry(settings.services_dir)
+        try:
+            sonarr = registry.get_client("sonarr")
+        except ServiceNotConfiguredError:
+            return JSONResponse({"error": "Sonarr not configured"}, status_code=404)
+
+        try:
+            result = await sonarr.get_episodes(series_id)  # type: ignore[attr-defined]
+        except Exception as exc:
+            log.exception("Error fetching episodes for series %s", series_id)
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+        if not result.ok or not isinstance(result.data, list):
+            return JSONResponse({"error": "Could not fetch episodes"}, status_code=502)
+
+        episodes = [
+            {
+                "id": e.id,
+                "season_number": e.season_number,
+                "episode_number": e.episode_number,
+                "title": e.title,
+                "has_file": e.has_file,
+            }
+            for e in result.data
+        ]
+        return JSONResponse({"episodes": episodes})
+
     async def handle_auth_signin(request: Request) -> Response:
         """Render the Plex sign-in page."""
         error = request.query_params.get("error", "")
@@ -249,6 +235,7 @@ def make_dashboard_routes(
         "dashboard": handle_dashboard,
         "api_status": handle_api_status,
         "api_diagnose": handle_api_diagnose,
+        "api_series_episodes": handle_api_series_episodes,
         "auth_signin": handle_auth_signin,
         "auth_plex_start": handle_auth_plex_start,
         "auth_plex_callback": handle_auth_plex_callback,
