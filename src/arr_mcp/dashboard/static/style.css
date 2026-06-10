@@ -224,13 +224,13 @@ h2 {
 .ring-chart-wrap {
   position: relative;
   flex-shrink: 0;
-  width: 300px;
-  height: 300px;
+  width: 200px;
+  height: 200px;
 }
 
 .ring-svg {
-  width: 300px;
-  height: 300px;
+  width: 200px;
+  height: 200px;
   display: block;
   overflow: visible;
 }
@@ -314,33 +314,14 @@ h2 {
 }
 
 .ring-legend-name {
-  flex: 0 1 auto;
-  max-width: 40%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1;
   font-size: 0.85rem;
   color: var(--fg);
-}
-
-.ring-legend-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-left: auto;
-  flex-shrink: 0;
 }
 
 .ring-legend-status {
   font-size: 0.72rem;
   font-weight: 600;
-  flex-shrink: 0;
-}
-
-.ring-legend-uptime {
-  font-size: 0.68rem;
-  color: var(--fg-muted);
-  font-family: ui-monospace, monospace;
   flex-shrink: 0;
 }
 
