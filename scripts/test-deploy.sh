@@ -121,6 +121,11 @@ ssh "$TEST_USER@$TEST_HOST" bash <<ENDSSH
 
   # Ensure test stack data dirs exist and seed configs
   mkdir -p test-stack/data/sonarr test-stack/data/radarr test-stack/data/sabnzbd test-stack/data/plex
+  mkdir -p test-stack/data/media/tv test-stack/data/media/movies
+  # linuxserver containers run as PUID/PGID 1001 ("abc"); the rootless podman
+  # user namespace maps that to a high UID on the host, so chown via
+  # `podman unshare` rather than a plain chown.
+  podman unshare chown -R 1001:1001 test-stack/data/media
   for svc in sonarr radarr; do
     if [ -d test-stack/seed/\$svc ]; then
       cp -n test-stack/seed/\$svc/* test-stack/data/\$svc/ 2>/dev/null || true

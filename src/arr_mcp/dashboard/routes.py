@@ -85,12 +85,17 @@ def _fmt_uptime(seconds: int) -> str:
 
 
 def _get_jinja_env() -> Environment:
+    import json
+
+    from markupsafe import Markup
+
     env = Environment(
         loader=FileSystemLoader(str(_TEMPLATES_DIR)),
         autoescape=select_autoescape(["html"]),
     )
     env.filters["uptime"] = _fmt_uptime
     env.filters["service_icon"] = _service_icon
+    env.filters["tojson"] = lambda v: Markup(json.dumps(v))
     return env
 
 
