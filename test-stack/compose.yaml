@@ -25,6 +25,7 @@ services:
       - TZ=UTC
     volumes:
       - ./data/sonarr:/config
+      - ./data/media/tv:/data/tv
     ports:
       - "18989:8989"
     restart: unless-stopped
@@ -38,6 +39,7 @@ services:
       - TZ=UTC
     volumes:
       - ./data/radarr:/config
+      - ./data/media/movies:/data/movies
     ports:
       - "17878:7878"
     restart: unless-stopped
