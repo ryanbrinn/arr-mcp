@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>arr-mcp — Infrastructure Tab Mockup v2</title>
+  <style>
+    :root {
+      --bg:        #0b0b14;
+      --bg-card:   #11101e;
+      --bg-row:    #16142a;
+      --border:    #1e1c38;
+      --border-hi: #252040;
+      --violet:    #a78bfa;
+      --violet-dk: #7c5cfc;
+      --fg:        #ede9f8;
+      --fg-dim:    #6b6890;
+      --fg-muted:  #3d3a5c;
+      --green:     #22c55e;
+      --amber:     #f59e0b;
+      --red:       #ef4444;
+      --blue:      #60a5fa;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      background: var(--bg); color: var(--fg); font-size: 14px; line-height: 1.5;
+    }
+
+    header {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.65rem 1.5rem;
+      background: var(--bg-card); border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .logo { font-weight: 700; font-size: 1rem; color: var(--violet); font-family: ui-monospace, monospace; }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 1rem; }
+    .updated { color: var(--fg-dim); font-size: 0.8rem; }
+    .ai-badge {
+      font-size: 0.72rem; padding: 0.2rem 0.55rem; border-radius: 999px;
+      background: #1a1335; border: 1px solid var(--violet-dk); color: var(--violet);
+    }
+    .ai-badge::before { content: "✦ "; font-size: 0.65rem; }
+
+    .tabs {
+      display: flex; padding: 0 1.5rem;
+      background: var(--bg-card); border-bottom: 1px solid var(--border);
+      position: sticky; top: 45px; z-index: 10;
+    }
+    .tab {
+      padding: 0.6rem 1.25rem; font-size: 0.82rem; color: var(--fg-dim);
+      cursor: pointer; border-bottom: 2px solid transparent; user-select: none;
+    }
+    .tab.active { color: var(--violet); border-bottom-color: var(--violet); }
+
+    main { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+    section {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1rem 1.25rem;
+    }
+    h2 {
+      font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--violet); margin-bottom: 0.75rem;
+    }
+
+    /* Stat tiles */
+    .stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem; }
+    .stat-tile {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1rem 1.25rem;
+    }
+    .stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-dim); }
+    .stat-value { font-size: 1.75rem; font-weight: 700; line-height: 1.1; font-family: ui-monospace, monospace; }
+    .stat-value.green { color: var(--green); } .stat-value.amber { color: var(--amber); } .stat-value.red { color: var(--red); }
+    .stat-sub { font-size: 0.75rem; color: var(--fg-muted); margin-top: 0.15rem; }
+
+    /* Bars */
+    .bar-track { background: var(--border-hi); border-radius: 4px; height: 8px; overflow: hidden; }
+    .bar-fill  { height: 8px; background: var(--violet); border-radius: 4px; }
+    .bar-warn  { background: var(--amber); } .bar-danger { background: var(--red); }
+
+    /* Tables */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--fg-dim); padding:0.3rem 0.5rem; border-bottom:1px solid var(--border); }
+    .data-table td { padding:0.45rem 0.5rem; border-bottom:1px solid var(--border-hi); font-size:0.85rem; }
+    .data-table tr:last-child td { border-bottom:none; }
+    .data-table tr:hover td { background:var(--bg-row); }
+
+    .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:0.4rem; vertical-align:middle; }
+    .dot-green { background:var(--green); box-shadow:0 0 4px var(--green); }
+    .dot-amber { background:var(--amber); } .dot-red { background:var(--red); }
+    .name-cell { display:flex; align-items:center; gap:0.35rem; }
+    .svc-icon { width:22px; height:18px; border-radius:4px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; font-size:10px; background:var(--violet-dk); color:#fff; font-weight:700; }
+
+    .pill { display:inline-block; font-size:0.68rem; padding:0.1rem 0.45rem; border-radius:999px; font-weight:600; }
+    .pill-green  { background:#0d3320; color:var(--green); }
+    .pill-amber  { background:#2e1f05; color:var(--amber); }
+    .pill-red    { background:#2e0a0a; color:var(--red); }
+
+    /* AI insight */
+    .ai-insight {
+      background:#0d0b1a; border:1px solid var(--violet-dk); border-radius:8px;
+      padding:1rem 1.25rem; display:flex; gap:0.75rem;
+    }
+    .ai-icon { color:var(--violet); flex-shrink:0; margin-top:0.1rem; }
+    .ai-label { font-size:0.68rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--violet); font-weight:600; margin-bottom:0.3rem; }
+    .ai-text { font-size:0.85rem; color:var(--fg-dim); line-height:1.6; }
+    .ai-text strong { color:var(--fg); }
+    .ai-provider { margin-top:0.5rem; font-size:0.72rem; color:var(--fg-muted); }
+
+    /* Alerts */
+    .alert-list { display:flex; flex-direction:column; gap:0.4rem; }
+    .alert-row { display:flex; gap:0.6rem; align-items:flex-start; padding:0.45rem 0.5rem; border-radius:6px; background:var(--bg-row); font-size:0.82rem; }
+    .alert-msg { flex:1; color:var(--fg-dim); }
+    .alert-msg strong { color:var(--fg); }
+    .alert-time { color:var(--fg-muted); font-size:0.75rem; white-space:nowrap; }
+
+    /* Disk table */
+    .disk-table { width:100%; border-collapse:collapse; }
+    .disk-table td { padding:0.3rem 0.5rem; }
+    .path { font-family:monospace; font-size:0.82rem; color:var(--fg-dim); width:200px; }
+    .bar-cell { width:100%; } .pct { width:50px; text-align:right; color:var(--fg-dim); font-size:0.82rem; }
+    .detail { width:130px; text-align:right; color:var(--fg-muted); font-size:0.78rem; }
+
+    .btn-ghost { background:transparent; border:1px solid var(--border-hi); color:var(--fg-dim); border-radius:6px; cursor:pointer; }
+    .btn-sm { padding:0.2rem 0.6rem; font-size:0.72rem; border-radius:4px; }
+
+    /* ── Ring hero ── */
+    .ring-hero { display:flex; align-items:center; gap:2rem; }
+    .ring-chart-wrap { position:relative; width:220px; height:220px; flex-shrink:0; }
+    .ring-svg { width:100%; height:100%; }
+    .ring-center {
+      position:absolute; inset:0; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; pointer-events:none;
+    }
+    .ring-ok-count { font-size:2.2rem; font-weight:700; font-family:ui-monospace,monospace; color:var(--fg); }
+    .ring-ok-label { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--fg-dim); }
+    .ring-legend { display:flex; flex-direction:column; gap:0.5rem; flex:1; }
+    .ring-legend-row { display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; }
+    .ring-legend-row .dot { width:10px; height:10px; }
+    .ring-legend-name { flex:1; }
+    .ring-legend-status { color:var(--fg-dim); font-size:0.78rem; }
+
+    /* Stacks */
+    .stack-table { width:100%; border-collapse:collapse; }
+    .stack-table th { text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--fg-dim); padding:0.3rem 0.5rem; border-bottom:1px solid var(--border); }
+    .stack-table td { padding:0.45rem 0.5rem; border-bottom:1px solid var(--border-hi); font-size:0.85rem; }
+    .stack-table tr:last-child td { border-bottom:none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:0.5rem">
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect width="22" height="22" rx="5" fill="#7c5cfc"/><path d="M5 11h12M11 5l6 6-6 6" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="logo">arr-mcp</span>
+  </div>
+  <div class="header-right">
+    <span class="ai-badge">Ollama llama3.2:3b</span>
+    <span class="updated">Last updated: 2026-06-08 14:32 UTC</span>
+  </div>
+</header>
+
+<nav class="tabs">
+  <div class="tab active">Infrastructure</div>
+  <div class="tab">Media Library</div>
+</nav>
+
+<main>
+
+  <!-- 1. Stat tiles -->
+  <div class="stat-grid">
+    <div class="stat-tile"><div class="stat-value green">8 <span style="font-size:1rem;color:var(--fg-muted)">/ 8</span></div><div class="stat-label">Containers Running</div></div>
+    <div class="stat-tile"><div class="stat-value amber">78<span style="font-size:1rem">%</span></div><div class="stat-label">Disk Used</div></div>
+    <div class="stat-tile"><div class="stat-value red">2</div><div class="stat-label">Active Alerts</div></div>
+    <div class="stat-tile"><div class="stat-value amber">3</div><div class="stat-label">Upgrades Available</div></div>
+  </div>
+
+  <!-- 2. AI Insight (now appears before the ring chart) -->
+  <div class="ai-insight">
+    <div class="ai-icon">✦</div>
+    <div>
+      <div class="ai-label">AI Insight</div>
+      <div class="ai-text"><strong>Radarr's SABnzbd download client has been unreachable for 47 minutes.</strong> SABnzbd is healthy on port 8080 — this is likely a container network misconfiguration. Check that Radarr's download client host is set to the container name (<code>sabnzbd</code>) rather than <code>localhost</code>. Two movies are stuck in the queue. Disk usage is approaching 80% — 42 GB of watched content is eligible for cleanup.</div>
+      <div class="ai-provider">Generated by Ollama llama3.2:3b · refreshed every 5 min</div>
+    </div>
+  </div>
+
+  <!-- 3. Service Health Ring (moved below AI insight, Service Connectivity removed) -->
+  <section>
+    <h2>Service Health</h2>
+    <div class="ring-hero">
+      <div class="ring-chart-wrap">
+        <svg class="ring-svg" viewBox="0 0 300 300" role="img" aria-label="Service health ring chart">
+          <circle cx="150" cy="150" r="120" fill="none" stroke="var(--border-hi)" stroke-width="22"/>
+          <circle cx="150" cy="150" r="120" fill="none" stroke="var(--green)" stroke-width="22"
+                  stroke-dasharray="678 754" stroke-linecap="round"
+                  transform="rotate(-90 150 150)"/>
+          <circle cx="150" cy="150" r="120" fill="none" stroke="var(--red)" stroke-width="22"
+                  stroke-dasharray="76 754" stroke-dashoffset="-678" stroke-linecap="round"
+                  transform="rotate(-90 150 150)"/>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-ok-count">7/8</div>
+          <div class="ring-ok-label">services OK</div>
+        </div>
+      </div>
+      <div class="ring-legend">
+        <div class="ring-legend-row"><span class="dot dot-green"></span><span class="ring-legend-name">plex</span><span class="ring-legend-status">healthy · 12d 4h</span></div>
+        <div class="ring-legend-row"><span class="dot dot-green"></span><span class="ring-legend-name">sonarr</span><span class="ring-legend-status">healthy · 12d 4h</span></div>
+        <div class="ring-legend-row"><span class="dot dot-green"></span><span class="ring-legend-name">radarr</span><span class="ring-legend-status">healthy · 12d 4h</span></div>
+        <div class="ring-legend-row"><span class="dot dot-red"></span><span class="ring-legend-name">sabnzbd</span><span class="ring-legend-status">unreachable from radarr</span></div>
+        <div class="ring-legend-row"><span class="dot dot-green"></span><span class="ring-legend-name">prowlarr</span><span class="ring-legend-status">healthy · 12d 4h</span></div>
+        <div class="ring-legend-row"><span class="dot dot-green"></span><span class="ring-legend-name">bazarr</span><span class="ring-legend-status">healthy · 12d 4h</span></div>
+        <div class="ring-legend-row"><span class="dot dot-green"></span><span class="ring-legend-name">arr-mcp</span><span class="ring-legend-status">healthy · 2d 1h</span></div>
+        <div class="ring-legend-row"><span class="dot dot-green"></span><span class="ring-legend-name">arr-agent</span><span class="ring-legend-status">running · 2d 1h</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Recent Alerts + Available Upgrades -->
+  <div class="two-col">
+    <section>
+      <h2>Recent Alerts</h2>
+      <div class="alert-list">
+        <div class="alert-row"><span>🔴</span><div class="alert-msg"><strong>radarr → sabnzbd</strong> unreachable — 2 movies stuck</div><span class="alert-time">47m ago</span></div>
+        <div class="alert-row"><span>🟡</span><div class="alert-msg"><strong>/media-server</strong> at 78% — approaching 80% threshold</div><span class="alert-time">2h ago</span></div>
+        <div class="alert-row"><span>🟡</span><div class="alert-msg"><strong>sonarr</strong> — 3 error lines in recent logs</div><span class="alert-time">6h ago</span></div>
+        <div class="alert-row"><span>🟢</span><div class="alert-msg"><strong>radarr → sabnzbd</strong> resolved — was down 12m</div><span class="alert-time">1d ago</span></div>
+      </div>
+    </section>
+    <section>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+        <h2 style="margin-bottom:0">Available Upgrades</h2>
+        <span class="pill pill-amber">3 updates</span>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Service</th><th>Current</th><th>Latest</th><th>Risk</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><span class="name-cell"><span class="svc-icon">SN</span>sonarr</span></td><td style="color:var(--fg-muted);font-family:monospace;font-size:0.8rem">4.0.8</td><td style="color:var(--green);font-family:monospace;font-size:0.8rem">4.0.9</td><td><span class="pill pill-green">patch</span></td><td><button class="btn-ghost btn-sm">Notes</button></td></tr>
+          <tr><td><span class="name-cell"><span class="svc-icon">RD</span>radarr</span></td><td style="color:var(--fg-muted);font-family:monospace;font-size:0.8rem">5.8.3</td><td style="color:var(--green);font-family:monospace;font-size:0.8rem">5.9.0</td><td><span class="pill pill-amber">minor</span></td><td><button class="btn-ghost btn-sm">Notes</button></td></tr>
+          <tr><td><span class="name-cell"><span class="svc-icon">PX</span>plex</span></td><td style="color:var(--fg-muted);font-family:monospace;font-size:0.8rem">1.40.3</td><td style="color:var(--green);font-family:monospace;font-size:0.8rem">1.41.0</td><td><span class="pill pill-amber">minor</span></td><td><button class="btn-ghost btn-sm">Notes</button></td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <!-- 5. Disk Usage -->
+  <section>
+    <h2>Disk Usage</h2>
+    <table class="disk-table">
+      <tr><td class="path">/media-server</td><td class="bar-cell"><div class="bar-track"><div class="bar-fill bar-warn" style="width:78%"></div></div></td><td class="pct">78%</td><td class="detail">3.9 / 5.0 TB</td></tr>
+      <tr><td class="path">/opt/stacks</td><td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:12%"></div></div></td><td class="pct">12%</td><td class="detail">1.2 / 10 GB</td></tr>
+      <tr><td class="path">/downloads</td><td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:34%"></div></div></td><td class="pct">34%</td><td class="detail">340 / 1.0 TB</td></tr>
+    </table>
+  </section>
+
+  <!-- 6. Stacks (existing production section, unchanged) -->
+  <section>
+    <h2>Stacks</h2>
+    <table class="stack-table">
+      <thead><tr><th>Name</th><th>Running</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td><span class="name-cell"><span class="dot dot-green"></span>media-stack</span></td><td>7 / 7</td><td>healthy</td></tr>
+        <tr><td><span class="name-cell"><span class="dot dot-green"></span>arr-mcp</span></td><td>1 / 1</td><td>healthy</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+</main>
+
+</body>
+</html>
