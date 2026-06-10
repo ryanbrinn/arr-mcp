@@ -11,3 +11,5 @@ dist/
 test-stack/data/
 .devcontainer/devcontainer-lock.json
 .mcp.json.prod
+.claude/launch.json
+.vscode/
