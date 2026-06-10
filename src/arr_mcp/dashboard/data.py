@@ -465,7 +465,8 @@ _RISK_GUIDANCE: dict[str, str] = {
 
 def _format_upgrade_notes(risk: str, changelog_summary: str) -> str:
     """Return user-facing upgrade notes describing impact and next steps."""
-    cleaned = _GENERIC_BRANCH_NOTE_RE.sub("", changelog_summary or "").strip()
+    cleaned = _GENERIC_BRANCH_NOTE_RE.sub("", changelog_summary or "")
+    cleaned = cleaned.strip(" \t\n\r*-•").strip()
     guidance = _RISK_GUIDANCE.get(risk, _RISK_GUIDANCE["unknown"])
     if cleaned:
         return f"{guidance} {cleaned[:240]}"
