@@ -126,29 +126,6 @@
       </section>
       {% endif %}
 
-      <!-- Upgrade Recommendations -->
-      {% if status.upgrades %}
-      <section>
-        <h2>Upgrade Recommendations</h2>
-        <table class="upgrade-table">
-          <thead>
-            <tr><th>Service</th><th>Current</th><th>Latest</th><th>Risk</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            {% for u in status.upgrades %}
-            <tr>
-              <td><span class="svc-icon">{{ u.service | service_icon }}</span> {{ u.service }}</td>
-              <td class="mono fg-dim">{{ u.current_version }}</td>
-              <td class="mono text-green">{{ u.latest_version }}</td>
-              <td><span class="badge badge-{{ u.risk }}">{{ u.risk }}</span></td>
-              <td class="fg-dim small">{{ u.changelog_summary }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </section>
-      {% endif %}
-
       <!-- Disk Usage -->
       {% if status.disk %}
       <section>
@@ -170,37 +147,6 @@
         </table>
       </section>
       {% endif %}
-
-      <!-- Containers -->
-      <section>
-        <h2>Containers</h2>
-        {% if status.containers %}
-        <table class="container-table">
-          <thead>
-            <tr><th>Name</th><th>Image</th><th>Status</th><th>Health</th><th>Uptime</th></tr>
-          </thead>
-          <tbody>
-            {% for c in status.containers %}
-            <tr>
-              <td>
-                <span class="name-cell">
-                  <span class="dot {% if c.status == 'running' %}dot-green{% elif c.status in ('restarting', 'paused') %}dot-amber{% else %}dot-red{% endif %}"></span>
-                  <span class="svc-icon">{{ c.name | service_icon }}</span>
-                  {{ c.name }}
-                </span>
-              </td>
-              <td class="image">{{ c.image }}</td>
-              <td>{{ c.status }}</td>
-              <td>{{ c.health or "—" }}</td>
-              <td>{{ c.uptime_seconds | uptime if c.uptime_seconds else "—" }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        {% else %}
-        <p class="empty">No containers found.</p>
-        {% endif %}
-      </section>
 
       <!-- Stacks -->
       {% if status.stacks %}

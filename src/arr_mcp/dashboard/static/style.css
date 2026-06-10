@@ -224,13 +224,13 @@ h2 {
 .ring-chart-wrap {
   position: relative;
   flex-shrink: 0;
-  width: 200px;
-  height: 200px;
+  width: 300px;
+  height: 300px;
 }
 
 .ring-svg {
-  width: 200px;
-  height: 200px;
+  width: 300px;
+  height: 300px;
   display: block;
   overflow: visible;
 }
@@ -447,33 +447,6 @@ h2 {
 .badge-unknown                { background: rgba(107,104,144,0.2);  color: var(--fg-dim); }
 
 /* =====================================================================
-   Upgrades
-   ===================================================================== */
-
-.upgrade-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.upgrade-table th {
-  text-align: left;
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--fg-dim);
-  padding: 0.3rem 0.5rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.upgrade-table td {
-  padding: 0.4rem 0.5rem;
-  border-bottom: 1px solid var(--border-hi);
-  vertical-align: middle;
-}
-
-.upgrade-table tr:last-child td { border-bottom: none; }
-
-/* =====================================================================
    Disk bars
    ===================================================================== */
 
@@ -489,15 +462,15 @@ h2 {
 .detail { width: 150px; text-align: right; color: var(--fg-muted); font-size: 0.78rem; }
 
 /* =====================================================================
-   Containers & Stacks
+   Stacks
    ===================================================================== */
 
-.container-table, .stack-table {
+.stack-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.container-table th, .stack-table th {
+.stack-table th {
   text-align: left;
   font-size: 0.68rem;
   text-transform: uppercase;
@@ -507,19 +480,15 @@ h2 {
   border-bottom: 1px solid var(--border);
 }
 
-.container-table td, .stack-table td {
+.stack-table td {
   padding: 0.45rem 0.5rem;
   border-bottom: 1px solid var(--border-hi);
   vertical-align: middle;
 }
 
-.container-table tr:last-child td,
 .stack-table tr:last-child td { border-bottom: none; }
 
-.container-table tr:hover td,
 .stack-table tr:hover td { background: var(--bg-row); }
-
-.image { color: var(--fg-muted); font-size: 0.78rem; font-family: monospace; }
 
 /* =====================================================================
    Status dot
