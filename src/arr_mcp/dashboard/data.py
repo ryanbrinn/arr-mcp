@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -441,6 +442,36 @@ def _get_recent_alerts(settings: Settings) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+# Boilerplate branch-switching notice that linuxserver/Sonarr-style release
+# notes append, which gives no insight into what actually changed.
+_GENERIC_BRANCH_NOTE_RE = re.compile(
+    r"To receive (further )?(pre-release|beta|final)?[\s\S]*?branch to \**\w+\**\.?",
+    re.IGNORECASE,
+)
+
+_RISK_GUIDANCE: dict[str, str] = {
+    "major": (
+        "Major version upgrade — may include breaking changes. "
+        "Review the release notes before upgrading."
+    ),
+    "minor": (
+        "Minor version upgrade — adds new features and is expected "
+        "to be backward compatible."
+    ),
+    "patch": "Patch upgrade — bug fixes only, low risk to apply.",
+    "unknown": "Update available. Review the release notes before upgrading.",
+}
+
+
+def _format_upgrade_notes(risk: str, changelog_summary: str) -> str:
+    """Return user-facing upgrade notes describing impact and next steps."""
+    cleaned = _GENERIC_BRANCH_NOTE_RE.sub("", changelog_summary or "").strip()
+    guidance = _RISK_GUIDANCE.get(risk, _RISK_GUIDANCE["unknown"])
+    if cleaned:
+        return f"{guidance} {cleaned[:240]}"
+    return guidance
+
+
 def _get_upgrade_list(settings: Settings) -> list[dict[str, Any]]:
     from arr_mcp.tasks.versions import VersionStore
 
@@ -452,9 +483,8 @@ def _get_upgrade_list(settings: Settings) -> list[dict[str, Any]]:
             "current_version": r.current_version,
             "latest_version": r.latest_version,
             "risk": r.risk,
-            "changelog_summary": r.changelog_summary[:120]
-            if r.changelog_summary
-            else "",
+            "changelog_summary": _format_upgrade_notes(r.risk, r.changelog_summary),
+            "upgrade_command": r.upgrade_command,
         }
         for r in recs
     ]

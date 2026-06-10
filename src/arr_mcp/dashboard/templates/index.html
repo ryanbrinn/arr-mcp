@@ -806,7 +806,11 @@
           html += '<dt>Latest</dt><dd class="mono text-green">'+_esc(u.latest_version)+'</dd>';
           html += '<dt>Risk</dt><dd><span class="badge badge-'+_esc(u.risk)+'">'+_esc(u.risk)+'</span></dd>';
           if (u.changelog_summary) html += '<dt>Notes</dt><dd class="small fg-dim">'+_esc(u.changelog_summary)+'</dd>';
-          html += '</dl></div>';
+          html += '</dl>';
+          if (u.upgrade_command) {
+            html += '<button class="remedy-btn" data-tool="'+_esc(u.upgrade_command)+'">Apply upgrade</button>';
+          }
+          html += '</div>';
         }
 
         if (a) {
