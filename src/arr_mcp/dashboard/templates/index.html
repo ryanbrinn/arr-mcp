@@ -681,9 +681,10 @@
         svg.appendChild(txt);
 
         // Legend row
-        var a = alertOf[svc.name], u = upgradeOf[svc.name];
+        var a = alertOf[svc.name], u = upgradeOf[svc.name], c = containerOf[svc.name];
         var statusTxt = svc.status==='unconfigured' ? 'no creds' : svc.reachable ? 'online' : 'offline';
         var extra = a ? a.severity+' alert' : u ? '↑ upgrade' : '';
+        var uptimeTxt = (c && c.uptime_seconds) ? _uptime(c.uptime_seconds) : '';
         var li = document.createElement('div');
         li.className = 'ring-legend-item';
         li.dataset.svcName = svc.name;
@@ -691,8 +692,11 @@
           '<span class="ring-legend-dot" style="background:'+col+'"></span>'+
           '<span class="ring-legend-icon">'+_esc(icon(svc.name))+'</span>'+
           '<span class="ring-legend-name">'+_esc(svc.name)+'</span>'+
-          '<span class="ring-legend-status" style="color:'+col+'">'+_esc(statusTxt)+'</span>'+
-          (extra ? '<span class="ring-legend-extra">'+_esc(extra)+'</span>' : '');
+          '<span class="ring-legend-meta">'+
+            '<span class="ring-legend-status" style="color:'+col+'">'+_esc(statusTxt)+'</span>'+
+            (uptimeTxt ? '<span class="ring-legend-uptime">'+_esc(uptimeTxt)+'</span>' : '')+
+            (extra ? '<span class="ring-legend-extra">'+_esc(extra)+'</span>' : '')+
+          '</span>';
         legend.appendChild(li);
       });
 
