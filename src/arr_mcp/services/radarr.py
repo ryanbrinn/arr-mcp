@@ -42,6 +42,14 @@ class RadarrClient(ArrClient):
 # ---------------------------------------------------------------------------
 
 
+def _parse_poster_url(images: list) -> str:  # type: ignore[type-arg]
+    """Return the remote (TMDB-hosted) poster URL, if any."""
+    for image in images:
+        if image.get("coverType") == "poster":
+            return image.get("remoteUrl") or image.get("url") or ""
+    return ""
+
+
 def _parse_movie(raw: dict) -> Movie:  # type: ignore[type-arg]
     return Movie(
         id=raw.get("id", 0),
@@ -52,6 +60,7 @@ def _parse_movie(raw: dict) -> Movie:  # type: ignore[type-arg]
         status=raw.get("status", ""),
         monitored=raw.get("monitored", True),
         movie_file_id=raw.get("movieFileId") or None,
+        poster_url=_parse_poster_url(raw.get("images", [])),
     )
 
 
