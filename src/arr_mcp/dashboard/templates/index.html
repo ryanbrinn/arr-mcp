@@ -59,6 +59,28 @@
         </div>
       </section>
 
+      <!-- AI Insights -->
+      {% if insights %}
+      <section>
+        <h2>AI Insights</h2>
+        {% for insight in insights %}
+        <div class="insight-card">
+          <div class="insight-type">{{ insight.type | replace("_", " ") | title }}</div>
+          {% if insight.narrative %}
+          <p class="insight-narrative">{{ insight.narrative }}</p>
+          {% endif %}
+          {% if insight.remedies %}
+          <div class="insight-remedies">
+            {% for remedy in insight.remedies %}
+            <button class="remedy-btn" data-tool="{{ remedy.tool | e }}">{{ remedy.label }}</button>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </section>
+      {% endif %}
+
       <!-- Service Health Ring -->
       {% if status.connectivity %}
       <section>
@@ -81,50 +103,60 @@
       {{ {"connectivity": status.connectivity, "containers": status.containers, "alerts": status.alerts_recent, "upgrades": status.upgrades} | tojson }}
       </script>
 
-      <!-- Active Alerts -->
-      {% if status.alerts_recent %}
-      <section>
-        <h2>Recent Alerts</h2>
-        <table class="alert-table">
-          <thead>
-            <tr><th>Rule</th><th>Service</th><th>Severity</th><th>Message</th><th>Fired</th></tr>
-          </thead>
-          <tbody>
-            {% for a in status.alerts_recent %}
-            <tr>
-              <td class="mono">{{ a.rule }}</td>
-              <td class="mono">{{ a.service }}</td>
-              <td><span class="badge badge-{{ a.severity }}">{{ a.severity }}</span></td>
-              <td>{{ a.message }}</td>
-              <td class="fg-dim mono small">{{ a.fired_at[:19] | replace("T", " ") }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </section>
-      {% endif %}
-
-      <!-- AI Insights -->
-      {% if insights %}
-      <section>
-        <h2>AI Insights</h2>
-        {% for insight in insights %}
-        <div class="insight-card">
-          <div class="insight-type">{{ insight.type | replace("_", " ") | title }}</div>
-          {% if insight.narrative %}
-          <p class="insight-narrative">{{ insight.narrative }}</p>
+      <!-- Recent Alerts + Available Upgrades -->
+      <div class="two-col">
+        <section>
+          <h2>Recent Alerts</h2>
+          {% if status.alerts_recent %}
+          <table class="alert-table">
+            <thead>
+              <tr><th>Rule</th><th>Service</th><th>Severity</th><th>Message</th><th>Fired</th></tr>
+            </thead>
+            <tbody>
+              {% for a in status.alerts_recent %}
+              <tr>
+                <td class="mono">{{ a.rule }}</td>
+                <td class="mono">{{ a.service }}</td>
+                <td><span class="badge badge-{{ a.severity }}">{{ a.severity }}</span></td>
+                <td>{{ a.message }}</td>
+                <td class="fg-dim mono small">{{ a.fired_at[:19] | replace("T", " ") }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="empty">No active alerts</div>
           {% endif %}
-          {% if insight.remedies %}
-          <div class="insight-remedies">
-            {% for remedy in insight.remedies %}
-            <button class="remedy-btn" data-tool="{{ remedy.tool | e }}">{{ remedy.label }}</button>
-            {% endfor %}
+        </section>
+        <section>
+          <div class="section-header-row">
+            <h2>Available Upgrades</h2>
+            {% if status.upgrades %}
+            <span class="pill pill-amber">{{ status.upgrades | length }} update{{ "s" if status.upgrades | length != 1 else "" }}</span>
+            {% endif %}
           </div>
+          {% if status.upgrades %}
+          <table class="data-table">
+            <thead>
+              <tr><th>Service</th><th>Current</th><th>Latest</th><th>Risk</th><th></th></tr>
+            </thead>
+            <tbody>
+              {% for u in status.upgrades %}
+              <tr>
+                <td class="mono">{{ u.service }}</td>
+                <td class="mono small fg-dim">{{ u.current_version }}</td>
+                <td class="mono small text-green">{{ u.latest_version }}</td>
+                <td><span class="badge badge-{{ u.risk }}">{{ u.risk }}</span></td>
+                <td><button class="btn-ghost-sm upgrade-notes-btn" data-svc="{{ u.service | e }}">Notes</button></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="empty">All services up to date</div>
           {% endif %}
-        </div>
-        {% endfor %}
-      </section>
-      {% endif %}
+        </section>
+      </div>
 
       <!-- Disk Usage -->
       {% if status.disk %}
@@ -1078,6 +1110,12 @@
         if (!li) return;
         var svc = connectivity.find(function(s){return s.name===li.dataset.svcName;});
         if (svc) openDrawer(svc);
+      });
+      document.querySelectorAll('.upgrade-notes-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var svc = connectivity.find(function(s){return s.name===btn.dataset.svc;});
+          if (svc) openDrawer(svc);
+        });
       });
       document.getElementById('infra-drawer-close').addEventListener('click', closeDrawer);
       overlay.addEventListener('click', closeDrawer);

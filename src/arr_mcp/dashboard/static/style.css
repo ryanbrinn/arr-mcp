@@ -115,6 +115,61 @@ h2 {
   margin-bottom: 0.85rem;
 }
 
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 800px) {
+  .two-col { grid-template-columns: 1fr; }
+}
+
+.section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.section-header-row h2 { margin-bottom: 0; }
+
+.pill {
+  display: inline-block;
+  font-size: 0.68rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.pill-green { background: #0d3320; color: var(--green); }
+.pill-amber { background: #2e1f05; color: var(--amber); }
+.pill-red   { background: #2e0a0a; color: var(--red); }
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  text-align: left;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-dim);
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--border-hi);
+  font-size: 0.85rem;
+}
+
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--bg-row); }
+
 /* =====================================================================
    Stat tiles
    ===================================================================== */
