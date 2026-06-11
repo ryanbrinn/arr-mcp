@@ -280,6 +280,15 @@ def _movie_badge(m: Any) -> str:
     return "wanted" if m.monitored else "unmonitored"
 
 
+def _is_unwatched(user_dots: list[dict[str, Any]], has_content: bool) -> bool:
+    """A card is "unwatched" if it has files but no user has touched it."""
+    from arr_mcp.services.interests import InterestState
+
+    if not has_content or not user_dots:
+        return False
+    return all(d["state"] == InterestState.interested.value for d in user_dots)
+
+
 def _series_card(s: Any, idx: int, cache: dict[str, Any]) -> dict[str, Any]:
     real_seasons = [ss for ss in s.seasons if ss.season_number > 0]
     total_eps = sum(ss.episode_count for ss in real_seasons)
@@ -315,6 +324,11 @@ def _series_card(s: Any, idx: int, cache: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
+    availability_pct = int(total_files / total_eps * 100) if total_eps else 0
+    user_dots = _dots_for_states(
+        {uid: _aggregate_state(states) for uid, states in series_states.items()},
+        users,
+    )
     return {
         "id": s.id,
         "title": s.title,
@@ -323,16 +337,16 @@ def _series_card(s: Any, idx: int, cache: dict[str, Any]) -> dict[str, Any]:
         "monitored": s.monitored,
         "season_count": len(real_seasons),
         "seasons": seasons,
-        "availability_pct": (int(total_files / total_eps * 100) if total_eps else 0),
+        "episode_file_count": total_files,
+        "availability_pct": availability_pct,
         "badge": _series_badge(s),
         "art": idx % 8,
         "poster_url": s.poster_url,
-        "user_dots": _dots_for_states(
-            {uid: _aggregate_state(states) for uid, states in series_states.items()},
-            users,
-        ),
+        "user_dots": user_dots,
         "eligible": False,
         "pending": False,
+        "downloading": False,
+        "unwatched": _is_unwatched(user_dots, availability_pct > 0),
     }
 
 
@@ -342,6 +356,7 @@ def _movie_card(m: Any, idx: int, cache: dict[str, Any]) -> dict[str, Any]:
         if m.movie_file_id is not None
         else {}
     )
+    user_dots = _dots_for_states(movie_dots, cache.get("users", []))
     return {
         "id": m.id,
         "title": m.title,
@@ -354,9 +369,11 @@ def _movie_card(m: Any, idx: int, cache: dict[str, Any]) -> dict[str, Any]:
         "art": idx % 8,
         "poster_url": m.poster_url,
         "movie_file_id": m.movie_file_id,
-        "user_dots": _dots_for_states(movie_dots, cache.get("users", [])),
+        "user_dots": user_dots,
         "eligible": False,
         "pending": False,
+        "downloading": False,
+        "unwatched": _is_unwatched(user_dots, m.has_file),
     }
 
 
@@ -373,10 +390,15 @@ async def _get_media_stats(settings: Settings) -> dict[str, Any]:
         "series_count": None,
         "movie_count": None,
         "wanted_count": 0,
+        "episodes_count": 0,
+        "downloading_count": 0,
+        "eligible_gb": 0.0,
         "series": [],
         "movies": [],
         "interest_users": cache.get("users", []),
     }
+
+    movie_files: list[Any] = []
 
     try:
         sonarr = registry.get_client("sonarr")
@@ -389,6 +411,16 @@ async def _get_media_stats(settings: Settings) -> dict[str, Any]:
                 stats["series"] = cards
                 stats["series_count"] = len(cards)
                 stats["wanted_count"] += sum(1 for c in cards if c["badge"] == "wanted")
+                stats["episodes_count"] += sum(c["episode_file_count"] for c in cards)
+        with anyio.move_on_after(8.0):
+            queue_result = await sonarr.get_queue()  # type: ignore[attr-defined]
+            if queue_result.ok and isinstance(queue_result.data, list):
+                stats["downloading_count"] += len(queue_result.data)
+                downloading_series = {
+                    item.raw.get("seriesId") for item in queue_result.data
+                }
+                for card in stats["series"]:
+                    card["downloading"] = card["id"] in downloading_series
     except ServiceNotConfiguredError:
         pass
     except Exception:
@@ -405,12 +437,47 @@ async def _get_media_stats(settings: Settings) -> dict[str, Any]:
                 stats["movies"] = cards
                 stats["movie_count"] = len(cards)
                 stats["wanted_count"] += sum(1 for c in cards if c["badge"] == "wanted")
+        with anyio.move_on_after(8.0):
+            files_result = await radarr.get_movie_files()  # type: ignore[attr-defined]
+            if files_result.ok and isinstance(files_result.data, list):
+                movie_files = files_result.data
+        with anyio.move_on_after(8.0):
+            queue_result = await radarr.get_queue()  # type: ignore[attr-defined]
+            if queue_result.ok and isinstance(queue_result.data, list):
+                stats["downloading_count"] += len(queue_result.data)
+                downloading_movies = {
+                    item.raw.get("movieId") for item in queue_result.data
+                }
+                for card in stats["movies"]:
+                    card["downloading"] = card["id"] in downloading_movies
     except ServiceNotConfiguredError:
         pass
     except Exception:
         pass
 
+    stats["eligible_gb"] = _eligible_gb(settings, cache, movie_files)
+
     return stats
+
+
+def _eligible_gb(
+    settings: Settings, cache: dict[str, Any], movie_files: list[Any]
+) -> float:
+    """Total size of files marked eligible for deletion, in GB."""
+    from arr_mcp.services.interests import InterestStore
+
+    eligible_ids = set(InterestStore(settings.services_dir).get_eligible_for_deletion())
+    total_bytes = 0
+    for seasons in cache.get("series", {}).values():
+        for episodes in seasons.values():
+            for ep in episodes:
+                fid = ep.get("episode_file_id")
+                if fid is not None and str(fid) in eligible_ids:
+                    total_bytes += ep.get("size_bytes", 0)
+    for mf in movie_files:
+        if str(mf.id) in eligible_ids:
+            total_bytes += mf.size
+    return round(total_bytes / 1_000_000_000, 1)
 
 
 def _annotate_movie_interest(

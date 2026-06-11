@@ -213,15 +213,46 @@
             <div class="media-stat-l">Wanted</div>
           </div>
           {% endif %}
+          {% if status.media.series_count is not none %}
+          <div class="media-stat">
+            <div class="media-stat-n">{{ status.media.episodes_count }}</div>
+            <div class="media-stat-l">Episodes</div>
+          </div>
+          {% endif %}
+          {% if status.media.downloading_count %}
+          <div class="media-stat">
+            <div class="media-stat-n" style="color:var(--blue)">{{ status.media.downloading_count }}</div>
+            <div class="media-stat-l">Downloading</div>
+          </div>
+          {% endif %}
+          {% if status.media.eligible_gb %}
+          <div class="media-stat">
+            <div class="media-stat-n" style="color:var(--violet)">{{ status.media.eligible_gb }} GB</div>
+            <div class="media-stat-l">Eligible</div>
+          </div>
+          {% endif %}
         </div>
 
         {# ── Filter chips ── #}
-        <div class="filter-row" id="media-filters">
-          <button class="chip active" data-filter="all">All</button>
-          <button class="chip" data-filter="tv">TV</button>
-          <button class="chip" data-filter="movies">Movies</button>
-          <button class="chip" data-filter="wanted">Wanted</button>
-          <button class="chip" data-filter="unmonitored">Unmonitored</button>
+        <div class="filter-row-wrap">
+          <div class="filter-row" id="media-filters">
+            <button class="chip active" data-filter="all">All</button>
+            <button class="chip" data-filter="tv">TV</button>
+            <button class="chip" data-filter="movies">Movies</button>
+            <button class="chip" data-filter="downloading">Downloading</button>
+            <button class="chip" data-filter="wanted">Wanted</button>
+            <button class="chip" data-filter="unwatched">Unwatched</button>
+            <button class="chip" data-filter="unmonitored">Unmonitored</button>
+            <button class="chip" data-filter="eligible">Eligible</button>
+            <button class="chip" data-filter="pending">Pending review</button>
+          </div>
+          {% if status.media.interest_users %}
+          <div class="interest-legend interest-legend-inline">
+            <div class="il-item"><span class="il-dot u-watched"></span> Watched</div>
+            <div class="il-item"><span class="il-dot u-interested"></span> Interested</div>
+            <div class="il-item"><span class="il-dot u-marked_deletion"></span> Marked for deletion</div>
+          </div>
+          {% endif %}
         </div>
 
         {# ── Poster grid ── #}
@@ -231,6 +262,10 @@
           <div class="poster-card"
                data-type="tv"
                data-badge="{{ s.badge }}"
+               data-downloading="{{ 'true' if s.downloading else 'false' }}"
+               data-unwatched="{{ 'true' if s.unwatched else 'false' }}"
+               data-eligible="{{ 'true' if s.eligible else 'false' }}"
+               data-pending="{{ 'true' if s.pending else 'false' }}"
                data-id="{{ s.id }}"
                data-title="{{ s.title | e }}"
                data-year="{{ s.year }}"
@@ -281,6 +316,10 @@
           <div class="poster-card"
                data-type="movies"
                data-badge="{{ m.badge }}"
+               data-downloading="{{ 'true' if m.downloading else 'false' }}"
+               data-unwatched="{{ 'true' if m.unwatched else 'false' }}"
+               data-eligible="{{ 'true' if m.eligible else 'false' }}"
+               data-pending="{{ 'true' if m.pending else 'false' }}"
                data-id="{{ m.id }}"
                data-title="{{ m.title | e }}"
                data-year="{{ m.year }}"
@@ -419,10 +458,17 @@
         filterBar.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
         chip.classList.add('active');
         var f = chip.dataset.filter;
+        var flagFilters = {
+          downloading: 'downloading',
+          unwatched: 'unwatched',
+          eligible: 'eligible',
+          pending: 'pending',
+        };
         document.querySelectorAll('#poster-grid .poster-card').forEach(function (card) {
           var show = f === 'all'
             || card.dataset.type === f
-            || card.dataset.badge === f;
+            || card.dataset.badge === f
+            || (flagFilters[f] && card.dataset[flagFilters[f]] === 'true');
           card.hidden = !show;
         });
       });

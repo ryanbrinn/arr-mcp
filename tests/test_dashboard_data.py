@@ -9,9 +9,14 @@ from arr_mcp.dashboard.data import (
     _annotate_movie_interest,
     _annotate_series_interest,
     _dots_for_states,
+    _eligible_gb,
     _format_upgrade_notes,
+    _is_unwatched,
+    _movie_card,
+    _series_card,
 )
 from arr_mcp.services.interests import InterestState
+from arr_mcp.services.models import Movie, SeasonSummary, Series
 
 
 def test_format_upgrade_notes_strips_generic_branch_note() -> None:
@@ -162,3 +167,119 @@ def test_annotate_series_interest_not_eligible_when_partial(tmp_path) -> None:
     _annotate_series_interest(cards, settings, cache)
 
     assert cards[0]["eligible"] is False
+
+
+def test_is_unwatched_true_when_no_one_has_state() -> None:
+    dots = [
+        {"user_id": "1", "username": "Ryan", "state": "interested"},
+        {"user_id": "2", "username": "Sarah", "state": "interested"},
+    ]
+    assert _is_unwatched(dots, has_content=True) is True
+
+
+def test_is_unwatched_false_when_someone_watched() -> None:
+    dots = [
+        {"user_id": "1", "username": "Ryan", "state": "watched"},
+        {"user_id": "2", "username": "Sarah", "state": "interested"},
+    ]
+    assert _is_unwatched(dots, has_content=True) is False
+
+
+def test_is_unwatched_false_without_content() -> None:
+    dots = [{"user_id": "1", "username": "Ryan", "state": "interested"}]
+    assert _is_unwatched(dots, has_content=False) is False
+
+
+def test_is_unwatched_false_without_users() -> None:
+    assert _is_unwatched([], has_content=True) is False
+
+
+def test_eligible_gb_sums_eligible_episode_and_movie_bytes(tmp_path) -> None:
+    from dataclasses import dataclass
+
+    from arr_mcp.config import Settings
+    from arr_mcp.services.interests import InterestStore
+
+    settings = Settings(services_dir=str(tmp_path))
+    store = InterestStore(settings.services_dir)
+    store.set(
+        "100",
+        "1",
+        InterestState.marked_deletion,
+        username="ryan",
+        content_type="episode",
+    )
+    store.set(
+        "200",
+        "1",
+        InterestState.marked_deletion,
+        username="ryan",
+        content_type="movie",
+    )
+
+    cache = {
+        "series": {
+            "10": {
+                "1": [
+                    {"episode_file_id": 100, "size_bytes": 1_000_000_000},
+                    {"episode_file_id": 101, "size_bytes": 1_000_000_000},
+                ]
+            }
+        }
+    }
+
+    @dataclass
+    class _MovieFile:
+        id: int
+        size: int
+
+    movie_files = [_MovieFile(id=200, size=500_000_000), _MovieFile(id=201, size=999)]
+
+    assert _eligible_gb(settings, cache, movie_files) == 1.5
+
+
+def test_series_card_includes_episode_file_count_and_defaults() -> None:
+    series = Series(
+        id=10,
+        title="Show",
+        path="/tv/show",
+        year=2020,
+        status="ended",
+        seasons=[SeasonSummary(season_number=1, episode_count=2, episode_file_count=1)],
+    )
+    card = _series_card(series, 0, cache={})
+    assert card["episode_file_count"] == 1
+    assert card["downloading"] is False
+    assert card["unwatched"] is False  # no interest_users in empty cache
+
+
+def test_series_card_unwatched_when_users_present_and_no_state() -> None:
+    series = Series(
+        id=10,
+        title="Show",
+        path="/tv/show",
+        year=2020,
+        status="ended",
+        seasons=[SeasonSummary(season_number=1, episode_count=1, episode_file_count=1)],
+    )
+    cache = {"users": [{"id": "1", "username": "ryan", "title": "Ryan"}]}
+    card = _series_card(series, 0, cache)
+    assert card["unwatched"] is True
+
+
+def test_movie_card_includes_downloading_and_unwatched_defaults() -> None:
+    movie = Movie(
+        id=1, title="Inception", path="/movies/inception", has_file=True, year=2010
+    )
+    card = _movie_card(movie, 0, cache={})
+    assert card["downloading"] is False
+    assert card["unwatched"] is False
+
+
+def test_movie_card_unwatched_when_users_present_and_no_state() -> None:
+    movie = Movie(
+        id=1, title="Inception", path="/movies/inception", has_file=True, year=2010
+    )
+    cache = {"users": [{"id": "1", "username": "ryan", "title": "Ryan"}]}
+    card = _movie_card(movie, 0, cache)
+    assert card["unwatched"] is True
