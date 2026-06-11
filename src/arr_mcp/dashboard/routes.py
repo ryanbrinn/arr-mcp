@@ -34,15 +34,13 @@ _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 
 def _get_jinja_env() -> Environment:
-    import json
-
-    from markupsafe import Markup
+    from jinja2.utils import htmlsafe_json_dumps
 
     env = Environment(
         loader=FileSystemLoader(str(_TEMPLATES_DIR)),
         autoescape=select_autoescape(["html"]),
     )
-    env.filters["tojson"] = lambda v: Markup(json.dumps(v))
+    env.filters["tojson"] = htmlsafe_json_dumps
     return env
 
 
