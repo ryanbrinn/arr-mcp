@@ -411,3 +411,147 @@ async def test_api_diagnose_with_ai_provider_returns_narrative(
     data = r.json()
     assert data["narrative"] == "The disk is nearly full."
     assert len(data["remedies"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# /api/interest
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def interest_settings(public_settings: Settings, tmp_path) -> Settings:
+    services = tmp_path / "services"
+    services.mkdir()
+    return public_settings.model_copy(update={"services_dir": str(services)})
+
+
+def _signed_in_cookies(settings: Settings) -> dict[str, str]:
+    from arr_mcp.dashboard.auth import AuthUser, SessionManager
+
+    user = AuthUser(plex_id="1", plex_username="ryan", is_admin=False)
+    token = SessionManager(settings.session_secret).sign(user)
+    return {"arr_mcp_session": token}
+
+
+async def test_api_interest_requires_session(public_settings: Settings) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.post(
+            "/api/interest",
+            json={"content_id": "100", "content_type": "movie", "state": "watched"},
+        )
+    assert r.status_code == 401
+
+
+async def test_api_interest_invalid_json(public_settings: Settings) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        cookies=_signed_in_cookies(public_settings),
+    ) as client:
+        r = await client.post(
+            "/api/interest",
+            content=b"not json",
+            headers={"content-type": "application/json"},
+        )
+    assert r.status_code == 400
+
+
+async def test_api_interest_requires_content_id(public_settings: Settings) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        cookies=_signed_in_cookies(public_settings),
+    ) as client:
+        r = await client.post(
+            "/api/interest", json={"content_type": "movie", "state": "watched"}
+        )
+    assert r.status_code == 400
+
+
+async def test_api_interest_rejects_invalid_content_type(
+    public_settings: Settings,
+) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        cookies=_signed_in_cookies(public_settings),
+    ) as client:
+        r = await client.post(
+            "/api/interest",
+            json={"content_id": "100", "content_type": "song", "state": "watched"},
+        )
+    assert r.status_code == 400
+
+
+async def test_api_interest_rejects_invalid_state(public_settings: Settings) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        cookies=_signed_in_cookies(public_settings),
+    ) as client:
+        r = await client.post(
+            "/api/interest",
+            json={"content_id": "100", "content_type": "movie", "state": "bogus"},
+        )
+    assert r.status_code == 400
+
+
+async def test_api_interest_sets_single_content_id(
+    interest_settings: Settings,
+) -> None:
+    from arr_mcp.services.interests import InterestState, InterestStore
+
+    app = _make_app(interest_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        cookies=_signed_in_cookies(interest_settings),
+    ) as client:
+        r = await client.post(
+            "/api/interest",
+            json={
+                "content_id": "100",
+                "content_type": "movie",
+                "state": "marked_deletion",
+            },
+        )
+    assert r.status_code == 200
+    assert r.json() == {"ok": True}
+
+    store = InterestStore(interest_settings.services_dir)
+    record = store.get("100", "1")
+    assert record.state == InterestState.marked_deletion
+    assert record.username == "ryan"
+
+
+async def test_api_interest_sets_multiple_content_ids(
+    interest_settings: Settings,
+) -> None:
+    from arr_mcp.services.interests import InterestState, InterestStore
+
+    app = _make_app(interest_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        cookies=_signed_in_cookies(interest_settings),
+    ) as client:
+        r = await client.post(
+            "/api/interest",
+            json={
+                "content_ids": ["100", "101"],
+                "content_type": "episode",
+                "state": "watched",
+            },
+        )
+    assert r.status_code == 200
+
+    store = InterestStore(interest_settings.services_dir)
+    assert store.get("100", "1").state == InterestState.watched
+    assert store.get("101", "1").state == InterestState.watched

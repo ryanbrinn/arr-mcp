@@ -138,6 +138,59 @@ def make_dashboard_routes(
 
         return JSONResponse(result)
 
+    async def handle_api_interest(request: Request) -> Response:
+        """Set the signed-in user's interest state for a piece of content.
+
+        POST /api/interest
+        Body: {"content_id": str, "content_type": "movie"|"episode", "state": str}
+        or {"content_ids": [str, ...], ...} to set multiple at once (e.g. a
+        whole season).
+
+        Returns: {"ok": true}
+        """
+        from arr_mcp.services.interests import InterestState, InterestStore
+
+        user = get_session_user(request, settings)
+        if user is None:
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+        content_ids = body.get("content_ids")
+        if content_ids is None:
+            content_id = body.get("content_id")
+            content_ids = [content_id] if content_id else []
+        content_type = body.get("content_type", "unknown")
+        state_value = body.get("state", "")
+
+        if not content_ids or not isinstance(content_ids, list):
+            return JSONResponse({"error": "content_id(s) is required"}, status_code=400)
+        if content_type not in ("movie", "episode"):
+            return JSONResponse(
+                {"error": "content_type must be 'movie' or 'episode'"}, status_code=400
+            )
+        try:
+            state = InterestState(state_value)
+        except ValueError:
+            return JSONResponse(
+                {"error": f"Invalid state: {state_value!r}"}, status_code=400
+            )
+
+        store = InterestStore(settings.services_dir)
+        for content_id in content_ids:
+            store.set(
+                str(content_id),
+                user.plex_id,
+                state,
+                username=user.plex_username,
+                content_type=content_type,
+            )
+
+        return JSONResponse({"ok": True})
+
     async def handle_auth_signin(request: Request) -> Response:
         """Render the Plex sign-in page."""
         error = request.query_params.get("error", "")
@@ -196,6 +249,7 @@ def make_dashboard_routes(
         "dashboard": handle_dashboard,
         "api_status": handle_api_status,
         "api_diagnose": handle_api_diagnose,
+        "api_interest": handle_api_interest,
         "auth_signin": handle_auth_signin,
         "auth_plex_start": handle_auth_plex_start,
         "auth_plex_callback": handle_auth_plex_callback,
