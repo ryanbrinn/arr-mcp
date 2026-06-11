@@ -610,6 +610,7 @@ h2 {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  margin-bottom: 0.85rem;
 }
 
 .media-stat {
@@ -636,11 +637,27 @@ h2 {
   letter-spacing: 0.06em;
 }
 
+.filter-row-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
 .filter-row {
   display: flex;
   gap: 0.4rem;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.interest-legend-inline {
+  padding: 0;
+  background: transparent;
+  gap: 0.75rem;
+  font-size: 0.7rem;
 }
 
 .chip {
