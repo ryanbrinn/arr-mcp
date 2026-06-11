@@ -337,6 +337,8 @@
               <span class="poster-badge badge-{{ m.badge }}">
                 {%- if m.badge == "complete" %}COMPLETE
                 {%- elif m.badge == "wanted" %}WANTED
+                {%- elif m.badge == "stalled" %}STALLED
+                {%- elif m.badge == "downloading" %}{{ m.download.progress_pct }}%
                 {%- else %}UNMONITORED
                 {%- endif -%}
               </span>
@@ -346,6 +348,12 @@
               </div>
             </div>
             <div class="card-footer">
+              {% if m.download %}
+              <div class="dl-info">
+                <div class="bar-track"><div class="bar-fill {% if m.download.stalled %}bar-danger{% endif %}" style="width:{{ m.download.progress_pct }}%"></div></div>
+                <div class="dl-status" style="color:{% if m.download.stalled %}var(--red){% else %}var(--fg-dim){% endif %}">{{ m.download.status_text }}</div>
+              </div>
+              {% else %}
               <div class="availability-row">
                 <div class="season-bar"><div class="season-bar-fill" style="width:{{ m.availability_pct }}%"></div></div>
                 <span class="availability-pct">{{ m.availability_pct }}%</span>
@@ -353,6 +361,7 @@
                 <div class="user-dots">{{ user_dots(m.user_dots) }}</div>
                 {% endif %}
               </div>
+              {% endif %}
               {% if m.eligible %}
               <div class="eligible-strip">eligible for deletion</div>
               {% elif m.pending %}

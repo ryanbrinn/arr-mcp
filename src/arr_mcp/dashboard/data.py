@@ -280,6 +280,30 @@ def _movie_badge(m: Any) -> str:
     return "wanted" if m.monitored else "unmonitored"
 
 
+def _movie_download_info(item: Any) -> dict[str, Any]:
+    """Build progress/status info for a movie's queue item."""
+    raw = item.raw
+    size = raw.get("size", 0)
+    progress_pct = int((1 - item.size_left_bytes / size) * 100) if size else 0
+    stalled = raw.get("trackedDownloadStatus", "") in ("warning", "error")
+    if stalled:
+        messages = [
+            msg
+            for sm in raw.get("statusMessages", [])
+            for msg in sm.get("messages", [])
+        ]
+        detail = messages[0] if messages else raw.get("errorMessage") or "stalled"
+        status_text = f"⚠ Stuck — {detail}"
+    else:
+        timeleft = raw.get("timeleft")
+        status_text = f"~{timeleft} remaining" if timeleft else "Downloading…"
+    return {
+        "progress_pct": progress_pct,
+        "stalled": stalled,
+        "status_text": status_text,
+    }
+
+
 def _is_unwatched(user_dots: list[dict[str, Any]], has_content: bool) -> bool:
     """A card is "unwatched" if it has files but no user has touched it."""
     from arr_mcp.services.interests import InterestState
@@ -373,6 +397,7 @@ def _movie_card(m: Any, idx: int, cache: dict[str, Any]) -> dict[str, Any]:
         "eligible": False,
         "pending": False,
         "downloading": False,
+        "download": None,
         "unwatched": _is_unwatched(user_dots, m.has_file),
     }
 
@@ -446,10 +471,16 @@ async def _get_media_stats(settings: Settings) -> dict[str, Any]:
             if queue_result.ok and isinstance(queue_result.data, list):
                 stats["downloading_count"] += len(queue_result.data)
                 downloading_movies = {
-                    item.raw.get("movieId") for item in queue_result.data
+                    item.raw.get("movieId"): item for item in queue_result.data
                 }
                 for card in stats["movies"]:
-                    card["downloading"] = card["id"] in downloading_movies
+                    item = downloading_movies.get(card["id"])
+                    if item is None:
+                        continue
+                    card["downloading"] = True
+                    info = _movie_download_info(item)
+                    card["download"] = info
+                    card["badge"] = "stalled" if info["stalled"] else "downloading"
     except ServiceNotConfiguredError:
         pass
     except Exception:
