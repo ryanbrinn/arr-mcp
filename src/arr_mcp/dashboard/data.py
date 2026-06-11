@@ -23,7 +23,7 @@ async def get_status(client: ContainerClient, settings: Settings) -> dict[str, A
     disk = _get_disk(settings)
     alerts_recent = _get_recent_alerts(settings)
     upgrades = _get_upgrade_list(settings)
-    connectivity = await _get_service_connectivity(settings)
+    connectivity = await _get_service_connectivity(settings, containers)
     media = await _get_media_stats(settings)
     stats = _derive_stats(containers, disk, alerts_recent, upgrades)
 
@@ -559,14 +559,30 @@ def _annotate_series_interest(
 # ---------------------------------------------------------------------------
 
 
-async def _get_service_connectivity(settings: Settings) -> list[dict[str, Any]]:
-    """Ping all configured services concurrently and return reachability status."""
+async def _get_service_connectivity(
+    settings: Settings, containers: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Ping all configured services concurrently and return reachability status.
+
+    Known services with a running container but no credentials configured
+    (e.g. Plex before its token has been set up) are included with status
+    "unconfigured" so they remain visible.
+    """
     from arr_mcp.services.base import ServiceNotConfiguredError
     from arr_mcp.services.registry import ServiceRegistry
+    from arr_mcp.tools.services import KNOWN_SERVICES
 
     registry = ServiceRegistry(settings.services_dir)
     available = registry.available()
-    if not available:
+
+    container_names = [c["name"].lower() for c in containers]
+    unconfigured = [
+        svc
+        for svc in KNOWN_SERVICES
+        if svc not in available and any(svc in name for name in container_names)
+    ]
+
+    if not available and not unconfigured:
         return []
 
     results: list[dict[str, Any]] = [{}] * len(available)
@@ -607,6 +623,11 @@ async def _get_service_connectivity(settings: Settings) -> list[dict[str, Any]]:
     async with anyio.create_task_group() as tg:
         for i, name in enumerate(available):
             tg.start_soon(_check, i, name)
+
+    results.extend(
+        {"name": svc, "reachable": False, "status": "unconfigured", "error": None}
+        for svc in unconfigured
+    )
 
     return results
 

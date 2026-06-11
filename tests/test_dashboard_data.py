@@ -11,6 +11,7 @@ from arr_mcp.dashboard.data import (
     _dots_for_states,
     _eligible_gb,
     _format_upgrade_notes,
+    _get_service_connectivity,
     _is_unwatched,
     _movie_card,
     _movie_download_info,
@@ -349,3 +350,38 @@ def test_movie_card_default_download_is_none() -> None:
     )
     card = _movie_card(movie, 0, cache={})
     assert card["download"] is None
+
+
+# ---------------------------------------------------------------------------
+# _get_service_connectivity
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_get_service_connectivity_includes_unconfigured_running_service(
+    tmp_path,
+) -> None:
+    from arr_mcp.config import Settings
+
+    settings = Settings(services_dir=str(tmp_path))
+    containers = [{"name": "test-plex"}]
+
+    results = await _get_service_connectivity(settings, containers)
+
+    plex = next(r for r in results if r["name"] == "plex")
+    assert plex["status"] == "unconfigured"
+    assert plex["reachable"] is False
+
+
+@pytest.mark.anyio
+async def test_get_service_connectivity_omits_unrelated_unconfigured_services(
+    tmp_path,
+) -> None:
+    from arr_mcp.config import Settings
+
+    settings = Settings(services_dir=str(tmp_path))
+    containers = [{"name": "test-plex"}]
+
+    results = await _get_service_connectivity(settings, containers)
+
+    assert all(r["name"] != "jellyfin" for r in results)
