@@ -147,6 +147,11 @@ CREDS
   # Seed Sonarr/Radarr with representative media library test data
   bash \$HOME/arr-mcp-test/test-stack/seed-media.sh || echo 'WARNING: media seed failed, continuing.'
 
+  # Seed the per-user media interest cache with realistic fixture data
+  uv run python scripts/seed_interest_cache.py \
+    --output \$HOME/arr-mcp-test/test-stack/data/.arr-mcp-media-interest-cache.json \
+    || echo 'WARNING: interest cache seed failed, continuing.'
+
   # Kill any existing test arr-mcp instance and wait for port to free
   if [ -f /tmp/arr-mcp-test.pid ]; then
     kill \$(cat /tmp/arr-mcp-test.pid) 2>/dev/null || true
