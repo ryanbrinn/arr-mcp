@@ -177,6 +177,13 @@
     </main>
   </div>
 
+  {% macro user_dots(dots) %}
+    {%- for d in dots -%}
+      <span class="udot u-{{ d.state }}{% if d.state == 'watched' %} uc-{{ loop.index0 % 4 }}{% endif %}"
+            title="{{ d.username }}: {{ d.state | replace('_', ' ') }}">{% if d.state == 'marked_deletion' %}&times;{% else %}{{ (d.username or '?')[0] | upper }}{% endif %}</span>
+    {%- endfor -%}
+  {% endmacro %}
+
   <!-- ================================================================
        Tab 2 — Media Library
        ================================================================ -->
@@ -218,7 +225,7 @@
         </div>
 
         {# ── Poster grid ── #}
-        <div class="poster-grid" id="poster-grid">
+        <div class="poster-grid" id="poster-grid" data-users='{{ status.media.interest_users | tojson }}'>
 
           {% for s in status.media.series %}
           <div class="poster-card"
@@ -231,6 +238,7 @@
                data-art="{{ s.art }}"
                data-poster="{{ s.poster_url | e }}"
                data-season-count="{{ s.season_count }}"
+               data-content-type="episode"
                data-seasons='{{ s.seasons | tojson }}'>
             <div class="poster-img {% if not s.poster_url %}art-{{ s.art }}{% endif %}">
               {% if s.poster_url %}
@@ -253,6 +261,9 @@
               <div class="availability-row">
                 <div class="season-bar"><div class="season-bar-fill" style="width:{{ s.availability_pct }}%"></div></div>
                 <span class="availability-pct">{{ s.availability_pct }}%</span>
+                {% if s.user_dots %}
+                <div class="user-dots">{{ user_dots(s.user_dots) }}</div>
+                {% endif %}
               </div>
               {% if s.eligible %}
               <div class="eligible-strip">eligible for deletion</div>
@@ -275,7 +286,10 @@
                data-year="{{ m.year }}"
                data-status="{{ m.status | e }}"
                data-art="{{ m.art }}"
-               data-poster="{{ m.poster_url | e }}">
+               data-poster="{{ m.poster_url | e }}"
+               data-content-type="movie"
+               data-content-id="{{ m.movie_file_id or '' }}"
+               data-dots='{{ m.user_dots | tojson }}'>
             <div class="poster-img {% if not m.poster_url %}art-{{ m.art }}{% endif %}">
               {% if m.poster_url %}
               <img class="poster-photo" src="{{ m.poster_url }}" alt="" loading="lazy">
@@ -296,6 +310,9 @@
               <div class="availability-row">
                 <div class="season-bar"><div class="season-bar-fill" style="width:{{ m.availability_pct }}%"></div></div>
                 <span class="availability-pct">{{ m.availability_pct }}%</span>
+                {% if m.user_dots %}
+                <div class="user-dots">{{ user_dots(m.user_dots) }}</div>
+                {% endif %}
               </div>
               {% if m.eligible %}
               <div class="eligible-strip">eligible for deletion</div>
@@ -426,8 +443,88 @@
       var drawerFooterNote = document.getElementById('drawer-footer-note');
       var closeBtn       = document.getElementById('drawer-close');
 
+      var interestUsers = [];
+      try {
+        var grid = document.getElementById('poster-grid');
+        interestUsers = JSON.parse((grid && grid.dataset.users) || '[]');
+      } catch (e) {}
+
       function _esc(s) {
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      function postInterest(contentIds, contentType, state, btn) {
+        btn.disabled = true;
+        fetch('/api/interest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content_ids: contentIds.map(String),
+            content_type: contentType,
+            state: state,
+          }),
+        }).then(function (resp) {
+          if (resp.ok) {
+            location.reload();
+          } else {
+            btn.disabled = false;
+          }
+        }).catch(function () { btn.disabled = false; });
+      }
+
+      function renderLegend() {
+        var legend = document.createElement('div');
+        legend.className = 'interest-legend';
+        legend.innerHTML =
+          '<div class="il-item"><span class="il-dot u-watched"></span> Watched</div>' +
+          '<div class="il-item"><span class="il-dot u-interested"></span> Interested (protected)</div>' +
+          '<div class="il-item"><span class="il-dot u-marked_deletion"></span> Marked for deletion</div>';
+        return legend;
+      }
+
+      function dotState(dots, userId) {
+        var found = (dots || []).find(function (d) { return d.user_id === userId; });
+        return found ? found.state : 'interested';
+      }
+
+      function appendUserWatchRow(container, user, uIdx, state, eps, fileIds, contentType) {
+        var row = document.createElement('div');
+        row.className = 'user-watch-row';
+        var name = user.title || user.username || '';
+        var initial = (name.charAt(0) || '?').toUpperCase();
+
+        var html = '<div class="uw-avatar uc-' + (uIdx % 4) + '">' + _esc(initial) + '</div>' +
+          '<span class="uw-name">' + _esc(name) + '</span>';
+
+        if (eps) {
+          var watched = eps.filter(function (ep) {
+            var s = (ep.dots && ep.dots[user.id]) || 'interested';
+            return s === 'watched' || s === 'marked_deletion';
+          }).length;
+          html += '<span class="uw-state">' + watched + '/' + eps.length + ' watched</span>';
+        } else {
+          html += '<span class="uw-state">' + state.replace('_', ' ') + '</span>';
+        }
+        row.innerHTML = html;
+
+        if (fileIds.length) {
+          var btn = document.createElement('button');
+          if (state === 'marked_deletion') {
+            btn.className = 'uw-btn';
+            btn.textContent = 'Keep ✓';
+            btn.addEventListener('click', function () {
+              postInterest(fileIds, contentType, 'interested', btn);
+            });
+          } else {
+            btn.className = 'uw-btn mark-del';
+            btn.textContent = 'Mark ×';
+            btn.addEventListener('click', function () {
+              postInterest(fileIds, contentType, 'marked_deletion', btn);
+            });
+          }
+          row.appendChild(btn);
+        }
+        container.appendChild(row);
       }
 
       function openDrawer(card) {
@@ -459,6 +556,10 @@
 
         drawerBody.innerHTML = '';
 
+        if (interestUsers.length) {
+          drawerBody.appendChild(renderLegend());
+        }
+
         if (type === 'tv') {
           var seasonCount = parseInt(card.dataset.seasonCount || '0', 10);
           var seasons = [];
@@ -482,8 +583,68 @@
                 '</div>' +
                 '<span class="drawer-season-pct">' + s.pct + '%</span>';
               block.appendChild(row);
+
+              var episodes = s.episodes || [];
+              if (!episodes.length) return;
+
+              var heading = document.createElement('div');
+              heading.className = 'season-heading';
+              heading.innerHTML =
+                '<span>Season ' + s.number + ' — ' + episodes.length +
+                ' episode' + (episodes.length !== 1 ? 's' : '') + '</span>' +
+                '<span class="season-toggle">▸</span>';
+
+              var epGrid = document.createElement('div');
+              epGrid.className = 'season-ep-grid';
+              epGrid.hidden = true;
+              episodes.forEach(function (ep) {
+                var pill = document.createElement('div');
+                pill.className = 'ep-pill ' + (ep.has_file ? 'ep-dl' : 'ep-nodl');
+                pill.title = 'E' + ep.episode_number + (ep.title ? ' · ' + ep.title : '');
+                pill.textContent = ep.episode_number;
+                epGrid.appendChild(pill);
+              });
+
+              heading.addEventListener('click', function () {
+                epGrid.hidden = !epGrid.hidden;
+                heading.querySelector('.season-toggle').textContent = epGrid.hidden ? '▸' : '▾';
+              });
+
+              block.appendChild(heading);
+              block.appendChild(epGrid);
+
+              if (interestUsers.length) {
+                var fileIds = episodes
+                  .filter(function (ep) { return ep.has_file && ep.episode_file_id != null; })
+                  .map(function (ep) { return ep.episode_file_id; });
+                interestUsers.forEach(function (u, uIdx) {
+                  appendUserWatchRow(
+                    block, u, uIdx, dotState(s.user_dots, u.id), episodes, fileIds, 'episode'
+                  );
+                });
+              }
             });
             drawerBody.appendChild(block);
+          }
+        } else if (type === 'movies' && interestUsers.length) {
+          var contentId = card.dataset.contentId;
+          var dots = [];
+          try { dots = JSON.parse(card.dataset.dots || '[]'); } catch (e) {}
+
+          if (contentId) {
+            var label2 = document.createElement('div');
+            label2.className = 'drawer-section-label';
+            label2.textContent = 'Watch status';
+            drawerBody.appendChild(label2);
+
+            var block2 = document.createElement('div');
+            block2.className = 'drawer-season-block';
+            interestUsers.forEach(function (u, uIdx) {
+              appendUserWatchRow(
+                block2, u, uIdx, dotState(dots, u.id), null, [contentId], 'movie'
+              );
+            });
+            drawerBody.appendChild(block2);
           }
         }
 

@@ -26,6 +26,7 @@ from arr_mcp.config import Settings
 from arr_mcp.dashboard.routes import make_dashboard_routes
 from arr_mcp.runtime.client import ContainerClient
 from arr_mcp.tasks.alerts import AlertWatcher
+from arr_mcp.tasks.media_interest import MediaInterestChecker
 from arr_mcp.tasks.versions import VersionChecker
 from arr_mcp.tools.alerts import register_alert_tools
 from arr_mcp.tools.containers import register_container_tools
@@ -87,7 +88,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         # the dashboard does its own key-in-query-param check.
         path = request.url.path
         is_dashboard = (
-            path in ("/health", "/", "/api/status", "/api/diagnose")
+            path in ("/health", "/", "/api/status", "/api/diagnose", "/api/interest")
             or path.startswith("/static/")
             or path.startswith("/auth/")
         )
@@ -114,6 +115,7 @@ def create_app(settings: Settings) -> Starlette:
 
     alert_watcher = AlertWatcher(settings)
     version_checker = VersionChecker(settings)
+    media_interest_checker = MediaInterestChecker(settings)
     dashboard = make_dashboard_routes(client, settings, ai_provider)
 
     @asynccontextmanager
@@ -127,6 +129,7 @@ def create_app(settings: Settings) -> Starlette:
             async with anyio.create_task_group() as tg:
                 tg.start_soon(alert_watcher.run)
                 tg.start_soon(version_checker.run)
+                tg.start_soon(media_interest_checker.run)
                 yield
                 tg.cancel_scope.cancel()
         log.info("arr-mcp stopped")
@@ -136,6 +139,7 @@ def create_app(settings: Settings) -> Starlette:
         Route("/", endpoint=dashboard["dashboard"]),
         Route("/api/status", endpoint=dashboard["api_status"]),
         Route("/api/diagnose", endpoint=dashboard["api_diagnose"], methods=["POST"]),
+        Route("/api/interest", endpoint=dashboard["api_interest"], methods=["POST"]),
         Route("/auth/signin", endpoint=dashboard["auth_signin"]),
         Route("/auth/plex/start", endpoint=dashboard["auth_plex_start"]),
         Route("/auth/plex/callback", endpoint=dashboard["auth_plex_callback"]),

@@ -976,6 +976,87 @@ h2 {
 .drawer-season-lbl { width: 20px; flex-shrink: 0; font-size: 0.72rem; font-weight: 700; color: var(--fg-muted); font-family: ui-monospace, monospace; }
 .drawer-season-pct { width: 34px; text-align: right; font-size: 0.72rem; color: var(--fg-muted); flex-shrink: 0; }
 
+/* =====================================================================
+   Per-user interest dots
+   ===================================================================== */
+
+.user-dots { display: flex; gap: 3px; flex-shrink: 0; }
+
+.udot {
+  width: 13px; height: 13px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.5rem; font-weight: 700; color: #fff; flex-shrink: 0;
+  border: 1px solid transparent;
+}
+.udot.u-interested { background: transparent; border-color: var(--border-hi); color: var(--fg-muted); }
+.udot.u-watched     { background: var(--uc, var(--violet-dk)); }
+.udot.u-marked_deletion {
+  background: rgba(239,68,68,0.15); border-color: var(--red); color: var(--red);
+}
+
+.uc-0 { --uc: #7c5cfc; }
+.uc-1 { --uc: #2d6a4f; }
+.uc-2 { --uc: #c05621; }
+.uc-3 { --uc: #2563eb; }
+
+/* Interest legend in drawer */
+.interest-legend {
+  display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;
+  padding: 0.6rem 0.75rem; background: var(--bg-row); border-radius: 6px;
+  font-size: 0.75rem; color: var(--fg-dim);
+}
+.il-item { display: flex; align-items: center; gap: 0.35rem; }
+.il-dot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+.il-dot.u-watched { background: var(--violet-dk); }
+.il-dot.u-interested { border: 1px solid var(--border-hi); }
+.il-dot.u-marked_deletion { background: rgba(239,68,68,0.15); border: 1px solid var(--red); }
+
+/* Expandable season episode grid */
+.season-heading {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  font-size: 0.72rem; font-weight: 700; color: var(--fg-dim);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  cursor: pointer; user-select: none;
+}
+.season-heading:hover { color: var(--fg); }
+.season-toggle { color: var(--violet); flex-shrink: 0; }
+
+.season-ep-grid {
+  display: flex; flex-wrap: wrap; gap: 3px;
+  margin-top: 0.4rem;
+}
+.season-ep-grid[hidden] { display: none; }
+
+.ep-pill {
+  width: 26px; height: 26px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; font-weight: 700; color: #fff;
+  border: 1px solid transparent;
+}
+.ep-dl   { background: var(--violet-dk); }
+.ep-nodl { background: var(--border-hi); color: var(--fg-muted); }
+
+/* Per-user watch rows */
+.user-watch-row {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.4rem 0.5rem; background: var(--bg-row); border-radius: 6px;
+}
+.uw-avatar {
+  width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; font-weight: 700; color: #fff; flex-shrink: 0;
+  background: var(--uc, var(--violet-dk));
+}
+.uw-name { font-size: 0.78rem; color: var(--fg); width: 60px; flex-shrink: 0; }
+.uw-state { font-size: 0.72rem; margin-left: auto; white-space: nowrap; flex-shrink: 0; color: var(--fg-dim); }
+.uw-btn {
+  font-size: 0.65rem; padding: 0.15rem 0.45rem; border-radius: 4px;
+  border: 1px solid var(--border-hi); background: transparent; color: var(--fg-dim);
+  cursor: pointer; flex-shrink: 0;
+}
+.uw-btn:hover { border-color: var(--violet-dk); color: var(--violet); }
+.uw-btn.mark-del { border-color: rgba(239,68,68,0.4); color: var(--red); background: rgba(239,68,68,0.08); }
+
 .drawer-footer {
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--border);

@@ -234,6 +234,35 @@ def _get_disk(settings: Settings) -> list[dict[str, Any]]:
 _ART_PALETTE = list(range(8))
 
 
+def _dots_for_states(
+    states: dict[str, str], users: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Build the per-user interest dot list for a card or season."""
+    from arr_mcp.services.interests import InterestState
+
+    return [
+        {
+            "user_id": u["id"],
+            "username": u.get("title") or u.get("username", ""),
+            "state": states.get(u["id"], InterestState.interested.value),
+        }
+        for u in users
+    ]
+
+
+def _aggregate_state(states: list[str]) -> str:
+    """Collapse multiple per-episode states into a single season/series dot."""
+    from arr_mcp.services.interests import InterestState
+
+    if not states:
+        return InterestState.interested.value
+    if any(s == InterestState.interested.value for s in states):
+        return InterestState.interested.value
+    if all(s == InterestState.marked_deletion.value for s in states):
+        return InterestState.marked_deletion.value
+    return InterestState.watched.value
+
+
 def _series_badge(s: Any) -> str:
     real = [ss for ss in s.seasons if ss.season_number > 0]
     total_eps = sum(ss.episode_count for ss in real)
@@ -251,18 +280,23 @@ def _movie_badge(m: Any) -> str:
     return "wanted" if m.monitored else "unmonitored"
 
 
-def _series_card(s: Any, idx: int) -> dict[str, Any]:
+def _series_card(s: Any, idx: int, cache: dict[str, Any]) -> dict[str, Any]:
     real_seasons = [ss for ss in s.seasons if ss.season_number > 0]
     total_eps = sum(ss.episode_count for ss in real_seasons)
     total_files = sum(ss.episode_file_count for ss in real_seasons)
-    return {
-        "id": s.id,
-        "title": s.title,
-        "year": s.year,
-        "status": s.status,
-        "monitored": s.monitored,
-        "season_count": len(real_seasons),
-        "seasons": [
+    users = cache.get("users", [])
+    cached_seasons = cache.get("series", {}).get(str(s.id), {})
+
+    series_states: dict[str, list[str]] = {}
+    seasons = []
+    for ss in real_seasons:
+        episodes = cached_seasons.get(str(ss.season_number), [])
+        season_states: dict[str, list[str]] = {}
+        for ep in episodes:
+            for user_id, state in ep.get("dots", {}).items():
+                season_states.setdefault(user_id, []).append(state)
+                series_states.setdefault(user_id, []).append(state)
+        seasons.append(
             {
                 "number": ss.season_number,
                 "pct": (
@@ -270,19 +304,44 @@ def _series_card(s: Any, idx: int) -> dict[str, Any]:
                     if ss.episode_count
                     else 0
                 ),
+                "episodes": episodes,
+                "user_dots": _dots_for_states(
+                    {
+                        uid: _aggregate_state(states)
+                        for uid, states in season_states.items()
+                    },
+                    users,
+                ),
             }
-            for ss in real_seasons
-        ],
+        )
+
+    return {
+        "id": s.id,
+        "title": s.title,
+        "year": s.year,
+        "status": s.status,
+        "monitored": s.monitored,
+        "season_count": len(real_seasons),
+        "seasons": seasons,
         "availability_pct": (int(total_files / total_eps * 100) if total_eps else 0),
         "badge": _series_badge(s),
         "art": idx % 8,
         "poster_url": s.poster_url,
+        "user_dots": _dots_for_states(
+            {uid: _aggregate_state(states) for uid, states in series_states.items()},
+            users,
+        ),
         "eligible": False,
         "pending": False,
     }
 
 
-def _movie_card(m: Any, idx: int) -> dict[str, Any]:
+def _movie_card(m: Any, idx: int, cache: dict[str, Any]) -> dict[str, Any]:
+    movie_dots = (
+        cache.get("movies", {}).get(str(m.movie_file_id), {})
+        if m.movie_file_id is not None
+        else {}
+    )
     return {
         "id": m.id,
         "title": m.title,
@@ -295,6 +354,7 @@ def _movie_card(m: Any, idx: int) -> dict[str, Any]:
         "art": idx % 8,
         "poster_url": m.poster_url,
         "movie_file_id": m.movie_file_id,
+        "user_dots": _dots_for_states(movie_dots, cache.get("users", [])),
         "eligible": False,
         "pending": False,
     }
@@ -304,8 +364,10 @@ async def _get_media_stats(settings: Settings) -> dict[str, Any]:
     """Fetch media library cards from Sonarr and Radarr."""
     from arr_mcp.services.base import ServiceNotConfiguredError
     from arr_mcp.services.registry import ServiceRegistry
+    from arr_mcp.tasks.media_interest import MediaInterestStore
 
     registry = ServiceRegistry(settings.services_dir)
+    cache = MediaInterestStore(settings.services_dir).load()
     stats: dict[str, Any] = {
         "configured": False,
         "series_count": None,
@@ -313,6 +375,7 @@ async def _get_media_stats(settings: Settings) -> dict[str, Any]:
         "wanted_count": 0,
         "series": [],
         "movies": [],
+        "interest_users": cache.get("users", []),
     }
 
     try:
@@ -321,7 +384,8 @@ async def _get_media_stats(settings: Settings) -> dict[str, Any]:
         with anyio.move_on_after(8.0):
             result = await sonarr.get_series()  # type: ignore[attr-defined]
             if result.ok and isinstance(result.data, list):
-                cards = [_series_card(s, i) for i, s in enumerate(result.data)]
+                cards = [_series_card(s, i, cache) for i, s in enumerate(result.data)]
+                _annotate_series_interest(cards, settings, cache)
                 stats["series"] = cards
                 stats["series_count"] = len(cards)
                 stats["wanted_count"] += sum(1 for c in cards if c["badge"] == "wanted")
@@ -336,8 +400,8 @@ async def _get_media_stats(settings: Settings) -> dict[str, Any]:
         with anyio.move_on_after(8.0):
             result = await radarr.get_movies()  # type: ignore[attr-defined]
             if result.ok and isinstance(result.data, list):
-                cards = [_movie_card(m, i) for i, m in enumerate(result.data)]
-                _annotate_interest(cards, settings)
+                cards = [_movie_card(m, i, cache) for i, m in enumerate(result.data)]
+                _annotate_movie_interest(cards, settings)
                 stats["movies"] = cards
                 stats["movie_count"] = len(cards)
                 stats["wanted_count"] += sum(1 for c in cards if c["badge"] == "wanted")
@@ -349,7 +413,9 @@ async def _get_media_stats(settings: Settings) -> dict[str, Any]:
     return stats
 
 
-def _annotate_interest(movie_cards: list[dict[str, Any]], settings: Settings) -> None:
+def _annotate_movie_interest(
+    movie_cards: list[dict[str, Any]], settings: Settings
+) -> None:
     """Populate eligible/pending flags on movie cards from the interest store."""
     from arr_mcp.services.interests import InterestStore
 
@@ -362,6 +428,32 @@ def _annotate_interest(movie_cards: list[dict[str, Any]], settings: Settings) ->
             fid_str = str(fid)
             card["eligible"] = fid_str in eligible_ids
             card["pending"] = fid_str in pending_ids
+
+
+def _annotate_series_interest(
+    series_cards: list[dict[str, Any]], settings: Settings, cache: dict[str, Any]
+) -> None:
+    """Populate eligible/pending flags on series cards from the interest store.
+
+    A series is "eligible" when every on-disk episode file across all of its
+    seasons is eligible for deletion, and "pending" when at least one episode
+    file is pending admin review.
+    """
+    from arr_mcp.services.interests import InterestStore
+
+    store = InterestStore(settings.services_dir)
+    eligible_ids = set(store.get_eligible_for_deletion())
+    pending_ids = set(store.get_pending_review())
+    cached_series = cache.get("series", {})
+    for card in series_cards:
+        ef_ids = [
+            str(ep["episode_file_id"])
+            for season_eps in cached_series.get(str(card["id"]), {}).values()
+            for ep in season_eps
+            if ep.get("episode_file_id") is not None
+        ]
+        card["eligible"] = bool(ef_ids) and all(e in eligible_ids for e in ef_ids)
+        card["pending"] = any(e in pending_ids for e in ef_ids)
 
 
 # ---------------------------------------------------------------------------
