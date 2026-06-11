@@ -274,8 +274,9 @@ h2 {
 }
 
 .ring-legend {
-  flex: 1;
+  flex: 0 1 320px;
   min-width: 200px;
+  max-width: 320px;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
