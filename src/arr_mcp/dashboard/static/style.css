@@ -783,6 +783,12 @@ h2 {
 .badge-partial     { background: rgba(245,158,11,0.2);  color: var(--amber); border: 1px solid rgba(245,158,11,0.35); }
 .badge-wanted      { background: rgba(245,158,11,0.2);  color: var(--amber); border: 1px solid rgba(245,158,11,0.35); }
 .badge-unmonitored { background: rgba(107,104,144,0.2); color: var(--fg-dim); border: 1px solid rgba(107,104,144,0.25); }
+.badge-downloading { background: rgba(96,165,250,0.2);  color: var(--blue);  border: 1px solid rgba(96,165,250,0.35); }
+.badge-stalled     { background: rgba(239,68,68,0.2);   color: var(--red);   border: 1px solid rgba(239,68,68,0.35); }
+
+/* Download progress inside card */
+.dl-info { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.1rem 0; }
+.dl-status { font-size: 0.7rem; }
 
 /* Card footer */
 .card-footer {

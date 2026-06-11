@@ -13,8 +13,10 @@ from arr_mcp.dashboard.data import (
     _format_upgrade_notes,
     _is_unwatched,
     _movie_card,
+    _movie_download_info,
     _series_card,
 )
+from arr_mcp.services.arr import QueueItem
 from arr_mcp.services.interests import InterestState
 from arr_mcp.services.models import Movie, SeasonSummary, Series
 
@@ -283,3 +285,67 @@ def test_movie_card_unwatched_when_users_present_and_no_state() -> None:
     cache = {"users": [{"id": "1", "username": "ryan", "title": "Ryan"}]}
     card = _movie_card(movie, 0, cache)
     assert card["unwatched"] is True
+
+
+def test_movie_download_info_in_progress() -> None:
+    item = QueueItem(
+        id=1,
+        title="Alien: Romulus",
+        status="downloading",
+        tracked_download_state="downloading",
+        size_left_bytes=33,
+        raw={
+            "movieId": 1,
+            "size": 100,
+            "sizeleft": 33,
+            "trackedDownloadStatus": "ok",
+            "timeleft": "00:40:00",
+        },
+    )
+    info = _movie_download_info(item)
+    assert info["progress_pct"] == 67
+    assert info["stalled"] is False
+    assert info["status_text"] == "~00:40:00 remaining"
+
+
+def test_movie_download_info_stalled() -> None:
+    item = QueueItem(
+        id=2,
+        title="Dune: Part Two",
+        status="warning",
+        tracked_download_state="importPending",
+        size_left_bytes=77,
+        raw={
+            "movieId": 2,
+            "size": 100,
+            "sizeleft": 77,
+            "trackedDownloadStatus": "warning",
+            "statusMessages": [{"title": "Dune", "messages": ["SABnzbd warning"]}],
+        },
+    )
+    info = _movie_download_info(item)
+    assert info["progress_pct"] == 23
+    assert info["stalled"] is True
+    assert info["status_text"] == "⚠ Stuck — SABnzbd warning"
+
+
+def test_movie_download_info_no_size_defaults_progress_to_zero() -> None:
+    item = QueueItem(
+        id=3,
+        title="No Size",
+        status="downloading",
+        tracked_download_state="downloading",
+        size_left_bytes=0,
+        raw={"movieId": 3, "size": 0, "trackedDownloadStatus": "ok"},
+    )
+    info = _movie_download_info(item)
+    assert info["progress_pct"] == 0
+    assert info["status_text"] == "Downloading…"
+
+
+def test_movie_card_default_download_is_none() -> None:
+    movie = Movie(
+        id=1, title="Inception", path="/movies/inception", has_file=True, year=2010
+    )
+    card = _movie_card(movie, 0, cache={})
+    assert card["download"] is None
