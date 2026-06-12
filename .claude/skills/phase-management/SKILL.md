@@ -5,19 +5,19 @@ description: Project phase definitions, guardrails, Gantt sync rules, and end-of
 
 # Phase Management
 
-Current phase: **Phase 3 — Installation Wizard**
+Current phase: **Phase 2 — Media Intelligence & MVP Completion**
 
 See [phase definitions and guardrails](references/phase-definitions.md) for the full phase table and what NOT to build in each phase.
 
-## Gantt discipline
+## Roadmap discipline
 
-`docs/roadmap.md` contains a Mermaid Gantt chart that must stay accurate:
+`docs/roadmap.md` lists each phase's items in priority order (no dates) and must stay accurate:
 
-- **Opening a new GitHub issue** for a planned feature: confirm the Gantt item exists (add it if not).
-- **Closing / merging a PR** that completes a Gantt item: mark it `:done` in the same PR.
-- **Changing the roadmap** — adding, removing, or re-scoping items: update the Gantt in the same commit.
+- **Opening a new GitHub issue** for a planned feature: confirm the item exists in the relevant phase's priority list (add it if not).
+- **Closing / merging a PR** that completes an item: move it to that phase's "Delivered" list in the same PR.
+- **Changing the roadmap** — adding, removing, re-scoping, or re-prioritizing items: update `docs/roadmap.md` in the same commit.
 
-Never let the Gantt fall more than one PR behind reality.
+Never let the roadmap fall more than one PR behind reality.
 
 ## End-of-phase verification
 
