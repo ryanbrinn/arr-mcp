@@ -10,7 +10,10 @@ from arr_mcp.dashboard.data import (
     _annotate_series_interest,
     _dots_for_states,
     _eligible_gb,
+    _format_mounts,
+    _format_ports,
     _format_upgrade_notes,
+    _get_containers,
     _get_service_connectivity,
     _is_unwatched,
     _movie_card,
@@ -385,3 +388,97 @@ async def test_get_service_connectivity_omits_unrelated_unconfigured_services(
     results = await _get_service_connectivity(settings, containers)
 
     assert all(r["name"] != "jellyfin" for r in results)
+
+
+# ---------------------------------------------------------------------------
+# _get_containers / _format_ports / _format_mounts
+# ---------------------------------------------------------------------------
+
+
+def test_format_ports_with_and_without_publish() -> None:
+    ports = [
+        {"IP": "0.0.0.0", "PrivatePort": 8989, "PublicPort": 8989, "Type": "tcp"},
+        {"PrivatePort": 9000, "Type": "tcp"},
+    ]
+    assert _format_ports(ports) == [
+        "0.0.0.0:8989 -> 8989/tcp",
+        "9000/tcp",
+    ]
+
+
+def test_format_mounts_bind_and_volume() -> None:
+    mounts = [
+        {
+            "Type": "bind",
+            "Source": "/host/config",
+            "Destination": "/config",
+            "RW": True,
+        },
+        {
+            "Type": "volume",
+            "Name": "media-data",
+            "Destination": "/data",
+            "RW": False,
+        },
+    ]
+    assert _format_mounts(mounts) == [
+        "/host/config -> /config (rw)",
+        "media-data -> /data (ro)",
+    ]
+
+
+@pytest.mark.anyio
+async def test_get_containers_includes_ports_mounts_and_redacts_secret_env() -> None:
+    from unittest.mock import AsyncMock, MagicMock
+
+    from arr_mcp.runtime.client import ContainerClient
+
+    list_response = [
+        {
+            "Id": "abc123def456",
+            "Names": ["/sonarr"],
+            "Image": "lscr.io/linuxserver/sonarr",
+            "State": "running",
+            "Status": "Up 2 hours",
+            "Ports": [
+                {
+                    "IP": "0.0.0.0",
+                    "PrivatePort": 8989,
+                    "PublicPort": 8989,
+                    "Type": "tcp",
+                }
+            ],
+            "Mounts": [
+                {
+                    "Type": "bind",
+                    "Source": "/host/config",
+                    "Destination": "/config",
+                    "RW": True,
+                }
+            ],
+        }
+    ]
+    inspect_response = {
+        "Config": {
+            "Env": ["SONARR_API_KEY=supersecret", "TZ=UTC"],
+        }
+    }
+
+    client = MagicMock(spec=ContainerClient)
+
+    async def _get(path: str, **kwargs: object) -> object:
+        if path.endswith("/json") and "containers/abc123def456" in path:
+            return inspect_response
+        return list_response
+
+    client.get = AsyncMock(side_effect=_get)
+
+    containers = await _get_containers(client)
+
+    assert len(containers) == 1
+    c = containers[0]
+    assert c["ports"] == ["0.0.0.0:8989 -> 8989/tcp"]
+    assert c["mounts"] == ["/host/config -> /config (rw)"]
+    assert "SONARR_API_KEY=****" in c["env"]
+    assert "TZ=UTC" in c["env"]
+    assert "full_id" not in c

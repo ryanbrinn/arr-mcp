@@ -138,14 +138,75 @@ async def _get_containers(client: ContainerClient) -> list[dict[str, Any]]:
         containers.append(
             {
                 "id": c.get("Id", "")[:12],
+                "full_id": c.get("Id", ""),
                 "name": name,
                 "image": c.get("Image", ""),
                 "status": state,
                 "health": _extract_health(c),
                 "uptime_seconds": uptime_seconds,
+                "ports": _format_ports(c.get("Ports") or []),
+                "mounts": _format_mounts(c.get("Mounts") or []),
             }
         )
+
+    await _annotate_container_env(client, containers)
+
+    for c in containers:
+        del c["full_id"]
+
     return sorted(containers, key=lambda x: x["name"])
+
+
+# Env var name fragments that indicate a secret value to redact in the UI.
+_SECRET_ENV_PATTERN = re.compile(r"KEY|TOKEN|PASSWORD|SECRET|PASS", re.IGNORECASE)
+
+
+def _format_ports(ports: list[dict[str, Any]]) -> list[str]:
+    """Format container port mappings as 'host:port -> container/proto' strings."""
+    formatted = []
+    for p in ports:
+        container_side = f"{p.get('PrivatePort')}/{p.get('Type', 'tcp')}"
+        public_port = p.get("PublicPort")
+        if public_port:
+            host_ip = p.get("IP", "0.0.0.0")
+            formatted.append(f"{host_ip}:{public_port} -> {container_side}")
+        else:
+            formatted.append(container_side)
+    return formatted
+
+
+def _format_mounts(mounts: list[dict[str, Any]]) -> list[str]:
+    """Format container mounts as 'source -> destination (mode)' strings."""
+    formatted = []
+    for m in mounts:
+        source = m.get("Source") or m.get("Name") or "?"
+        destination = m.get("Destination", "?")
+        mode = "rw" if m.get("RW", True) else "ro"
+        formatted.append(f"{source} -> {destination} ({mode})")
+    return formatted
+
+
+async def _annotate_container_env(
+    client: ContainerClient, containers: list[dict[str, Any]]
+) -> None:
+    """Fetch and attach redacted environment variables for each container."""
+
+    async def _fetch(c: dict[str, Any]) -> None:
+        c["env"] = []
+        try:
+            with anyio.move_on_after(5.0):
+                detail = await client.get(f"/v1.41/containers/{c['full_id']}/json")
+                for entry in detail.get("Config", {}).get("Env", []):
+                    key, _, value = entry.partition("=")
+                    if _SECRET_ENV_PATTERN.search(key):
+                        value = "****"
+                    c["env"].append(f"{key}={value}")
+        except Exception:
+            c["env"] = []
+
+    async with anyio.create_task_group() as tg:
+        for c in containers:
+            tg.start_soon(_fetch, c)
 
 
 def _extract_health(container: dict[str, Any]) -> str:

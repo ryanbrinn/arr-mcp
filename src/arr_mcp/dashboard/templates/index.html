@@ -1045,10 +1045,14 @@
         if (c) {
           html += '<div class="drawer-section"><div class="drawer-section-title">Container</div>';
           html += '<dl class="drawer-dl">';
+          html += '<dt>Name</dt><dd class="mono small">'+_esc(c.name)+'</dd>';
           html += '<dt>Status</dt><dd>'+_esc(c.status)+'</dd>';
           if (c.health) html += '<dt>Health</dt><dd>'+_esc(c.health)+'</dd>';
           if (c.uptime_seconds) html += '<dt>Uptime</dt><dd>'+_esc(_uptime(c.uptime_seconds))+'</dd>';
           html += '<dt>Image</dt><dd class="mono small">'+_esc(c.image||'—')+'</dd>';
+          if (c.ports && c.ports.length) html += '<dt>Ports</dt><dd class="mono small">'+_escList(c.ports)+'</dd>';
+          if (c.mounts && c.mounts.length) html += '<dt>Mounts</dt><dd class="mono small">'+_escList(c.mounts)+'</dd>';
+          if (c.env && c.env.length) html += '<dt>Env</dt><dd class="mono small">'+_escList(c.env)+'</dd>';
           html += '</dl></div>';
         }
 
@@ -1131,6 +1135,9 @@
       }
       function _esc(s) {
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+      function _escList(items) {
+        return items.map(_esc).join('<br>');
       }
     })();
 
