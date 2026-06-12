@@ -24,7 +24,7 @@ The easiest way to install on a Podman (rootless) server — run this as your se
 bash <(curl -sSL https://raw.githubusercontent.com/ryanbrinn/arr-mcp/main/scripts/install.sh)
 ```
 
-This installs `arr-helper` on the host, generates a quadlet for `arr-mcp`, and starts both services. It asks five questions (media directory, API key, etc.) and takes about a minute.
+This installs `arr-agent` on the host, generates a quadlet for `arr-mcp`, and starts both services. It asks five questions (media directory, API key, etc.) and takes about a minute.
 
 **Requirements:** rootless Podman, `uv`, active systemd user session (`sudo loginctl enable-linger $(whoami)`).
 
@@ -56,7 +56,7 @@ A read-only dashboard is served at `http://your-server:8081/` — no Claude requ
 | Category | Tools |
 |---|---|
 | **Containers** | list, start, stop, restart, remove, logs, stats |
-| **Stacks** | up, down, pull, restart, validate (via arr-helper) |
+| **Stacks** | up, down, pull, restart, validate (via arr-agent) |
 | **Compose files** | read, write, validate |
 | **Conversion** | compose → quadlets, quadlets → compose |
 | **Filesystem** | disk usage, directory list, file read, write, delete |
@@ -77,13 +77,13 @@ Claude / Browser
       ▼
  Container runtime             ← your media stack
 
- arr-helper (host process)    ← podman-compose, systemctl, quadlets
+ arr-agent (host process)     ← podman-compose, systemctl, quadlets
       │  Unix socket (bind-mounted into arr-mcp)
       ▼
  arr-mcp container
 ```
 
-`arr-helper` is a small host-side process that gives arr-mcp access to `podman-compose`, `systemctl --user`, and quadlet files — things that aren't available from inside a container. The install script sets it up automatically.
+`arr-agent` is a small host-side process that gives arr-mcp access to `podman-compose`, `systemctl --user`, and quadlet files — things that aren't available from inside a container. The install script sets it up automatically.
 
 ---
 
@@ -129,7 +129,7 @@ Claude Desktop requires a local bridge. Install [mcpproxy](https://github.com/sp
 | `ARR_MCP_MEDIA_DIR` | `/media-server` | Media storage root |
 | `ARR_MCP_CONTAINER_RUNTIME` | `auto` | `auto` / `podman` / `docker` |
 | `ARR_MCP_SOCKET_PATH` | `` | Explicit runtime socket path (required in containers) |
-| `ARR_MCP_HELPER_SOCKET` | `/run/arr-helper/arr-helper.sock` | arr-helper socket path |
+| `ARR_MCP_HELPER_SOCKET` | `/run/arr-agent/arr-agent.sock` | arr-agent socket path |
 | `ARR_MCP_DASHBOARD_PUBLIC` | `false` | Skip dashboard auth (for LAN-only deployments) |
 | `ARR_MCP_PUBLIC_URL` | `` | Public URL shown in the "Open in Claude" button |
 | `ARR_MCP_LOG_LEVEL` | `info` | `debug` / `info` / `warning` / `error` |

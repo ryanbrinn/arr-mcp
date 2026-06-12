@@ -1,47 +1,27 @@
 # Contributing to arr-mcp
 
-Thanks for your interest! Here's how to get started.
+The full contributor guide — dev container setup, running tests, linting,
+manual end-to-end testing against a throwaway stack, and commit guidelines —
+lives at [docs/contributing.md](docs/contributing.md) (also published on the
+[documentation site](https://ryanbrinn.github.io/arr-mcp/contributing/)).
 
-## Development setup
+## Quick start
 
 ```bash
 git clone https://github.com/ryanbrinn/arr-mcp
 cd arr-mcp
-pip install -e ".[dev]"
+uv sync
 cp .env.example .env   # edit as needed
+uv run arr-mcp
 ```
 
-## Running locally
+Before opening a pull request:
 
 ```bash
-arr-mcp
-# or
-python -m arr_mcp.server
+make fmt        # ruff format + ruff check --fix
+make typecheck  # pyright
+make test       # pytest
 ```
 
-The server starts on port 8081. Test with:
-
-```bash
-curl -H "Authorization: Bearer changeme" http://localhost:8081/health
-```
-
-## Code style
-
-- Formatter/linter: `ruff check src/ && ruff format src/`
-- Type checker: `mypy src/arr_mcp/`
-- Tests: `pytest`
-
-All three must pass before opening a PR.
-
-## Adding a tool
-
-1. Add your function inside the appropriate `register_*` function in `src/arr_mcp/tools/`.
-2. Decorate it with `@server.tool()`.
-3. Add a test in `tests/`.
-4. Update the tool list in `README.md`.
-
-## Pull requests
-
-- One logical change per PR.
-- Include a short description of what and why.
-- Keep commits clean (`feat:`, `fix:`, `docs:`, `chore:` prefixes).
+See [docs/contributing.md](docs/contributing.md) for details on the dev
+container, the test-stack workflow, and commit/PR conventions.
