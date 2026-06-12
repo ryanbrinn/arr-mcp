@@ -2,44 +2,18 @@
 
 ## Overview
 
-arr-mcp is built in four phases, each with a clear architectural goal, defined success criteria, and a verification step before moving forward. The phases are intentionally sequential — Phase 2 should not begin until Phase 1 is verified complete.
+arr-mcp is built in four phases, each with a clear architectural goal and a verification step before moving forward. The phases are intentionally sequential — Phase 2 should not begin until Phase 1 is verified complete. Within a phase, items are ordered by priority rather than scheduled to dates — the order below reflects what's tackled first, not when.
 
 ---
 
-## Visual Timeline
+## Phase Summary
 
-```mermaid
-gantt
-    title arr-mcp Roadmap
-    dateFormat YYYY-MM
-
-    section Phase 1 - MVP
-        Security and ownership scoping          :done,    p1a, 2026-05, 2026-06
-        Code quality and CLAUDE.md              :done,    p1b, 2026-05, 2026-06
-        MkDocs and ADRs                         :done,    p1c, 2026-06, 2026-07
-        file_delete tool                        :done,    p1d, 2026-06, 2026-07
-        Stack mgmt and host-side helper         :done,    p1e, 2026-06, 2026-08
-        Compose and Quadlet conversion          :done,    p1f, 2026-07, 2026-08
-        Read-only dashboard                     :done,    p1g, 2026-08, 2026-09
-    section Phase 2 - Media Intelligence
-        Service diagnostics redesign (#112)     :done,    p2z, 2026-06, 2026-07
-        CredentialStore                         :done,    p2a, 2026-06, 2026-07
-        BaseServiceClient + ArrClient           :done,    p2b, 2026-06, 2026-07
-        SonarrClient + RadarrClient             :done,    p2c, 2026-07, 2026-08
-        PlexClient                              :done,    p2d, 2026-07, 2026-08
-        Watched content cleanup                 :done,    p2e, 2026-08, 2026-09
-        AlertWatcher — threshold monitoring     :done,    p2f, 2026-09, 2026-10
-        VersionChecker — upgrade tracking       :done,    p2g, 2026-10, 2026-11
-        Log monitoring and alerting             :done,    p2h, 2026-10, 2026-12
-        Plex auth and per-user watchlists       :done,    p2i, 2026-11, 2027-01
-
-    section Phase 3 - Installation Wizard
-        System check and runtime setup          :         p3a, 2027-01, 2027-03
-        Stack scaffolding and config wizard     :         p3b, 2027-03, 2027-05
-        First-run validation                    :         p3c, 2027-05, 2027-06
-    section Phase 4 - Advanced Features
-        Tiered infrastructure access (#54)      :         p4a, 2027-06, 2027-08
-```
+| Phase | Status | Focus |
+|---|---|---|
+| **Phase 1 — MVP** | Done | Solid, secure, well-tested foundation |
+| **Phase 2 — Media Intelligence & MVP Completion** | In progress | Cross-app intelligence (delivered) + remaining MVP gaps: auth, test-stack, docs |
+| **Phase 3 — Usability** | Not started | Features that make arr-mcp approachable for non-technical users, including the installation wizard |
+| **Phase 4 — Advanced Features** | Not started | Opt-in, config-driven scope expansion for advanced users |
 
 ---
 
@@ -80,10 +54,10 @@ Before declaring Phase 1 complete, confirm:
 
 ---
 
-## Phase 2 — Media Intelligence
+## Phase 2 — Media Intelligence & MVP Completion
 
 ### Architectural goal
-Integrate with the APIs of the media stack applications (Plex, Sonarr, Radarr, SABnzbd) to enable cross-application intelligence that no single app provides — watched content cleanup, storage optimisation, health monitoring, and multi-user protection.
+Integrate with the APIs of the media stack applications (Plex, Sonarr, Radarr, SABnzbd) to enable cross-application intelligence that no single app provides — watched content cleanup, storage optimisation, health monitoring, and multi-user protection. Additionally, close the remaining gaps that stand between the current state and a real MVP: robust authentication, a usable local test-stack, and accurate documentation.
 
 Phase 2 is built on a layered service client architecture. The foundation must land before any feature work:
 
@@ -96,7 +70,7 @@ Only once that foundation exists should the higher-level features (watched clean
 
 See [Architecture — Phase 2 Service Layer](architecture.md#phase-2-service-client-layer) for the full design.
 
-### What this phase delivers
+### Delivered (done)
 
 | Area | Goal |
 |---|---|
@@ -109,6 +83,36 @@ See [Architecture — Phase 2 Service Layer](architecture.md#phase-2-service-cli
 | **Log monitoring** | Scheduled error detection across all applications |
 | **Multi-user** | Plex authentication on the dashboard; per-user watchlists; deletion protection |
 | **Storage** | Surface large, duplicate, and unwatched content for review |
+
+### Remaining priorities (current focus)
+
+1. **Multi-provider authentication & strict access control**
+   - Sign-in options: Plex (if detected on the system), local
+     username/password managed by the app, account creation, and other OAuth
+     identity providers (e.g. Google)
+   - No unauthenticated access to any page — every route redirects to sign-in
+     until authenticated
+   - Extends the existing Plex OAuth + session-cookie implementation
+     (`src/arr_mcp/dashboard/auth.py`, ADR-0008), which was designed to allow
+     additional providers
+
+2. **Test-stack usability & automation**
+   - `test-stack/` environment matches production shape: all env files
+     present with realistic mock values, and enough seed data to exercise
+     every feature (extends `test-stack/compose.yaml`, `seed-media.sh`,
+     `seed_interest_cache.py`)
+   - New **manual-testing** skill: spin up a test-stack instance from a given
+     branch and walk the dashboard to confirm a feature/spec
+   - Follow-up (not built in this phase): configurable test instances —
+     choice of media player (Plex/Jellyfin) and authentication scheme
+
+3. **Documentation refresh**
+   - Sync `mkdocs.yml` nav with the actual ADR inventory (ADR-0005–0008 exist
+     but aren't linked from nav or `docs/adr/index.md`)
+   - Reconcile root `CONTRIBUTING.md` with the authoritative
+     `docs/contributing.md`
+   - Remove orphaned exploratory docs (dashboard mockups, unreferenced specs)
+   - General accuracy pass across end-user and contributor docs
 
 ### Guardrails
 - API credentials for Plex/Sonarr/Radarr/SABnzbd must be stored securely — never in compose files or quadlets
@@ -123,35 +127,46 @@ Before declaring Phase 2 complete, confirm:
 - [ ] Plex watch history is readable and correctly cross-referenced with Sonarr library
 - [ ] Watched season cleanup presents correct results and does not delete protected content
 - [ ] Log monitoring correctly detects and surfaces errors from all applications
-- [ ] Dashboard requires Plex login and shows per-user watchlist state
+- [ ] Dashboard requires sign-in via at least one provider and shows per-user watchlist state
+- [ ] No page is reachable without authentication — unauthenticated requests redirect to sign-in
+- [ ] Users can sign in via Plex (if detected), local username/password, or another configured OAuth provider, and can create a new local account
 - [ ] Deletion of watchlisted content is blocked with a clear user-facing message
 - [ ] Alert rules can be configured and fire correctly
 - [ ] Version checker surfaces new releases with parsed release notes
+- [ ] The local test-stack mirrors production env shape with realistic seed data, and the manual-testing skill can stand up an instance from a branch and walk the dashboard
+- [ ] `mkdocs.yml` nav reflects the full ADR inventory and end-user/contributor docs are accurate
 - [ ] All Phase 1 verification criteria still pass (no regression)
 
 ---
 
-## Phase 3 — Installation Wizard
+## Phase 3 — Usability
 
 ### Architectural goal
-Make arr-mcp self-bootstrapping — a non-technical user should be able to go from a fresh Debian/Ubuntu machine to a fully running media server stack by following the guided wizard, with no manual configuration required.
+Make arr-mcp approachable for non-technical users — both during initial setup and in day-to-day use. The installation wizard is the headline item, but this phase covers usability work more broadly as gaps are identified.
 
-### What this phase delivers
+### Items (priority order)
 
-| Area | Goal |
-|---|---|
-| **System check** | Verify OS, runtime availability, disk space, network before starting |
-| **Runtime setup** | Configure rootless Podman, socket activation, and systemd lingering |
-| **Stack scaffolding** | Generate quadlet files or compose file for chosen services |
-| **Directory structure** | Create and permission the `/media-server/` layout |
-| **Configuration** | Walk through API key setup, download client, and indexer configuration |
-| **Validation** | Verify all services are healthy and correctly connected at the end |
+1. **Installation wizard** — self-bootstrapping setup: a non-technical user
+   should be able to go from a fresh Debian/Ubuntu machine to a fully running
+   media server stack by following the guided wizard, with no manual
+   configuration required.
 
-### Guardrails
-- Every wizard step must be non-destructive and reversible where possible
-- Partial installs must be detectable and resumable — no silent failures
-- Jellyfin must be supported as an alternative to Plex from the start of this phase
-- The wizard must work through the dashboard UI, not just chat
+   | Area | Goal |
+   |---|---|
+   | **System check** | Verify OS, runtime availability, disk space, network before starting |
+   | **Runtime setup** | Configure rootless Podman, socket activation, and systemd lingering |
+   | **Stack scaffolding** | Generate quadlet files or compose file for chosen services |
+   | **Directory structure** | Create and permission the `/media-server/` layout |
+   | **Configuration** | Walk through API key setup, download client, and indexer configuration |
+   | **Validation** | Verify all services are healthy and correctly connected at the end |
+
+   Guardrails for this item:
+   - Every wizard step must be non-destructive and reversible where possible
+   - Partial installs must be detectable and resumable — no silent failures
+   - Jellyfin must be supported as an alternative to Plex from the start
+   - The wizard must work through the dashboard UI, not just chat
+
+Additional usability items will be appended here as they're identified.
 
 ### Verification checklist
 Before declaring Phase 3 complete, confirm:

@@ -7,7 +7,7 @@
 - Package management: `uv` only — never `pip`. See `code-quality` skill.
 - All code must pass Ruff and pyright. Run `/validate` before any commit.
 - One branch per issue. Never commit directly to main.
-- Current phase: **Phase 3 — Installation Wizard**.
+- Current phase: **Phase 2 — Media Intelligence & MVP Completion**.
 
 ## Before broad work
 

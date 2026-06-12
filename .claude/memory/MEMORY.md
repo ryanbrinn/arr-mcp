@@ -23,7 +23,7 @@
 
 ## Phase management
 
-- [Current phase: Phase 3 — Installation Wizard](.claude/skills/phase-management/SKILL.md) — do not build Phase 4 features.
-- [Gantt stays in sync](.claude/skills/phase-management/SKILL.md) — update `docs/roadmap.md` when opening issues, merging PRs, or changing scope.
+- [Current phase: Phase 2 — Media Intelligence & MVP Completion](.claude/skills/phase-management/SKILL.md) — do not build Phase 3/4 features.
+- [Roadmap stays in sync](.claude/skills/phase-management/SKILL.md) — update `docs/roadmap.md` when opening issues, merging PRs, or changing scope.
 - [End-of-phase verification](.claude/skills/phase-management/SKILL.md) — walk the checklist before declaring a phase complete.
 - [Phase guardrails](.claude/skills/phase-management/references/phase-definitions.md) — see phase definitions for what NOT to build in each phase.
