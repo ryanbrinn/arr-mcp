@@ -12,8 +12,9 @@ from mcp.types import TextContent
 
 from arr_mcp.config import Settings
 from arr_mcp.services.interests import InterestStore
-from arr_mcp.services.models import Episode, EpisodeFile, Series
-from arr_mcp.services.plex import PlexClient, PlexEpisode, PlexUser
+from arr_mcp.services.models import Episode, EpisodeFile, Movie, MovieFile, Series
+from arr_mcp.services.plex import PlexClient, PlexEpisode, PlexMovie, PlexUser
+from arr_mcp.services.radarr import RadarrClient
 from arr_mcp.services.registry import ServiceRegistry
 from arr_mcp.services.sonarr import SonarrClient
 
@@ -42,6 +43,18 @@ class CleanupResult:
     deleted: list[dict] = field(default_factory=list)  # type: ignore[type-arg]
     skipped: list[dict] = field(default_factory=list)  # type: ignore[type-arg]
     delete_errors: list[dict] = field(default_factory=list)  # type: ignore[type-arg]
+
+
+@dataclass
+class MovieCleanupCandidate:
+    """A single movie file that qualifies for cleanup."""
+
+    movie_title: str
+    movie_file_id: int
+    file_path: str
+    file_size_bytes: int
+    watched_by: list[str] = field(default_factory=list)
+    all_users_watched: bool = False
 
 
 def _find_candidates(
@@ -142,6 +155,87 @@ def _apply_interest_gate(
     protected: list[CleanupCandidate] = []
     for candidate in candidates:
         content_id = str(candidate.episode_file_id)
+        if store.is_deletion_eligible(content_id, all_user_ids):
+            eligible.append(candidate)
+        else:
+            protected.append(candidate)
+
+    return eligible, protected
+
+
+def _find_movie_candidates(
+    movies: list[Movie],
+    movie_files: dict[int, MovieFile],
+    watched_movies: list[PlexMovie],
+    all_user_count: int,
+) -> list[MovieCleanupCandidate]:
+    """Identify movie files that are safe to delete.
+
+    Rules:
+    - Movie must have a file on disk
+    - ALL household users must have watched the movie
+    """
+    # Build a lookup: (title_lower, year) → PlexMovie
+    plex_lookup: dict[tuple[str, int], PlexMovie] = {}
+    for movie in watched_movies:
+        key = (movie.title.lower(), movie.year)
+        plex_lookup[key] = movie
+
+    candidates: list[MovieCleanupCandidate] = []
+    for movie in movies:
+        if not movie.has_file or movie.movie_file_id is None:
+            continue
+
+        mf = movie_files.get(movie.movie_file_id)
+        if mf is None:
+            continue
+
+        plex_key = (movie.title.lower(), movie.year)
+        plex_movie = plex_lookup.get(plex_key)
+
+        watched_by = plex_movie.watched_by if plex_movie else []
+        all_watched = len(watched_by) >= all_user_count and all_user_count > 0
+
+        if all_watched:
+            candidates.append(
+                MovieCleanupCandidate(
+                    movie_title=movie.title,
+                    movie_file_id=movie.movie_file_id,
+                    file_path=mf.path,
+                    file_size_bytes=mf.size,
+                    watched_by=watched_by,
+                    all_users_watched=True,
+                )
+            )
+
+    return candidates
+
+
+def _apply_movie_interest_gate(
+    candidates: list[MovieCleanupCandidate],
+    users: list[PlexUser],
+    store: InterestStore,
+) -> tuple[list[MovieCleanupCandidate], list[MovieCleanupCandidate]]:
+    """Sync watch history into the InterestStore and split candidates.
+
+    Returns ``(eligible, protected)`` where *protected* are movies that at
+    least one user has explicitly marked ``interested`` (wants to keep).
+    Syncing sets ``watched`` state without overwriting ``marked_deletion``.
+    """
+    title_to_user = {u.title: u for u in users}
+    all_user_ids = [u.id for u in users]
+
+    for candidate in candidates:
+        content_id = str(candidate.movie_file_id)
+        for title in candidate.watched_by:
+            user = title_to_user.get(title)
+            if user:
+                store.sync_watched(content_id, user.id, title, "movie")
+
+    eligible: list[MovieCleanupCandidate] = []
+    protected: list[MovieCleanupCandidate] = []
+    for candidate in candidates:
+        content_id = str(candidate.movie_file_id)
         if store.is_deletion_eligible(content_id, all_user_ids):
             eligible.append(candidate)
         else:
@@ -310,6 +404,160 @@ def register_media_tools(server: FastMCP, settings: Settings) -> None:
                 "season_number": candidate.season_number,
                 "episode_number": candidate.episode_number,
                 "episode_file_id": candidate.episode_file_id,
+                "file_path": candidate.file_path,
+                "file_size_bytes": candidate.file_size_bytes,
+            }
+            if delete_result.ok:
+                cleanup.deleted.append(entry)
+            else:
+                cleanup.delete_errors.append({**entry, "error": delete_result.error})
+
+        result = {
+            "deleted_count": len(cleanup.deleted),
+            "error_count": len(cleanup.delete_errors),
+            "total_freed_bytes": sum(d["file_size_bytes"] for d in cleanup.deleted),
+            "deleted": cleanup.deleted,
+            "delete_errors": cleanup.delete_errors,
+        }
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    @server.tool()
+    async def movie_watched_cleanup_preview() -> list[TextContent]:
+        """Preview movie files that can be safely deleted.
+
+        Identifies movies that ALL household Plex users have watched and
+        that have a file on disk in Radarr. Returns a dry-run candidate
+        list — no files are deleted.
+        """
+        try:
+            radarr = cast(RadarrClient, registry.get_client("radarr"))
+            plex = cast(PlexClient, registry.get_client("plex"))
+        except Exception as exc:
+            return [TextContent(type="text", text=f"Service not configured: {exc}")]
+
+        movies_result = await radarr.get_movies()
+        if not movies_result.ok:
+            return [
+                TextContent(type="text", text=f"Radarr error: {movies_result.error}")
+            ]
+
+        users_result = await plex.get_home_users()
+        if not users_result.ok:
+            return [TextContent(type="text", text=f"Plex error: {users_result.error}")]
+
+        users: list[PlexUser] = users_result.data  # type: ignore[assignment]
+        watched_result = await plex.get_all_watched_movies(users)
+        if not watched_result.ok:
+            return [
+                TextContent(type="text", text=f"Plex error: {watched_result.error}")
+            ]
+
+        movies: list[Movie] = movies_result.data  # type: ignore[assignment]
+        all_user_count = len(users)
+        watched: list[PlexMovie] = watched_result.data  # type: ignore[assignment]
+
+        files_result = await radarr.get_movie_files()
+        all_files: dict[int, MovieFile] = {}
+        if files_result.ok:
+            for mf in files_result.data:  # type: ignore[union-attr]
+                all_files[mf.id] = mf
+
+        candidates = _find_movie_candidates(movies, all_files, watched, all_user_count)
+        eligible, protected = _apply_movie_interest_gate(
+            candidates, users, interest_store
+        )
+
+        result = {
+            "dry_run": True,
+            "candidate_count": len(eligible),
+            "protected_count": len(protected),
+            "total_size_bytes": sum(c.file_size_bytes for c in eligible),
+            "candidates": [asdict(c) for c in eligible],
+            "protected": [
+                {
+                    "movie_title": c.movie_title,
+                    "movie_file_id": c.movie_file_id,
+                    "reason": "Protected — a user has 'interested' state.",
+                }
+                for c in protected
+            ],
+        }
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    @server.tool()
+    async def movie_watched_cleanup_delete(confirm: bool = False) -> list[TextContent]:
+        """Delete movie files that ALL household users have watched.
+
+        Applies the same rules as movie_watched_cleanup_preview, then calls
+        radarr.delete_movie_file() for each candidate. Requires confirm=True
+        to proceed — without it, returns a summary of what would be deleted.
+
+        Args:
+            confirm: Must be True to execute deletions.
+        """
+        if not confirm:
+            return [
+                TextContent(
+                    type="text",
+                    text=(
+                        "Pass confirm=True to execute deletions. "
+                        "Run movie_watched_cleanup_preview first to review candidates."
+                    ),
+                )
+            ]
+
+        try:
+            radarr = cast(RadarrClient, registry.get_client("radarr"))
+            plex = cast(PlexClient, registry.get_client("plex"))
+        except Exception as exc:
+            return [TextContent(type="text", text=f"Service not configured: {exc}")]
+
+        movies_result = await radarr.get_movies()
+        if not movies_result.ok:
+            return [
+                TextContent(type="text", text=f"Radarr error: {movies_result.error}")
+            ]
+
+        users_result = await plex.get_home_users()
+        if not users_result.ok:
+            return [TextContent(type="text", text=f"Plex error: {users_result.error}")]
+
+        users: list[PlexUser] = users_result.data  # type: ignore[assignment]
+        watched_result = await plex.get_all_watched_movies(users)
+        if not watched_result.ok:
+            return [
+                TextContent(type="text", text=f"Plex error: {watched_result.error}")
+            ]
+
+        movies: list[Movie] = movies_result.data  # type: ignore[assignment]
+        all_user_count = len(users)
+        watched: list[PlexMovie] = watched_result.data  # type: ignore[assignment]
+
+        files_result = await radarr.get_movie_files()
+        all_files: dict[int, MovieFile] = {}
+        if files_result.ok:
+            for mf in files_result.data:  # type: ignore[union-attr]
+                all_files[mf.id] = mf
+
+        candidates = _find_movie_candidates(movies, all_files, watched, all_user_count)
+        eligible, protected = _apply_movie_interest_gate(
+            candidates, users, interest_store
+        )
+
+        cleanup = CleanupResult()
+        cleanup.skipped.extend(
+            {
+                "movie_title": c.movie_title,
+                "movie_file_id": c.movie_file_id,
+                "reason": "Protected by user interest state.",
+            }
+            for c in protected
+        )
+        for candidate in eligible:
+            delete_result = await radarr.delete_movie_file(candidate.movie_file_id)
+            entry = {
+                "movie_title": candidate.movie_title,
+                "movie_file_id": candidate.movie_file_id,
                 "file_path": candidate.file_path,
                 "file_size_bytes": candidate.file_size_bytes,
             }
