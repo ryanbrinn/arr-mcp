@@ -72,6 +72,46 @@ async def test_dashboard_returns_html(public_settings: Settings) -> None:
     assert "arr-mcp" in r.text
 
 
+async def test_dashboard_no_user_menu_when_anonymous(
+    public_settings: Settings,
+) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get("/")
+    assert 'id="user-menu"' not in r.text
+
+
+async def test_dashboard_shows_user_avatar_when_signed_in(
+    public_settings: Settings,
+) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        cookies=_signed_in_cookies(public_settings),
+    ) as client:
+        r = await client.get("/")
+    assert 'id="user-menu"' in r.text
+    assert ">R</span>" in r.text
+    assert "Sign out" in r.text
+    assert "Pending review" not in r.text
+
+
+async def test_dashboard_shows_admin_menu_item_when_admin(
+    public_settings: Settings,
+) -> None:
+    app = _make_app(public_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        cookies=_signed_in_cookies(public_settings, is_admin=True),
+    ) as client:
+        r = await client.get("/")
+    assert "Pending review" in r.text
+
+
 async def test_dashboard_redirects_unauthenticated(private_settings: Settings) -> None:
     app = _make_app(private_settings)
     async with httpx.AsyncClient(
@@ -425,10 +465,10 @@ def interest_settings(public_settings: Settings, tmp_path) -> Settings:
     return public_settings.model_copy(update={"services_dir": str(services)})
 
 
-def _signed_in_cookies(settings: Settings) -> dict[str, str]:
+def _signed_in_cookies(settings: Settings, is_admin: bool = False) -> dict[str, str]:
     from arr_mcp.dashboard.auth import AuthUser, SessionManager
 
-    user = AuthUser(plex_id="1", plex_username="ryan", is_admin=False)
+    user = AuthUser(plex_id="1", plex_username="ryan", is_admin=is_admin)
     token = SessionManager(settings.session_secret).sign(user)
     return {"arr_mcp_session": token}
 
