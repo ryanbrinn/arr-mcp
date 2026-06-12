@@ -91,6 +91,84 @@ header {
 .updated { color: var(--fg-dim); font-size: 0.78rem; white-space: nowrap; flex-shrink: 0; }
 
 /* =====================================================================
+   User menu
+   ===================================================================== */
+
+.user-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.user-avatar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border-hi);
+}
+
+.user-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--violet-dk);
+  color: var(--fg);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  min-width: 180px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-hi);
+  border-radius: 8px;
+  padding: 0.4rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  z-index: 20;
+}
+
+.user-dropdown-name {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.user-dropdown-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.25rem 0;
+}
+
+.user-dropdown-item {
+  display: block;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.82rem;
+  color: var(--fg-dim);
+  text-decoration: none;
+  border-radius: 6px;
+}
+
+.user-dropdown-item:hover {
+  background: var(--bg-row);
+  color: var(--fg);
+}
+
+/* =====================================================================
    Layout
    ===================================================================== */
 

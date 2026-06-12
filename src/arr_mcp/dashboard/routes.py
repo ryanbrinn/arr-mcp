@@ -78,8 +78,12 @@ def make_dashboard_routes(
             log.exception("Error generating AI insights")
             insights = []
 
+        user = get_session_user(request, settings)
+
         template = jinja.get_template("index.html")
-        html = template.render(status=status, insights=insights, settings=settings)
+        html = template.render(
+            status=status, insights=insights, settings=settings, user=user
+        )
         return HTMLResponse(html)
 
     async def handle_api_status(request: Request) -> Response:

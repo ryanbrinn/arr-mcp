@@ -17,6 +17,27 @@
       <a href="#media" class="tab" data-tab="media">Media Library</a>
     </nav>
     <span class="updated">Updated {{ status.generated_at | replace("T", " ") | replace("Z", " UTC") }}</span>
+
+    {% if user %}
+    <div class="user-menu" id="user-menu">
+      <button class="user-avatar-btn" id="user-avatar-btn" aria-label="User menu" aria-haspopup="true" aria-expanded="false">
+        {% if user.avatar_url %}
+        <img class="user-avatar" src="{{ user.avatar_url }}" alt="">
+        {% else %}
+        <span class="user-avatar user-avatar-fallback">{{ user.plex_username[:1] | upper }}</span>
+        {% endif %}
+      </button>
+      <div class="user-dropdown" id="user-dropdown" hidden>
+        <div class="user-dropdown-name">{{ user.plex_username }}</div>
+        {% if user.is_admin %}
+        <div class="user-dropdown-divider"></div>
+        <a class="user-dropdown-item" href="#media" data-filter-link="pending">Pending review</a>
+        {% endif %}
+        <div class="user-dropdown-divider"></div>
+        <a class="user-dropdown-item" href="/auth/logout">Sign out</a>
+      </div>
+    </div>
+    {% endif %}
   </header>
 
   <!-- ================================================================
@@ -493,12 +514,12 @@
     (function () {
       var filterBar = document.getElementById('media-filters');
       if (!filterBar) return;
-      filterBar.addEventListener('click', function (e) {
-        var chip = e.target.closest('.chip');
+
+      function applyFilter(f) {
+        var chip = filterBar.querySelector('.chip[data-filter="' + f + '"]');
         if (!chip) return;
         filterBar.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
         chip.classList.add('active');
-        var f = chip.dataset.filter;
         var flagFilters = {
           downloading: 'downloading',
           unwatched: 'unwatched',
@@ -511,6 +532,45 @@
             || card.dataset.badge === f
             || (flagFilters[f] && card.dataset[flagFilters[f]] === 'true');
           card.hidden = !show;
+        });
+      }
+
+      filterBar.addEventListener('click', function (e) {
+        var chip = e.target.closest('.chip');
+        if (!chip) return;
+        applyFilter(chip.dataset.filter);
+      });
+
+      window.applyMediaFilter = applyFilter;
+    })();
+
+    // User menu
+    (function () {
+      var menu = document.getElementById('user-menu');
+      if (!menu) return;
+      var btn = document.getElementById('user-avatar-btn');
+      var dropdown = document.getElementById('user-dropdown');
+
+      function close() {
+        dropdown.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+      }
+
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var willOpen = dropdown.hidden;
+        dropdown.hidden = !willOpen;
+        btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      });
+
+      document.addEventListener('click', function (e) {
+        if (!menu.contains(e.target)) close();
+      });
+
+      dropdown.querySelectorAll('[data-filter-link]').forEach(function (link) {
+        link.addEventListener('click', function () {
+          close();
+          if (window.applyMediaFilter) window.applyMediaFilter(link.dataset.filterLink);
         });
       });
     })();
