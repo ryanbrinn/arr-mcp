@@ -24,14 +24,18 @@
         {% if user.avatar_url %}
         <img class="user-avatar" src="{{ user.avatar_url }}" alt="">
         {% else %}
-        <span class="user-avatar user-avatar-fallback">{{ user.plex_username[:1] | upper }}</span>
+        <span class="user-avatar user-avatar-fallback">{{ user.display_name[:1] | upper }}</span>
         {% endif %}
       </button>
       <div class="user-dropdown" id="user-dropdown" hidden>
-        <div class="user-dropdown-name">{{ user.plex_username }}</div>
+        <div class="user-dropdown-name">{{ user.display_name }}</div>
         {% if user.is_admin %}
         <div class="user-dropdown-divider"></div>
         <a class="user-dropdown-item" href="#media" data-filter-link="pending">Pending review</a>
+        {% endif %}
+        {% if not linked_plex %}
+        <div class="user-dropdown-divider"></div>
+        <a class="user-dropdown-item" href="/auth/link/plex/start">Link Plex account</a>
         {% endif %}
         <div class="user-dropdown-divider"></div>
         <a class="user-dropdown-item" href="/auth/logout">Sign out</a>

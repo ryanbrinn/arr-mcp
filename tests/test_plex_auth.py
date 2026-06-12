@@ -1,4 +1,4 @@
-"""Tests for Plex OAuth authentication and session management."""
+"""Tests for Plex/local OAuth authentication, AppUser provisioning, and sessions."""
 
 from __future__ import annotations
 
@@ -12,13 +12,15 @@ from arr_mcp.dashboard.auth import (
     AuthUser,
     PlexPin,
     SessionManager,
-    build_auth_user,
+    build_auth_user_plex,
     build_plex_auth_url,
     create_plex_pin,
     get_plex_user_info,
+    needs_first_run_setup,
     poll_plex_pin,
 )
 from arr_mcp.server import create_app
+from arr_mcp.services.users import UserStore
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -26,39 +28,32 @@ from arr_mcp.server import create_app
 
 
 @pytest.fixture
-def private_settings(tmp_path):
+def settings(tmp_path):
     stacks = tmp_path / "stacks"
     stacks.mkdir()
     media = tmp_path / "media"
     media.mkdir()
+    services = tmp_path / "services"
+    services.mkdir()
     return Settings(
         api_key="test-key",
         port=8081,
         compose_dir=str(stacks),
         media_dir=str(media),
+        services_dir=str(services),
         container_runtime="podman",
-        dashboard_public=False,
         session_secret="test-secret-32-bytes-long-abcdef",
-        admin_plex_users=["adminuser"],
+        admin_users=["adminuser"],
     )
 
 
 @pytest.fixture
-def public_settings(tmp_path):
-    stacks = tmp_path / "stacks"
-    stacks.mkdir()
-    media = tmp_path / "media"
-    media.mkdir()
-    return Settings(
-        api_key="test-key",
-        port=8081,
-        compose_dir=str(stacks),
-        media_dir=str(media),
-        container_runtime="podman",
-        dashboard_public=True,
-        session_secret="test-secret-32-bytes-long-abcdef",
-        admin_plex_users=["adminuser"],
+def seeded_settings(settings: Settings) -> Settings:
+    """Settings with one pre-existing AppUser, so first-run setup is closed."""
+    UserStore(settings.services_dir).create_local(
+        "setup-admin", "password123", is_admin=True
     )
+    return settings
 
 
 def _make_app(settings: Settings):
@@ -77,20 +72,25 @@ def _make_app(settings: Settings):
 def test_session_round_trip():
     sm = SessionManager("test-secret")
     user = AuthUser(
-        plex_id="123", plex_username="alice", is_admin=True, avatar_url="https://img"
+        app_user_id="abc-123",
+        display_name="alice",
+        is_admin=True,
+        avatar_url="https://img",
+        session_provider="plex",
     )
     token = sm.sign(user)
     result = sm.verify(token)
     assert result is not None
-    assert result.plex_id == "123"
-    assert result.plex_username == "alice"
+    assert result.app_user_id == "abc-123"
+    assert result.display_name == "alice"
     assert result.is_admin is True
     assert result.avatar_url == "https://img"
+    assert result.session_provider == "plex"
 
 
 def test_session_rejects_tampered_token():
     sm = SessionManager("test-secret")
-    user = AuthUser(plex_id="123", plex_username="alice", is_admin=False)
+    user = AuthUser(app_user_id="abc-123", display_name="alice", is_admin=False)
     token = sm.sign(user)
     tampered = token[:-4] + "xxxx"
     assert sm.verify(tampered) is None
@@ -99,7 +99,7 @@ def test_session_rejects_tampered_token():
 def test_session_rejects_wrong_secret():
     sm1 = SessionManager("secret-one")
     sm2 = SessionManager("secret-two")
-    user = AuthUser(plex_id="1", plex_username="bob", is_admin=False)
+    user = AuthUser(app_user_id="1", display_name="bob", is_admin=False)
     token = sm1.sign(user)
     assert sm2.verify(token) is None
 
@@ -107,7 +107,7 @@ def test_session_rejects_wrong_secret():
 def test_session_none_avatar_preserved():
     sm = SessionManager("test-secret")
     user = AuthUser(
-        plex_id="99", plex_username="carol", is_admin=False, avatar_url=None
+        app_user_id="99", display_name="carol", is_admin=False, avatar_url=None
     )
     token = sm.sign(user)
     result = sm.verify(token)
@@ -115,36 +115,110 @@ def test_session_none_avatar_preserved():
     assert result.avatar_url is None
 
 
+def test_session_rejects_legacy_token_without_uid():
+    """Pre-#192 cookies (no 'uid' claim) must fail verification."""
+    sm = SessionManager("test-secret")
+    legacy = sm._s.dumps({"pid": "123", "usr": "alice", "adm": False, "ava": None})
+    assert sm.verify(legacy) is None
+
+
 # ---------------------------------------------------------------------------
-# build_auth_user
+# build_auth_user_plex
 # ---------------------------------------------------------------------------
 
 
-def test_build_auth_user_admin():
-    info = {"id": 42, "username": "adminuser", "thumb": "https://avatar"}
-    user = build_auth_user(info, admin_users=["adminuser", "other"])
-    assert user.plex_id == "42"
-    assert user.plex_username == "adminuser"
-    assert user.is_admin is True
+async def test_build_auth_user_plex_new_user_auto_provisions(
+    seeded_settings: Settings,
+) -> None:
+    info = {"id": 42, "username": "newuser", "thumb": "https://avatar"}
+    with patch(
+        "arr_mcp.dashboard.auth._detect_plex_home_admin",
+        new=AsyncMock(return_value=False),
+    ):
+        user = await build_auth_user_plex(info, seeded_settings)
+
+    assert user.display_name == "newuser"
     assert user.avatar_url == "https://avatar"
-
-
-def test_build_auth_user_non_admin():
-    info = {"id": 7, "username": "regular", "thumb": None}
-    user = build_auth_user(info, admin_users=["adminuser"])
     assert user.is_admin is False
+    assert user.session_provider == "plex"
+
+    found = UserStore(seeded_settings.services_dir).find_by_linked_identity(
+        "plex", "42"
+    )
+    assert found is not None
+    assert found.app_user_id == user.app_user_id
 
 
-def test_build_auth_user_case_insensitive_admin():
-    info = {"id": 5, "username": "AdminUser"}
-    user = build_auth_user(info, admin_users=["adminuser"])
+async def test_build_auth_user_plex_existing_linked_user_reused(
+    seeded_settings: Settings,
+) -> None:
+    store = UserStore(seeded_settings.services_dir)
+    created = store.create_linked("plex", "42", "olduser", is_admin=False)
+
+    info = {"id": 42, "username": "newname", "thumb": "https://new-avatar"}
+    with patch(
+        "arr_mcp.dashboard.auth._detect_plex_home_admin",
+        new=AsyncMock(return_value=False),
+    ):
+        user = await build_auth_user_plex(info, seeded_settings)
+
+    assert user.app_user_id == created.app_user_id
+    assert user.display_name == "newname"
+    assert user.avatar_url == "https://new-avatar"
+
+
+async def test_build_auth_user_plex_admin_via_home_user_flag(
+    seeded_settings: Settings,
+) -> None:
+    info = {"id": 7, "username": "homeadmin"}
+    with patch(
+        "arr_mcp.dashboard.auth._detect_plex_home_admin",
+        new=AsyncMock(return_value=True),
+    ):
+        user = await build_auth_user_plex(info, seeded_settings)
+
     assert user.is_admin is True
 
 
-def test_build_auth_user_empty_admin_list():
-    info = {"id": 1, "username": "anyone"}
-    user = build_auth_user(info, admin_users=[])
-    assert user.is_admin is False
+async def test_build_auth_user_plex_admin_via_config(seeded_settings: Settings) -> None:
+    info = {"id": 8, "username": "AdminUser"}  # matches admin_users=["adminuser"]
+    with patch(
+        "arr_mcp.dashboard.auth._detect_plex_home_admin",
+        new=AsyncMock(return_value=False),
+    ):
+        user = await build_auth_user_plex(info, seeded_settings)
+
+    assert user.is_admin is True
+
+
+async def test_build_auth_user_plex_first_appuser_forced_admin(
+    settings: Settings,
+) -> None:
+    """The very first AppUser is always admin, even with no other signal."""
+    info = {"id": 1, "username": "first"}
+    with patch(
+        "arr_mcp.dashboard.auth._detect_plex_home_admin",
+        new=AsyncMock(return_value=False),
+    ):
+        user = await build_auth_user_plex(info, settings)
+
+    assert user.is_admin is True
+
+
+async def test_build_auth_user_plex_admin_is_sticky(seeded_settings: Settings) -> None:
+    """An existing admin AppUser is never auto-revoked on re-login."""
+    store = UserStore(seeded_settings.services_dir)
+    created = store.create_linked("plex", "55", "olduser", is_admin=True)
+    assert created.is_admin is True
+
+    info = {"id": 55, "username": "olduser"}
+    with patch(
+        "arr_mcp.dashboard.auth._detect_plex_home_admin",
+        new=AsyncMock(return_value=False),
+    ):
+        user = await build_auth_user_plex(info, seeded_settings)
+
+    assert user.is_admin is True
 
 
 # ---------------------------------------------------------------------------
@@ -277,12 +351,25 @@ async def test_get_plex_user_info_http_failure():
 
 
 # ---------------------------------------------------------------------------
+# needs_first_run_setup
+# ---------------------------------------------------------------------------
+
+
+def test_needs_first_run_setup_true_when_empty(settings: Settings) -> None:
+    assert needs_first_run_setup(settings) is True
+
+
+def test_needs_first_run_setup_false_when_seeded(seeded_settings: Settings) -> None:
+    assert needs_first_run_setup(seeded_settings) is False
+
+
+# ---------------------------------------------------------------------------
 # Auth routes — sign-in page
 # ---------------------------------------------------------------------------
 
 
-async def test_auth_signin_returns_200(private_settings: Settings) -> None:
-    app = _make_app(private_settings)
+async def test_auth_signin_returns_200(seeded_settings: Settings) -> None:
+    app = _make_app(seeded_settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
@@ -291,8 +378,8 @@ async def test_auth_signin_returns_200(private_settings: Settings) -> None:
     assert "Sign in with Plex" in r.text
 
 
-async def test_auth_signin_shows_error_param(private_settings: Settings) -> None:
-    app = _make_app(private_settings)
+async def test_auth_signin_shows_error_param(seeded_settings: Settings) -> None:
+    app = _make_app(seeded_settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
@@ -300,13 +387,193 @@ async def test_auth_signin_shows_error_param(private_settings: Settings) -> None
     assert "Something went wrong." in r.text
 
 
+async def test_auth_signin_redirects_to_setup_when_no_users(
+    settings: Settings,
+) -> None:
+    app = _make_app(settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        follow_redirects=False,
+    ) as client:
+        r = await client.get("/auth/signin")
+    assert r.status_code == 302
+    assert "/auth/setup" in r.headers["location"]
+
+
+# ---------------------------------------------------------------------------
+# Auth routes — /auth/setup
+# ---------------------------------------------------------------------------
+
+
+async def test_auth_setup_returns_200_when_no_users(settings: Settings) -> None:
+    app = _make_app(settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get("/auth/setup")
+    assert r.status_code == 200
+    assert "Create your admin account" in r.text or "Create admin account" in r.text
+
+
+async def test_auth_setup_redirects_to_signin_when_users_exist(
+    seeded_settings: Settings,
+) -> None:
+    app = _make_app(seeded_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        follow_redirects=False,
+    ) as client:
+        r = await client.get("/auth/setup")
+    assert r.status_code == 302
+    assert "/auth/signin" in r.headers["location"]
+
+
+async def test_auth_setup_post_creates_first_admin(settings: Settings) -> None:
+    app = _make_app(settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        follow_redirects=False,
+    ) as client:
+        r = await client.post(
+            "/auth/setup",
+            data={
+                "username": "alice",
+                "password": "password123",
+                "confirm_password": "password123",
+            },
+        )
+    assert r.status_code == 302
+    assert r.headers["location"] == "/"
+    assert "arr_mcp_session" in r.cookies
+
+    user = UserStore(settings.services_dir).find_by_username("alice")
+    assert user is not None
+    assert user.is_admin is True
+
+
+async def test_auth_setup_post_rejects_short_password(settings: Settings) -> None:
+    app = _make_app(settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        follow_redirects=False,
+    ) as client:
+        r = await client.post(
+            "/auth/setup",
+            data={
+                "username": "alice",
+                "password": "short",
+                "confirm_password": "short",
+            },
+        )
+    assert r.status_code == 302
+    assert "/auth/setup" in r.headers["location"]
+    assert UserStore(settings.services_dir).has_any() is False
+
+
+async def test_auth_setup_post_rejects_mismatched_passwords(
+    settings: Settings,
+) -> None:
+    app = _make_app(settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        follow_redirects=False,
+    ) as client:
+        r = await client.post(
+            "/auth/setup",
+            data={
+                "username": "alice",
+                "password": "password123",
+                "confirm_password": "password456",
+            },
+        )
+    assert r.status_code == 302
+    assert "/auth/setup" in r.headers["location"]
+    assert UserStore(settings.services_dir).has_any() is False
+
+
+async def test_auth_setup_post_already_closed(seeded_settings: Settings) -> None:
+    app = _make_app(seeded_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        follow_redirects=False,
+    ) as client:
+        r = await client.post(
+            "/auth/setup",
+            data={
+                "username": "alice",
+                "password": "password123",
+                "confirm_password": "password123",
+            },
+        )
+    assert r.status_code == 302
+    assert "/auth/signin" in r.headers["location"]
+
+
+# ---------------------------------------------------------------------------
+# Auth routes — /auth/local/login
+# ---------------------------------------------------------------------------
+
+
+async def test_auth_local_login_success(seeded_settings: Settings) -> None:
+    app = _make_app(seeded_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        follow_redirects=False,
+    ) as client:
+        r = await client.post(
+            "/auth/local/login",
+            data={"username": "setup-admin", "password": "password123"},
+        )
+    assert r.status_code == 302
+    assert r.headers["location"] == "/"
+    assert "arr_mcp_session" in r.cookies
+
+
+async def test_auth_local_login_wrong_password(seeded_settings: Settings) -> None:
+    app = _make_app(seeded_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        follow_redirects=False,
+    ) as client:
+        r = await client.post(
+            "/auth/local/login",
+            data={"username": "setup-admin", "password": "wrongpassword"},
+        )
+    assert r.status_code == 302
+    assert "/auth/signin" in r.headers["location"]
+    assert "arr_mcp_session" not in r.cookies
+
+
+async def test_auth_local_login_unknown_user(seeded_settings: Settings) -> None:
+    app = _make_app(seeded_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        follow_redirects=False,
+    ) as client:
+        r = await client.post(
+            "/auth/local/login",
+            data={"username": "nosuchuser", "password": "password123"},
+        )
+    assert r.status_code == 302
+    assert "/auth/signin" in r.headers["location"]
+
+
 # ---------------------------------------------------------------------------
 # Auth routes — /auth/plex/start
 # ---------------------------------------------------------------------------
 
 
-async def test_auth_plex_start_redirects_to_plex(private_settings: Settings) -> None:
-    app = _make_app(private_settings)
+async def test_auth_plex_start_redirects_to_plex(seeded_settings: Settings) -> None:
+    app = _make_app(seeded_settings)
     with patch(
         "arr_mcp.dashboard.routes.create_plex_pin",
         new=AsyncMock(return_value=PlexPin(id="123", code="abcde")),
@@ -322,8 +589,8 @@ async def test_auth_plex_start_redirects_to_plex(private_settings: Settings) -> 
     assert "abcde" in r.headers["location"]
 
 
-async def test_auth_plex_start_handles_pin_failure(private_settings: Settings) -> None:
-    app = _make_app(private_settings)
+async def test_auth_plex_start_handles_pin_failure(seeded_settings: Settings) -> None:
+    app = _make_app(seeded_settings)
     with patch(
         "arr_mcp.dashboard.routes.create_plex_pin",
         new=AsyncMock(return_value=None),
@@ -344,9 +611,9 @@ async def test_auth_plex_start_handles_pin_failure(private_settings: Settings) -
 
 
 async def test_auth_plex_callback_sets_session_and_redirects(
-    private_settings: Settings,
+    seeded_settings: Settings,
 ) -> None:
-    app = _make_app(private_settings)
+    app = _make_app(seeded_settings)
     with (
         patch(
             "arr_mcp.dashboard.routes.poll_plex_pin",
@@ -355,6 +622,10 @@ async def test_auth_plex_callback_sets_session_and_redirects(
         patch(
             "arr_mcp.dashboard.routes.get_plex_user_info",
             new=AsyncMock(return_value={"id": 42, "username": "alice", "thumb": None}),
+        ),
+        patch(
+            "arr_mcp.dashboard.auth._detect_plex_home_admin",
+            new=AsyncMock(return_value=False),
         ),
     ):
         async with httpx.AsyncClient(
@@ -367,9 +638,13 @@ async def test_auth_plex_callback_sets_session_and_redirects(
     assert r.headers["location"] == "/"
     assert "arr_mcp_session" in r.cookies
 
+    user = UserStore(seeded_settings.services_dir).find_by_linked_identity("plex", "42")
+    assert user is not None
+    assert user.display_name == "alice"
 
-async def test_auth_plex_callback_missing_pin_id(private_settings: Settings) -> None:
-    app = _make_app(private_settings)
+
+async def test_auth_plex_callback_missing_pin_id(seeded_settings: Settings) -> None:
+    app = _make_app(seeded_settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://test",
@@ -380,8 +655,8 @@ async def test_auth_plex_callback_missing_pin_id(private_settings: Settings) -> 
     assert "/auth/signin" in r.headers["location"]
 
 
-async def test_auth_plex_callback_pin_not_claimed(private_settings: Settings) -> None:
-    app = _make_app(private_settings)
+async def test_auth_plex_callback_pin_not_claimed(seeded_settings: Settings) -> None:
+    app = _make_app(seeded_settings)
     with patch(
         "arr_mcp.dashboard.routes.poll_plex_pin",
         new=AsyncMock(return_value=None),
@@ -396,8 +671,8 @@ async def test_auth_plex_callback_pin_not_claimed(private_settings: Settings) ->
     assert "/auth/signin" in r.headers["location"]
 
 
-async def test_auth_plex_callback_user_info_failure(private_settings: Settings) -> None:
-    app = _make_app(private_settings)
+async def test_auth_plex_callback_user_info_failure(seeded_settings: Settings) -> None:
+    app = _make_app(seeded_settings)
     with (
         patch(
             "arr_mcp.dashboard.routes.poll_plex_pin",
@@ -419,12 +694,123 @@ async def test_auth_plex_callback_user_info_failure(private_settings: Settings) 
 
 
 # ---------------------------------------------------------------------------
+# Auth routes — /auth/link/plex/*
+# ---------------------------------------------------------------------------
+
+
+def _signed_in_cookies(settings: Settings, *, is_admin: bool = False) -> dict[str, str]:
+    user_store = UserStore(settings.services_dir)
+    app_user = user_store.create_local("ryan", "password123", is_admin=is_admin)
+    assert app_user is not None
+    user = AuthUser(
+        app_user_id=app_user.app_user_id, display_name="ryan", is_admin=is_admin
+    )
+    token = SessionManager(settings.session_secret).sign(user)
+    return {"arr_mcp_session": token}
+
+
+async def test_auth_link_plex_start_requires_session(seeded_settings: Settings) -> None:
+    app = _make_app(seeded_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        follow_redirects=False,
+    ) as client:
+        r = await client.get("/auth/link/plex/start")
+    assert r.status_code == 302
+    assert "/auth/signin" in r.headers["location"]
+
+
+async def test_auth_link_plex_start_redirects_to_plex(
+    seeded_settings: Settings,
+) -> None:
+    app = _make_app(seeded_settings)
+    cookies = _signed_in_cookies(seeded_settings)
+    with patch(
+        "arr_mcp.dashboard.routes.create_plex_pin",
+        new=AsyncMock(return_value=PlexPin(id="123", code="abcde")),
+    ):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+            cookies=cookies,
+            follow_redirects=False,
+        ) as client:
+            r = await client.get("/auth/link/plex/start")
+    assert r.status_code == 302
+    assert "app.plex.tv" in r.headers["location"]
+
+
+async def test_auth_link_plex_callback_links_account(
+    seeded_settings: Settings,
+) -> None:
+    app = _make_app(seeded_settings)
+    cookies = _signed_in_cookies(seeded_settings)
+    user_store = UserStore(seeded_settings.services_dir)
+    app_user = user_store.find_by_username("ryan")
+    assert app_user is not None
+
+    with (
+        patch(
+            "arr_mcp.dashboard.routes.poll_plex_pin",
+            new=AsyncMock(return_value="auth-token-xyz"),
+        ),
+        patch(
+            "arr_mcp.dashboard.routes.get_plex_user_info",
+            new=AsyncMock(return_value={"id": 99, "username": "ryan", "thumb": None}),
+        ),
+    ):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+            cookies=cookies,
+            follow_redirects=False,
+        ) as client:
+            r = await client.get("/auth/link/plex/callback?pin_id=123")
+    assert r.status_code == 302
+    assert r.headers["location"] == "/"
+
+    updated = user_store.get(app_user.app_user_id)
+    assert updated is not None
+    assert updated.linked_identities.get("plex") == "99"
+
+
+async def test_auth_link_plex_callback_conflict(seeded_settings: Settings) -> None:
+    """Linking a Plex account already linked to a different AppUser fails."""
+    app = _make_app(seeded_settings)
+    user_store = UserStore(seeded_settings.services_dir)
+    user_store.create_linked("plex", "99", "otheruser")
+
+    cookies = _signed_in_cookies(seeded_settings)
+
+    with (
+        patch(
+            "arr_mcp.dashboard.routes.poll_plex_pin",
+            new=AsyncMock(return_value="auth-token-xyz"),
+        ),
+        patch(
+            "arr_mcp.dashboard.routes.get_plex_user_info",
+            new=AsyncMock(return_value={"id": 99, "username": "ryan", "thumb": None}),
+        ),
+    ):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+            cookies=cookies,
+            follow_redirects=False,
+        ) as client:
+            r = await client.get("/auth/link/plex/callback?pin_id=123")
+    assert r.status_code == 302
+    assert "already+linked" in r.headers["location"]
+
+
+# ---------------------------------------------------------------------------
 # Auth routes — /auth/logout
 # ---------------------------------------------------------------------------
 
 
-async def test_auth_logout_clears_cookie(private_settings: Settings) -> None:
-    app = _make_app(private_settings)
+async def test_auth_logout_clears_cookie(seeded_settings: Settings) -> None:
+    app = _make_app(seeded_settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://test",
@@ -441,18 +827,14 @@ async def test_auth_logout_clears_cookie(private_settings: Settings) -> None:
 
 
 async def test_dashboard_accepts_valid_session_cookie(
-    private_settings: Settings,
+    seeded_settings: Settings,
 ) -> None:
-    from arr_mcp.dashboard.auth import AuthUser, SessionManager
-
-    sm = SessionManager(private_settings.session_secret)
-    token = sm.sign(AuthUser(plex_id="1", plex_username="alice", is_admin=False))
-
-    app = _make_app(private_settings)
+    cookies = _signed_in_cookies(seeded_settings)
+    app = _make_app(seeded_settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://test",
-        cookies={"arr_mcp_session": token},
+        cookies=cookies,
         follow_redirects=False,
     ) as client:
         r = await client.get("/")
@@ -460,9 +842,9 @@ async def test_dashboard_accepts_valid_session_cookie(
 
 
 async def test_dashboard_rejects_invalid_session_cookie(
-    private_settings: Settings,
+    seeded_settings: Settings,
 ) -> None:
-    app = _make_app(private_settings)
+    app = _make_app(seeded_settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://test",

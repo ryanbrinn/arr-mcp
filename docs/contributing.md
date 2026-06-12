@@ -229,7 +229,6 @@ The deploy script generates `.env.test` on the server automatically. The values 
 | `ARR_MCP_API_KEY` | `test-key-local` | Matches `.mcp.json.test` |
 | `ARR_MCP_SERVICES_DIR` | `~/arr-mcp-test/test-stack/data` | Points at test service configs |
 | `ARR_MCP_COMPOSE_DIR` | `~/arr-mcp-test/test-stack` | Points at test stack |
-| `ARR_MCP_DASHBOARD_PUBLIC` | `true` | No key required for test dashboard |
 
 To override any of these, set the corresponding env var before running the deploy script:
 

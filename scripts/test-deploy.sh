@@ -178,7 +178,6 @@ CREDS
     echo "ARR_MCP_CONTAINER_RUNTIME=podman"
     echo "ARR_MCP_COMPOSE_DIR=\$HOME/arr-mcp-test/test-stack"
     echo "ARR_MCP_SOCKET_PATH=unix:///run/user/\${USER_UID}/podman/podman.sock"
-    echo "ARR_MCP_DASHBOARD_PUBLIC=true"
   } > .env
 
   # Ensure Podman socket service is running for this user

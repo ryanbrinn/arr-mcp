@@ -252,13 +252,10 @@ http://your-server-ip:8081/?key=your-secret-key
 
 It shows container status, disk usage, and stack health, and auto-refreshes every 30 seconds.
 
-To make the dashboard available without a key (suitable for LAN-only deployments):
-
-```bash
--e ARR_MCP_DASHBOARD_PUBLIC=true
-```
-
-See [Configuration](configuration.md#dashboard) for the full auth options.
+On first run, you'll be redirected to a setup page to create the first
+(admin) account — either a local username/password or by signing in with
+Plex. See [Configuration](configuration.md#dashboard) for the full auth
+options.
 
 ## Connecting to Claude
 

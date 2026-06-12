@@ -1,4 +1,4 @@
-"""Plex PIN OAuth flow and session cookie management for the dashboard."""
+"""Plex PIN OAuth flow, local accounts, and session management for the dashboard."""
 
 from __future__ import annotations
 
@@ -6,16 +6,20 @@ import logging
 import secrets as _secrets_mod
 import urllib.parse
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from starlette.responses import Response
 
+from arr_mcp.services.base import ServiceNotConfiguredError
+from arr_mcp.services.users import AppUser, UserStore
+
 if TYPE_CHECKING:
     from starlette.requests import Request
 
     from arr_mcp.config import Settings
+    from arr_mcp.services.plex import PlexClient
 
 log = logging.getLogger(__name__)
 
@@ -34,12 +38,13 @@ _SESSION_MAX_AGE = 86400 * 7  # 7 days
 
 @dataclass
 class AuthUser:
-    """An authenticated dashboard user."""
+    """An authenticated dashboard user, backed by an AppUser identity."""
 
-    plex_id: str
-    plex_username: str
+    app_user_id: str
+    display_name: str
     is_admin: bool
     avatar_url: str | None = None
+    session_provider: str = "local"
 
 
 @dataclass
@@ -80,10 +85,11 @@ class SessionManager:
         """Return a signed session token for user."""
         return self._s.dumps(
             {
-                "pid": user.plex_id,
-                "usr": user.plex_username,
+                "uid": user.app_user_id,
+                "name": user.display_name,
                 "adm": user.is_admin,
                 "ava": user.avatar_url,
+                "prv": user.session_provider,
             }
         )
 
@@ -93,11 +99,15 @@ class SessionManager:
             payload: dict[str, Any] = self._s.loads(token, max_age=_SESSION_MAX_AGE)
         except (BadSignature, SignatureExpired):
             return None
+        uid = payload.get("uid")
+        if not uid:
+            return None
         return AuthUser(
-            plex_id=str(payload.get("pid", "")),
-            plex_username=str(payload.get("usr", "")),
+            app_user_id=str(uid),
+            display_name=str(payload.get("name", "")),
             is_admin=bool(payload.get("adm")),
             avatar_url=payload.get("ava"),
+            session_provider=str(payload.get("prv", "local")),
         )
 
 
@@ -234,13 +244,162 @@ async def get_plex_user_info(
         return await _call(client)
 
 
-def build_auth_user(user_info: dict[str, Any], admin_users: list[str]) -> AuthUser:
-    """Build an AuthUser from a plex.tv /api/v2/user response payload."""
+# ---------------------------------------------------------------------------
+# AppUser-aware auth flows
+# ---------------------------------------------------------------------------
+
+
+async def _detect_plex_home_admin(
+    plex_id: str, settings: Settings, *, http: httpx.AsyncClient | None = None
+) -> bool:
+    """Return True if *plex_id* is an admin per the server's home-users list.
+
+    Returns False if no Plex credential is configured or the lookup fails —
+    callers should treat this as "unknown", not "explicitly not admin".
+    """
+    try:
+        from arr_mcp.services.registry import ServiceRegistry
+
+        registry = ServiceRegistry(settings.services_dir, http=http)
+        plex = cast("PlexClient", registry.get_client("plex"))
+        result = await plex.get_home_users()
+        if not result.ok:
+            return False
+        for user in result.data or []:  # type: ignore[union-attr]
+            if user.id == plex_id:
+                return user.is_admin
+    except ServiceNotConfiguredError:
+        return False
+    except Exception as exc:
+        log.warning("Could not determine Plex home-user admin status: %s", exc)
+    return False
+
+
+async def build_auth_user_plex(
+    user_info: dict[str, Any],
+    settings: Settings,
+    *,
+    http: httpx.AsyncClient | None = None,
+) -> AuthUser:
+    """Resolve a Plex login to an AppUser, auto-provisioning/linking as needed.
+
+    Admin status is granted via the Plex home-user ``admin`` flag, the
+    ``admin_users`` config list, or — for the very first AppUser ever
+    created — unconditionally. Admin status is sticky: once granted it is
+    never auto-revoked on subsequent logins.
+    """
+    plex_id = str(user_info.get("id", ""))
     username = str(user_info.get("username", ""))
-    admins_lower = {u.strip().lower() for u in admin_users if u.strip()}
-    return AuthUser(
-        plex_id=str(user_info.get("id", "")),
-        plex_username=username,
-        is_admin=username.lower() in admins_lower,
-        avatar_url=user_info.get("thumb"),
+    avatar = user_info.get("thumb")
+
+    admins_lower = {u.strip().lower() for u in settings.admin_users if u.strip()}
+    config_admin = username.lower() in admins_lower
+
+    user_store = UserStore(settings.services_dir)
+    is_first_user = not user_store.has_any()
+
+    existing = user_store.find_by_linked_identity("plex", plex_id)
+    if existing is not None:
+        home_admin = await _detect_plex_home_admin(plex_id, settings, http=http)
+        is_admin = existing.is_admin or home_admin or config_admin
+        user_store.update_profile(
+            existing.app_user_id,
+            display_name=username,
+            avatar_url=avatar,
+            is_admin=is_admin,
+        )
+        return AuthUser(
+            app_user_id=existing.app_user_id,
+            display_name=username,
+            is_admin=is_admin,
+            avatar_url=avatar,
+            session_provider="plex",
+        )
+
+    home_admin = await _detect_plex_home_admin(plex_id, settings, http=http)
+    is_admin = is_first_user or home_admin or config_admin
+    created = user_store.create_linked(
+        "plex",
+        plex_id,
+        username,
+        is_admin=is_admin,
+        avatar_url=avatar,
     )
+    return AuthUser(
+        app_user_id=created.app_user_id,
+        display_name=username,
+        is_admin=created.is_admin,
+        avatar_url=avatar,
+        session_provider="plex",
+    )
+
+
+def needs_first_run_setup(settings: Settings) -> bool:
+    """Return True when no AppUser exists yet — first-run setup must be shown."""
+    return not UserStore(settings.services_dir).has_any()
+
+
+def verify_local_login(
+    username: str, password: str, settings: Settings
+) -> AuthUser | None:
+    """Verify local username/password credentials and return an AuthUser."""
+    user_store = UserStore(settings.services_dir)
+    user = user_store.find_by_username(username)
+    if user is None:
+        return None
+    if not user_store.verify_password(user.app_user_id, password):
+        return None
+    return AuthUser(
+        app_user_id=user.app_user_id,
+        display_name=user.display_name,
+        is_admin=user.is_admin,
+        avatar_url=user.avatar_url,
+        session_provider="local",
+    )
+
+
+def create_first_run_local_admin(
+    display_name: str, password: str, settings: Settings
+) -> AuthUser | None:
+    """Create the first AppUser as a local admin account.
+
+    Returns None if an AppUser already exists (race) or the display name is
+    taken.
+    """
+    user_store = UserStore(settings.services_dir)
+    if user_store.has_any():
+        return None
+    user = user_store.create_local(display_name, password, is_admin=True)
+    if user is None:
+        return None
+    return AuthUser(
+        app_user_id=user.app_user_id,
+        display_name=user.display_name,
+        is_admin=user.is_admin,
+        avatar_url=user.avatar_url,
+        session_provider="local",
+    )
+
+
+def has_linked_plex(app_user_id: str, settings: Settings) -> bool:
+    """Return True if the given AppUser has a linked Plex identity."""
+    user = UserStore(settings.services_dir).get(app_user_id)
+    if user is None:
+        return False
+    return "plex" in user.linked_identities
+
+
+def link_plex_identity(
+    app_user_id: str, plex_id: str, settings: Settings
+) -> AppUser | None:
+    """Link a Plex identity to an existing AppUser.
+
+    Returns None if the Plex identity is already linked to a *different*
+    AppUser.
+    """
+    user_store = UserStore(settings.services_dir)
+    existing = user_store.find_by_linked_identity("plex", plex_id)
+    if existing is not None and existing.app_user_id != app_user_id:
+        return None
+    user_store.link_identity(app_user_id, "plex", plex_id)
+    return user_store.get(app_user_id)

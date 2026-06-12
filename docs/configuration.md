@@ -15,7 +15,7 @@ All settings are loaded from environment variables or a `.env` file in the worki
 | `ARR_MCP_CONTAINER_RUNTIME` | `docker-compose` | `docker-compose` / `docker` / `podman` / `auto` |
 | `ARR_MCP_SOCKET_PATH` | `` | Explicit socket path — required when running inside a container |
 | `ARR_MCP_HELPER_SOCKET` | `/run/arr-helper/arr-helper.sock` | Path to the arr-helper Unix socket |
-| `ARR_MCP_DASHBOARD_PUBLIC` | `false` | Serve dashboard without auth (set `true` for LAN-only deployments) |
+| `ARR_MCP_ADMIN_USERS` | `` | Comma-separated usernames granted admin on first login (e.g. `alice,bob`) |
 | `ARR_MCP_LOG_LEVEL` | `info` | `debug` / `info` / `warning` / `error` |
 
 ## Runtime modes
@@ -86,17 +86,15 @@ Override the in-container path if needed:
 
 ## Dashboard
 
-The dashboard is served at `GET /` and requires authentication by default. Two auth modes:
-
-**Key in query param** (default):
+The dashboard is served at `GET /` and always requires authentication: either a
+signed-in session (local username/password, or "Sign in with Plex"), or the
+API key as a query param for programmatic access:
 
 ```
 http://your-server:8081/?key=your-secret-key
 ```
 
-**Public mode** (no auth, suitable for LAN-only deployments):
-
-```bash
--e ARR_MCP_DASHBOARD_PUBLIC=true
-```
+On first run, no accounts exist yet — the dashboard redirects to `/auth/setup`
+to create the first (admin) account. See
+[ADR-0008](adr/0008-authentication-strategy.md) for the full auth model.
 
