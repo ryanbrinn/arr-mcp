@@ -87,12 +87,29 @@ SERIES: dict[str, dict[str, Any]] = {
         },
         "size_range": (1_200_000_000, 2_500_000_000),
     },
+    "4": {
+        "title": "Stranger Things",
+        "seasons": {
+            "1": [
+                "The Vanishing of Will Byers",
+                "The Weirdo on Maple Street",
+                "Holly, Jolly",
+                "The Body",
+                "The Flea and the Acrobat",
+                "The Monster",
+                "The Bathtub",
+                "The Upside Down",
+            ],
+        },
+        "size_range": (500_000_000, 1_100_000_000),
+    },
 }
 
 MOVIES: dict[str, str] = {
     "9101": "The Shawshank Redemption",
     "9102": "Inception",
     "9103": "Oppenheimer",
+    "9104": "The Matrix",
 }
 
 
