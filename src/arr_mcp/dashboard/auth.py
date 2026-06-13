@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import secrets as _secrets_mod
 import urllib.parse
@@ -139,6 +140,25 @@ def set_session_cookie(response: Response, user: AuthUser, settings: Settings) -
 def clear_session_cookie(response: Response) -> None:
     """Remove the session cookie from response."""
     response.delete_cookie(_SESSION_COOKIE_NAME)
+
+
+def is_local_request(request: Request) -> bool:
+    """Return True if Plex OAuth likely can't redirect back to this request.
+
+    Plex's auth app only honours ``forwardUrl`` for https or publicly
+    recognised domains. On http, localhost, or a private-network address it
+    redirects to ``watch.plex.tv/me`` instead of completing sign-in.
+    """
+    url = request.url
+    if url.scheme != "https":
+        return True
+    hostname = url.hostname or ""
+    if hostname == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_private
+    except ValueError:
+        return False
 
 
 # ---------------------------------------------------------------------------

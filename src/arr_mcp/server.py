@@ -149,6 +149,7 @@ def create_app(settings: Settings) -> Starlette:
         ),
         Route("/auth/plex/start", endpoint=dashboard["auth_plex_start"]),
         Route("/auth/plex/callback", endpoint=dashboard["auth_plex_callback"]),
+        Route("/auth/link/plex", endpoint=dashboard["auth_link_plex"]),
         Route("/auth/link/plex/start", endpoint=dashboard["auth_link_plex_start"]),
         Route(
             "/auth/link/plex/callback", endpoint=dashboard["auth_link_plex_callback"]
