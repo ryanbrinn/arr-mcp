@@ -42,7 +42,11 @@ Env-var overrides (`SONARR_API_KEY`, `PLEX_TOKEN`, etc.) take precedence for CI/
 
 AI provider calls (Ollama, Anthropic) are made exclusively from the server. The browser and MCP client never communicate with an AI provider directly, so API keys are never exposed to the client. See [ADR-0005](adr/0005-ai-provider-strategy.md).
 
-### 8. Interest states are not sensitive, but deletion is irreversible
+### 8. Dashboard authentication is split from MCP authentication
+
+The MCP endpoint (`/mcp`) always uses a static Bearer token (`ARR_MCP_API_KEY`). The dashboard authenticates human users separately via Plex OAuth (session cookie), with the same API key as a query-param fallback and `DASHBOARD_PUBLIC=true` for unauthenticated LAN use. Plex identity (`plex_id`) becomes the stable `user_id` for per-user interest states and admin actions. See [ADR-0008](adr/0008-authentication-strategy.md).
+
+### 9. Interest states are not sensitive, but deletion is irreversible
 
 `InterestStore` data (per-user content interest states) is stored unencrypted — it contains no credentials or personal information beyond watch preferences. However, because content deletion triggered by interest state resolution is irreversible, every deletion operation requires explicit user confirmation regardless of interest state. See [ADR-0006](adr/0006-user-interest-model.md).
 
@@ -54,6 +58,7 @@ AI provider calls (Ollama, Anthropic) are made exclusively from the server. The 
 | Crafted prompt writes to root-owned directory | Ownership check rejects before write |
 | Path traversal outside allowed roots | `_check_path` resolves and prefix-checks all paths |
 | Unauthenticated MCP access | Bearer token required on all routes |
+| Dashboard session forgery | Session cookie signed with `ARR_MCP_SESSION_SECRET`; verified via `itsdangerous` with expiry |
 | Prompt causes user switching | No `su`/`sudo`/`setuid` available in container |
 | Socket access from other containers | Socket bind-mount is restricted to arr-mcp container |
 | Service API key exposure | `CredentialStore` only — never in compose files or VCS |

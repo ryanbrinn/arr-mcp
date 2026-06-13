@@ -14,9 +14,37 @@ All settings are loaded from environment variables or a `.env` file in the worki
 | `ARR_MCP_QUADLETS_DIR` | `~/.config/containers/systemd` | Podman quadlet unit files directory — only used for `podman` runtime |
 | `ARR_MCP_CONTAINER_RUNTIME` | `docker-compose` | `docker-compose` / `docker` / `podman` / `auto` |
 | `ARR_MCP_SOCKET_PATH` | `` | Explicit socket path — required when running inside a container |
-| `ARR_MCP_HELPER_SOCKET` | `/run/arr-helper/arr-helper.sock` | Path to the arr-helper Unix socket |
+| `ARR_MCP_HELPER_SOCKET` | `/run/arr-agent/arr-agent.sock` | Path to the arr-agent Unix socket |
 | `ARR_MCP_ADMIN_USERS` | `` | Comma-separated usernames granted admin on first login (e.g. `alice,bob`) |
+| `ARR_MCP_SESSION_SECRET` | `` | Secret for signing dashboard session cookies. Generate with `python -c "import secrets; print(secrets.token_hex(32))"`. If unset, a random per-process secret is used and sessions do not survive restarts |
 | `ARR_MCP_LOG_LEVEL` | `info` | `debug` / `info` / `warning` / `error` |
+
+## AI provider settings
+
+Phase 2 features (dashboard insight blocks, `POST /api/diagnose`) use a language model to generate natural-language summaries and remedy suggestions. See [ADR-0005](adr/0005-ai-provider-strategy.md) for the rationale.
+
+| Variable | Default | Description |
+|---|---|---|
+| `ARR_MCP_AI_PROVIDER` | `ollama` | `ollama` / `anthropic` / `none` — `none` disables AI features and falls back to rule-based remedies |
+| `ARR_MCP_OLLAMA_URL` | `http://localhost:11434` | Base URL for a local Ollama instance |
+| `ARR_MCP_OLLAMA_MODEL` | `llama3.2:3b` | Ollama model name used for completions |
+| `ARR_MCP_ANTHROPIC_API_KEY` | `` | Anthropic API key — required when `ARR_MCP_AI_PROVIDER=anthropic` |
+| `ARR_MCP_ANTHROPIC_MODEL` | `claude-haiku-4-5-20251001` | Anthropic model ID used for completions |
+
+## Service credentials
+
+Phase 2 service integrations (Sonarr, Radarr, Plex, SABnzbd) need API keys to talk to those services. These are managed by `CredentialStore` — an encrypted JSON file inside the container's data volume — via the `credential_set` / `credential_list` / `credential_delete` MCP tools, never via compose files.
+
+| Variable | Default | Description |
+|---|---|---|
+| `ARR_MCP_SECRET` | `` | Encryption key for `CredentialStore`. **Required** for Phase 2 service integrations — without it, credentials are stored in plaintext and a warning is logged |
+| `SONARR_API_KEY`, `RADARR_API_KEY`, `PLEX_TOKEN`, `SABNZBD_API_KEY` | `` | Per-service env var overrides. Take precedence over `CredentialStore` — useful for CI/testing |
+
+## Alert watcher
+
+| Variable | Default | Description |
+|---|---|---|
+| `ARR_MCP_ALERT_INTERVAL_SECONDS` | `300` | How often `AlertWatcher` polls services for threshold violations |
 
 ## Runtime modes
 
@@ -45,13 +73,13 @@ These can share a common root (e.g. all under `/media-server`) or live on separa
 
 **`ARR_MCP_SERVICES_DIR` is read-only.** arr-mcp will never write to your service directories. Additionally, `config.xml` and database files (`*.db`, `*.db-shm`, `*.db-wal`) are blocked from read access to protect credentials and prevent database corruption.
 
-## arr-helper settings
+## arr-agent settings
 
-arr-helper reads a single environment variable:
+arr-agent reads a single environment variable:
 
 | Variable | Default | Description |
 |---|---|---|
-| `HELPER_SOCKET` | `/run/arr-helper/arr-helper.sock` | Path where arr-helper creates its Unix socket |
+| `HELPER_SOCKET` | `/run/arr-agent/arr-agent.sock` | Path where arr-agent creates its Unix socket |
 
 The socket path must match `ARR_MCP_HELPER_SOCKET` on the arr-mcp side.
 
@@ -69,19 +97,19 @@ If omitted, arr-mcp will attempt to auto-detect the socket at startup, which wil
 
 ## Helper socket
 
-arr-helper's socket is bind-mounted into the arr-mcp container. The default paths assume systemd's `RuntimeDirectory=arr-helper` places the socket at `/run/user/<UID>/arr-helper/arr-helper.sock` on the host.
+arr-agent's socket is bind-mounted into the arr-mcp container. The default paths assume systemd's `RuntimeDirectory=arr-agent` places the socket at `/run/user/<UID>/arr-agent/arr-agent.sock` on the host.
 
 In the arr-mcp container (quadlet or compose):
 
 ```yaml
 volumes:
-  - /run/user/1000/arr-helper/arr-helper.sock:/run/arr-helper/arr-helper.sock:z
+  - /run/user/1000/arr-agent/arr-agent.sock:/run/arr-agent/arr-agent.sock:z
 ```
 
 Override the in-container path if needed:
 
 ```bash
--e ARR_MCP_HELPER_SOCKET=/run/arr-helper/arr-helper.sock
+-e ARR_MCP_HELPER_SOCKET=/run/arr-agent/arr-agent.sock
 ```
 
 ## Dashboard
@@ -97,4 +125,6 @@ http://your-server:8081/?key=your-secret-key
 On first run, no accounts exist yet — the dashboard redirects to `/auth/setup`
 to create the first (admin) account. See
 [ADR-0008](adr/0008-authentication-strategy.md) for the full auth model.
+
+See [ADR-0008](adr/0008-authentication-strategy.md) for the full authentication design.
 

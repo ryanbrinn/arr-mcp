@@ -8,7 +8,7 @@ The fastest way to get started on a rootless Podman server:
 bash <(curl -sSL https://raw.githubusercontent.com/ryanbrinn/arr-mcp/main/scripts/install.sh)
 ```
 
-The script asks five questions, installs `arr-helper` on the host, generates a quadlet for `arr-mcp`, and starts both services. Takes about a minute.
+The script asks five questions, installs `arr-agent` on the host, generates a quadlet for `arr-mcp`, and starts both services. Takes about a minute.
 
 **Requirements:** rootless Podman, `uv`, active systemd user session.
 
@@ -31,7 +31,7 @@ For Docker, or if you prefer to set things up manually, see the sections below.
 
 ## Supported configurations
 
-**Operating system:** Linux only. Windows and macOS are not supported. The server relies on Unix domain sockets, rootless Podman with systemd quadlets, and `arr-helper` using POSIX APIs that do not exist on those platforms. WSL2 on Windows is not tested and not recommended.
+**Operating system:** Linux only. Windows and macOS are not supported. The server relies on Unix domain sockets, rootless Podman with systemd quadlets, and `arr-agent` using POSIX APIs that do not exist on those platforms. WSL2 on Windows is not tested and not recommended.
 
 | Configuration | Supported |
 |---|---|
@@ -160,16 +160,16 @@ systemctl --user enable --now arr-mcp
 
 ---
 
-## arr-helper
+## arr-agent
 
-`arr-helper` is a small host-side process that gives arr-mcp access to `podman-compose`, `systemctl --user`, and quadlet files — none of which are available from inside a container. Without it, stack management tools return a message explaining what's missing; all other tools continue to work.
+`arr-agent` is a small host-side process that gives arr-mcp access to `podman-compose`, `systemctl --user`, and quadlet files — none of which are available from inside a container. Without it, stack management tools return a message explaining what's missing; all other tools continue to work.
 
 !!! tip
-    The [one-command installer](#one-command-install-podman-quadlets) handles arr-helper setup automatically. The steps below are for manual installs only.
+    The [one-command installer](#one-command-install-podman-quadlets) handles arr-agent setup automatically. The steps below are for manual installs only.
 
 ### Installing
 
-`arr-helper` ships as part of the `arr-mcp` package. On the host machine (as the service account):
+`arr-agent` ships as part of the `arr-mcp` package. On the host machine (as the service account):
 
 ```bash
 uv tool install arr-mcp
@@ -177,7 +177,7 @@ uv tool install arr-mcp
 
 ### Running as a systemd user service
 
-Create `~/.config/systemd/user/arr-helper.service`:
+Create `~/.config/systemd/user/arr-agent.service`:
 
 ```ini
 [Unit]
@@ -185,9 +185,9 @@ Description=arr-mcp host-side helper agent
 After=network.target
 
 [Service]
-ExecStart=%h/.local/bin/arr-helper
+ExecStart=%h/.local/bin/arr-agent
 Restart=on-failure
-RuntimeDirectory=arr-helper
+RuntimeDirectory=arr-agent
 RuntimeDirectoryMode=0700
 
 [Install]
@@ -198,10 +198,10 @@ Enable and start it:
 
 ```bash
 systemctl --user daemon-reload
-systemctl --user enable --now arr-helper
+systemctl --user enable --now arr-agent
 ```
 
-The socket will be created at `/run/user/<UID>/arr-helper/arr-helper.sock`.
+The socket will be created at `/run/user/<UID>/arr-agent/arr-agent.sock`.
 
 ### Mounting the socket into arr-mcp
 
@@ -211,13 +211,13 @@ Add the socket volume to your arr-mcp run command:
 
 ```yaml
 volumes:
-  - /run/user/1000/arr-helper/arr-helper.sock:/run/arr-helper/arr-helper.sock:z
+  - /run/user/1000/arr-agent/arr-agent.sock:/run/arr-agent/arr-agent.sock:z
 ```
 
 **Quadlet:**
 
 ```ini
-Volume=/run/user/%U/arr-helper/arr-helper.sock:/run/arr-helper/arr-helper.sock:z
+Volume=/run/user/%U/arr-agent/arr-agent.sock:/run/arr-agent/arr-agent.sock:z
 ```
 
 Replace `1000` / `%U` with the service account UID.
@@ -225,14 +225,14 @@ Replace `1000` / `%U` with the service account UID.
 ### Verifying
 
 ```bash
-# Check the helper is running
-systemctl --user status arr-helper
+# Check the agent is running
+systemctl --user status arr-agent
 
-# Ask arr-mcp if it can reach the helper (via Claude or curl)
+# Ask arr-mcp if it can reach the agent (via Claude or curl)
 curl -H "Authorization: Bearer your-key" http://localhost:8081/api/status
 ```
 
-If `stack_list` returns stack names rather than the "arr-helper required" message, the helper is connected.
+If `stack_list` returns stack names rather than the "arr-agent required" message, the agent is connected.
 
 ---
 
@@ -244,18 +244,38 @@ curl http://localhost:8081/health
 
 ## Dashboard
 
-The read-only status dashboard is served at `GET /`. Open it in a browser:
+The dashboard is served at `GET /`. Open it in a browser:
+
+```
+http://your-server-ip:8081/
+```
+
+It has two tabs:
+
+- **Infrastructure** — container status, disk usage, stack health, alerts, and AI-generated insights
+- **Media Library** — Sonarr/Radarr library stats, watched-content cleanup candidates, and per-user interest states
+
+It auto-refreshes every 30 seconds.
+
+### Signing in
+
+The dashboard always requires authentication. On first run, you'll be
+redirected to a setup page to create the first (admin) account — either a
+local username/password or by signing in with Plex.
+
+Household members can then sign in with a local account or with **Plex**
+("Sign in with Plex" on the sign-in page). Plex identity is used to
+attribute interest states (what each user wants kept or deleted). Admin
+usernames are configured via `ARR_MCP_ADMIN_USERS`.
+
+For programmatic access without a session, append the API key as a query
+parameter:
 
 ```
 http://your-server-ip:8081/?key=your-secret-key
 ```
 
-It shows container status, disk usage, and stack health, and auto-refreshes every 30 seconds.
-
-On first run, you'll be redirected to a setup page to create the first
-(admin) account — either a local username/password or by signing in with
-Plex. See [Configuration](configuration.md#dashboard) for the full auth
-options.
+See [Configuration](configuration.md#dashboard) for the full auth options.
 
 ## Connecting to Claude
 
