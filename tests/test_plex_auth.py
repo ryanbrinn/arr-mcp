@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+from starlette.requests import Request
 
 from arr_mcp.config import Settings
 from arr_mcp.dashboard.auth import (
@@ -16,6 +17,7 @@ from arr_mcp.dashboard.auth import (
     build_plex_auth_url,
     create_plex_pin,
     get_plex_user_info,
+    is_local_request,
     needs_first_run_setup,
     poll_plex_pin,
 )
@@ -364,6 +366,39 @@ def test_needs_first_run_setup_false_when_seeded(seeded_settings: Settings) -> N
 
 
 # ---------------------------------------------------------------------------
+# is_local_request
+# ---------------------------------------------------------------------------
+
+
+def _make_request(scheme: str, host: str) -> Request:
+    scope = {
+        "type": "http",
+        "scheme": scheme,
+        "server": (host, 443 if scheme == "https" else 80),
+        "headers": [],
+        "path": "/",
+        "query_string": b"",
+    }
+    return Request(scope)
+
+
+def test_is_local_request_true_for_http() -> None:
+    assert is_local_request(_make_request("http", "192.168.1.50")) is True
+
+
+def test_is_local_request_true_for_localhost_https() -> None:
+    assert is_local_request(_make_request("https", "localhost")) is True
+
+
+def test_is_local_request_true_for_private_ip_https() -> None:
+    assert is_local_request(_make_request("https", "10.0.0.5")) is True
+
+
+def test_is_local_request_false_for_public_https() -> None:
+    assert is_local_request(_make_request("https", "arr.example.com")) is False
+
+
+# ---------------------------------------------------------------------------
 # Auth routes — sign-in page
 # ---------------------------------------------------------------------------
 
@@ -385,6 +420,17 @@ async def test_auth_signin_shows_error_param(seeded_settings: Settings) -> None:
     ) as client:
         r = await client.get("/auth/signin?error=Something+went+wrong.")
     assert "Something went wrong." in r.text
+
+
+async def test_auth_signin_shows_local_notice_over_http(
+    seeded_settings: Settings,
+) -> None:
+    app = _make_app(seeded_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get("/auth/signin")
+    assert "may not finish on a local or non-HTTPS deployment" in r.text
 
 
 async def test_auth_signin_redirects_to_setup_when_no_users(
@@ -707,6 +753,37 @@ def _signed_in_cookies(settings: Settings, *, is_admin: bool = False) -> dict[st
     )
     token = SessionManager(settings.session_secret).sign(user)
     return {"arr_mcp_session": token}
+
+
+async def test_auth_link_plex_landing_requires_session(
+    seeded_settings: Settings,
+) -> None:
+    app = _make_app(seeded_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        follow_redirects=False,
+    ) as client:
+        r = await client.get("/auth/link/plex")
+    assert r.status_code == 302
+    assert "/auth/signin" in r.headers["location"]
+
+
+async def test_auth_link_plex_landing_shows_notice_and_start_link(
+    seeded_settings: Settings,
+) -> None:
+    app = _make_app(seeded_settings)
+    cookies = _signed_in_cookies(seeded_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        cookies=cookies,
+        follow_redirects=False,
+    ) as client:
+        r = await client.get("/auth/link/plex")
+    assert r.status_code == 200
+    assert "may not finish on a local or non-HTTPS deployment" in r.text
+    assert "/auth/link/plex/start" in r.text
 
 
 async def test_auth_link_plex_start_requires_session(seeded_settings: Settings) -> None:

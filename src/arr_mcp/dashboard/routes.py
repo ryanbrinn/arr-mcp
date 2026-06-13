@@ -20,6 +20,7 @@ from arr_mcp.dashboard.auth import (
     get_plex_user_info,
     get_session_user,
     has_linked_plex,
+    is_local_request,
     link_plex_identity,
     needs_first_run_setup,
     poll_plex_pin,
@@ -211,7 +212,7 @@ def make_dashboard_routes(
             return RedirectResponse(url="/auth/setup", status_code=302)
         error = request.query_params.get("error", "")
         template = jinja.get_template("signin.html")
-        html = template.render(error=error)
+        html = template.render(error=error, is_local=is_local_request(request))
         return HTMLResponse(html)
 
     async def handle_auth_setup(request: Request) -> Response:
@@ -320,6 +321,15 @@ def make_dashboard_routes(
         clear_session_cookie(response)
         return response
 
+    async def handle_auth_link_plex(request: Request) -> Response:
+        """Render a landing page explaining Plex linking before starting it."""
+        user = get_session_user(request, settings)
+        if user is None:
+            return RedirectResponse(url="/auth/signin", status_code=302)
+        template = jinja.get_template("link_plex.html")
+        html = template.render(is_local=is_local_request(request))
+        return HTMLResponse(html)
+
     async def handle_auth_link_plex_start(request: Request) -> Response:
         """Create a Plex PIN to link a Plex account to the signed-in user."""
         user = get_session_user(request, settings)
@@ -381,6 +391,7 @@ def make_dashboard_routes(
         "auth_local_login": handle_auth_local_login,
         "auth_plex_start": handle_auth_plex_start,
         "auth_plex_callback": handle_auth_plex_callback,
+        "auth_link_plex": handle_auth_link_plex,
         "auth_link_plex_start": handle_auth_link_plex_start,
         "auth_link_plex_callback": handle_auth_link_plex_callback,
         "auth_logout": handle_auth_logout,
