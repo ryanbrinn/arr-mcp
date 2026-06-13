@@ -42,6 +42,10 @@ nav:
     - "ADR-0002: Host-Side Helper Agent": adr/0002-host-side-helper-agent.md
     - "ADR-0003: Frontend Strategy": adr/0003-frontend-strategy.md
     - "ADR-0004: Supported Runtime Configurations": adr/0004-supported-runtime-configurations.md
+    - "ADR-0005: AI Provider Strategy": adr/0005-ai-provider-strategy.md
+    - "ADR-0006: User Interest Model": adr/0006-user-interest-model.md
+    - "ADR-0007: Shared Service Layer": adr/0007-shared-service-layer.md
+    - "ADR-0008: Authentication Strategy": adr/0008-authentication-strategy.md
 
 markdown_extensions:
   - admonition

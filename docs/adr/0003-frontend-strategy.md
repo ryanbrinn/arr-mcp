@@ -31,6 +31,18 @@ Implementation decisions:
 - **No external CDN** — the stylesheet is self-contained, the dashboard works fully offline on a LAN
 - **Read-only in Phase 1** — write actions (start/stop buttons) deferred to Phase 2
 
+## Phase 2 update
+
+Phase 2 (#132) extended the dashboard from a single read-only page to a two-tab layout, and added a small amount of write behaviour scoped to the user interest model:
+
+- **Infrastructure tab** — the original Phase 1 view (container status, disk usage, stack health) plus alerts and AI-generated insight blocks
+- **Media Library tab** — Sonarr/Radarr library stats, watched-content cleanup candidates, and per-user interest controls (mark wanted/protected/ignored)
+- **`POST /api/diagnose`** — contextual AI diagnostics for a given issue type, returning a narrative plus suggested remedies (see [ADR-0005](0005-ai-provider-strategy.md))
+- **`POST /api/interest`** — lets a signed-in user set their interest state for one or more content items (see [ADR-0006](0006-user-interest-model.md))
+- **Auth superseded by [ADR-0008](0008-authentication-strategy.md)** — Plex OAuth is now the primary dashboard auth mechanism; the `?key=` query param and `DASHBOARD_PUBLIC=true` remain as fallbacks
+
+The dashboard otherwise remains a thin Jinja2-rendered view over the shared service layer ([ADR-0007](0007-shared-service-layer.md)); no frontend framework or build step was introduced.
+
 ## Options considered
 
 ### Option A: Full web UI + MCP backend

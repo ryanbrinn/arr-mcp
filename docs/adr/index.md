@@ -18,5 +18,9 @@ ADRs capture the context, options considered, and reasoning behind significant a
 |---|---|---|
 | [0001](0001-filesystem-ownership-scoping.md) | Filesystem ownership scoping | Accepted |
 | [0002](0002-host-side-helper-agent.md) | Host-side helper agent for stack and systemd management | Investigating |
-| [0003](0003-frontend-strategy.md) | Frontend strategy | Proposed |
+| [0003](0003-frontend-strategy.md) | Frontend strategy | Accepted |
 | [0004](0004-supported-runtime-configurations.md) | Supported runtime configurations | Accepted |
+| [0005](0005-ai-provider-strategy.md) | AI provider strategy | Accepted |
+| [0006](0006-user-interest-model.md) | User interest model for content deletion | Accepted |
+| [0007](0007-shared-service-layer.md) | Shared service layer for MCP tools and dashboard | Accepted |
+| [0008](0008-authentication-strategy.md) | Authentication strategy | Accepted |
