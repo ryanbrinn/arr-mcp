@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -69,15 +71,11 @@ class Settings(BaseSettings):
             "Override with ARR_MCP_HELPER_SOCKET if mounted elsewhere."
         ),
     )
-    dashboard_public: bool = Field(
-        default=False,
-        description="Serve dashboard without auth (safe for LAN-only deployments)",
-    )
-    admin_plex_users: list[str] = Field(
+    admin_users: Annotated[list[str], NoDecode] = Field(
         default_factory=list,
         description=(
-            "Comma-separated Plex usernames that receive admin role on the dashboard. "
-            "Set ARR_MCP_ADMIN_PLEX_USERS=alice,bob"
+            "Comma-separated usernames that receive admin role on the dashboard. "
+            "Set ARR_MCP_ADMIN_USERS=alice,bob"
         ),
     )
     session_secret: str = Field(
@@ -88,7 +86,7 @@ class Settings(BaseSettings):
             "Sessions survive restarts only when this is set."
         ),
     )
-    allowed_stacks: list[str] = Field(
+    allowed_stacks: Annotated[list[str], NoDecode] = Field(
         default_factory=list,
         description=(
             "Comma-separated stack names the MCP server may operate on. "
@@ -132,7 +130,7 @@ class Settings(BaseSettings):
         description=("How often AlertWatcher polls for threshold violations (seconds)"),
     )
 
-    @field_validator("allowed_stacks", "admin_plex_users", mode="before")
+    @field_validator("allowed_stacks", "admin_users", mode="before")
     @classmethod
     def _parse_allowed_stacks(cls, v: object) -> list[str]:
         """Accept a comma-separated string or a list."""

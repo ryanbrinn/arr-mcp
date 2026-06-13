@@ -259,18 +259,20 @@ It auto-refreshes every 30 seconds.
 
 ### Signing in
 
-Household members sign in with **Plex** — click "Sign in with Plex" on the sign-in page. Plex identity is used to attribute interest states (what each user wants kept or deleted) and to grant the admin role to usernames listed in `ARR_MCP_ADMIN_PLEX_USERS`.
+The dashboard always requires authentication. On first run, you'll be
+redirected to a setup page to create the first (admin) account — either a
+local username/password or by signing in with Plex.
 
-For quick access without Plex sign-in, append the API key as a query parameter:
+Household members can then sign in with a local account or with **Plex**
+("Sign in with Plex" on the sign-in page). Plex identity is used to
+attribute interest states (what each user wants kept or deleted). Admin
+usernames are configured via `ARR_MCP_ADMIN_USERS`.
+
+For programmatic access without a session, append the API key as a query
+parameter:
 
 ```
 http://your-server-ip:8081/?key=your-secret-key
-```
-
-To make the dashboard available without any auth (suitable for LAN-only deployments):
-
-```bash
--e ARR_MCP_DASHBOARD_PUBLIC=true
 ```
 
 See [Configuration](configuration.md#dashboard) for the full auth options.

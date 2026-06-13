@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>arr-mcp — Sign in</title>
+  <title>arr-mcp — Setup</title>
   <link rel="stylesheet" href="/static/style.css">
   <style>
     .signin-wrap {
@@ -63,16 +63,6 @@
       font-size: .875rem;
       margin-bottom: 1.5rem;
     }
-    .signin-notice {
-      background: rgba(74,158,255,.12);
-      border: 1px solid rgba(74,158,255,.35);
-      border-radius: 6px;
-      color: var(--muted);
-      padding: .75rem 1rem;
-      font-size: .8rem;
-      text-align: left;
-      margin-bottom: 1.5rem;
-    }
     .signin-divider {
       display: flex;
       align-items: center;
@@ -130,19 +120,29 @@
         <img class="logo-img" src="/static/logo.svg" alt="arr-mcp logo">
         <span class="logo">arr-mcp</span>
       </div>
-      <p class="signin-tagline">Home media stack management</p>
+      <p class="signin-tagline">Welcome — create the first admin account to get started.</p>
 
       {% if error %}
       <div class="signin-error">{{ error }}</div>
       {% endif %}
 
-      {% if is_local %}
-      <div class="signin-notice">
-        Plex sign-in may not finish on a local or non-HTTPS deployment —
-        plex.tv can't redirect back to this address. If "Sign in with Plex"
-        leaves you on plex.tv, use the username/password form below instead.
-      </div>
-      {% endif %}
+      <form class="local-login-form" method="post" action="/auth/setup">
+        <div>
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" autocomplete="username" required>
+        </div>
+        <div>
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <div>
+          <label for="confirm_password">Confirm password</label>
+          <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <button type="submit" class="btn-local">Create admin account</button>
+      </form>
+
+      <div class="signin-divider">or</div>
 
       <a href="/auth/plex/start" class="btn-plex">
         <!-- Plex "P" logo mark -->
@@ -151,20 +151,6 @@
         </svg>
         Sign in with Plex
       </a>
-
-      <div class="signin-divider">or</div>
-
-      <form class="local-login-form" method="post" action="/auth/local/login">
-        <div>
-          <label for="username">Username</label>
-          <input type="text" id="username" name="username" autocomplete="username" required>
-        </div>
-        <div>
-          <label for="password">Password</label>
-          <input type="password" id="password" name="password" autocomplete="current-password" required>
-        </div>
-        <button type="submit" class="btn-local">Sign in</button>
-      </form>
     </div>
   </div>
 </body>

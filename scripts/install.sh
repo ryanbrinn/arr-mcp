@@ -132,16 +132,6 @@ collect_config() {
     PORT="${PORT:-8081}"
     info "Port: $PORT"
 
-    prompt "Make dashboard public (no auth required)? [y/N]:"
-    read -r DASHBOARD_PUBLIC_INPUT
-    if [[ "${DASHBOARD_PUBLIC_INPUT,,}" == "y" ]]; then
-        DASHBOARD_PUBLIC="true"
-        info "Dashboard: public (no auth)"
-    else
-        DASHBOARD_PUBLIC="false"
-        info "Dashboard: protected (API key required)"
-    fi
-
     # Derived values
     USER_UID=$(id -u)
     if [[ "$CONTAINER_RUNTIME" == "podman" ]]; then
@@ -223,7 +213,6 @@ Environment=ARR_MCP_MEDIA_DIR=${MEDIA_DIR}
 Environment=ARR_MCP_PORT=${PORT}
 Environment=ARR_MCP_SOCKET_PATH=unix://${PODMAN_SOCK}
 Environment=ARR_MCP_HELPER_SOCKET=${HELPER_SOCK_CONTAINER}
-Environment=ARR_MCP_DASHBOARD_PUBLIC=${DASHBOARD_PUBLIC}
 Volume=${PODMAN_SOCK}:${PODMAN_SOCK}:z
 Volume=${SERVICES_DIR}:${SERVICES_DIR}:z
 Volume=${MEDIA_DIR}:${MEDIA_DIR}:z
@@ -281,7 +270,6 @@ ${runtime_env}
       - ARR_MCP_SERVICES_DIR=${SERVICES_DIR}
       - ARR_MCP_MEDIA_DIR=${MEDIA_DIR}
       - ARR_MCP_PORT=${PORT}
-      - ARR_MCP_DASHBOARD_PUBLIC=${DASHBOARD_PUBLIC}
 EOF
 
     info "Wrote $compose_file"
@@ -330,12 +318,8 @@ print_summary() {
     echo -e "  ${BOLD}Runtime${RESET}    $CONTAINER_RUNTIME"
     echo ""
     echo -e "  ${BOLD}Dashboard${RESET}"
-
-    if [[ "$DASHBOARD_PUBLIC" == "true" ]]; then
-        echo "  http://${host_ip}:${PORT}/"
-    else
-        echo "  http://${host_ip}:${PORT}/?key=${API_KEY}"
-    fi
+    echo "  http://${host_ip}:${PORT}/"
+    echo "  (first visit creates the admin account)"
 
     echo ""
     echo -e "  ${BOLD}MCP endpoint${RESET}"

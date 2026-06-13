@@ -141,8 +141,19 @@ def create_app(settings: Settings) -> Starlette:
         Route("/api/diagnose", endpoint=dashboard["api_diagnose"], methods=["POST"]),
         Route("/api/interest", endpoint=dashboard["api_interest"], methods=["POST"]),
         Route("/auth/signin", endpoint=dashboard["auth_signin"]),
+        Route("/auth/setup", endpoint=dashboard["auth_setup"], methods=["GET", "POST"]),
+        Route(
+            "/auth/local/login",
+            endpoint=dashboard["auth_local_login"],
+            methods=["POST"],
+        ),
         Route("/auth/plex/start", endpoint=dashboard["auth_plex_start"]),
         Route("/auth/plex/callback", endpoint=dashboard["auth_plex_callback"]),
+        Route("/auth/link/plex", endpoint=dashboard["auth_link_plex"]),
+        Route("/auth/link/plex/start", endpoint=dashboard["auth_link_plex_start"]),
+        Route(
+            "/auth/link/plex/callback", endpoint=dashboard["auth_link_plex_callback"]
+        ),
         Route(
             "/auth/logout", endpoint=dashboard["auth_logout"], methods=["GET", "POST"]
         ),

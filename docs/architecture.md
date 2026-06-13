@@ -76,7 +76,7 @@ Claude (MCP client)          Browser
 | Boundary | Mechanism |
 |---|---|
 | MCP endpoint auth | `Authorization: Bearer <key>` header required on `/mcp` |
-| Dashboard auth | Plex OAuth session (default), `?key=<key>` query param fallback, or `DASHBOARD_PUBLIC=true` for LAN |
+| Dashboard auth | Signed-in session (local account or Plex login), or `?key=<key>` |
 | Filesystem scope | `_check_path()` restricts to `stacks_dir`, `media_dir`, `/var/log` |
 | Ownership check | `is_owned_by_current_user()` blocks operations on root-owned files |
 | Helper input | Regex validation on all args; `create_subprocess_exec` prevents injection |

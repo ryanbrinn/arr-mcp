@@ -8,7 +8,9 @@ import httpx
 import pytest
 
 from arr_mcp.config import Settings
+from arr_mcp.dashboard.auth import AuthUser, SessionManager
 from arr_mcp.server import create_app
+from arr_mcp.services.users import UserStore
 
 
 def _make_app(settings: Settings, containers: list[dict] | None = None):
@@ -20,77 +22,95 @@ def _make_app(settings: Settings, containers: list[dict] | None = None):
 
 
 @pytest.fixture
-def public_settings(tmp_path):
+def settings(tmp_path):
     stacks = tmp_path / "stacks"
     stacks.mkdir()
     media = tmp_path / "media"
     media.mkdir()
-    return Settings(
+    services = tmp_path / "services"
+    services.mkdir()
+    s = Settings(
         api_key="test-key",
         port=8081,
         compose_dir=str(stacks),
         media_dir=str(media),
+        services_dir=str(services),
         container_runtime="podman",
         log_level="debug",
-        dashboard_public=True,
+        session_secret="test-secret-32-bytes-long-abcdef",
     )
+    # Seed an AppUser so the first-run setup redirect doesn't fire.
+    UserStore(s.services_dir).create_local("setup-admin", "password123", is_admin=True)
+    return s
 
 
 @pytest.fixture
-def private_settings(tmp_path):
+def unseeded_settings(tmp_path):
     stacks = tmp_path / "stacks"
     stacks.mkdir()
     media = tmp_path / "media"
     media.mkdir()
+    services = tmp_path / "services"
+    services.mkdir()
     return Settings(
         api_key="test-key",
         port=8081,
         compose_dir=str(stacks),
         media_dir=str(media),
+        services_dir=str(services),
         container_runtime="podman",
         log_level="debug",
-        dashboard_public=False,
+        session_secret="test-secret-32-bytes-long-abcdef",
     )
 
 
-async def test_dashboard_returns_200_public(public_settings: Settings) -> None:
-    app = _make_app(public_settings)
+def _signed_in_cookies(settings: Settings, is_admin: bool = False) -> dict[str, str]:
+    user_store = UserStore(settings.services_dir)
+    app_user = user_store.create_local("ryan", "password123", is_admin=is_admin)
+    assert app_user is not None
+    user = AuthUser(
+        app_user_id=app_user.app_user_id,
+        display_name="ryan",
+        is_admin=is_admin,
+    )
+    token = SessionManager(settings.session_secret).sign(user)
+    return {"arr_mcp_session": token}
+
+
+async def test_dashboard_returns_200_with_key(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.get("/")
+        r = await client.get("/?key=test-key")
     assert r.status_code == 200
 
 
-async def test_dashboard_returns_html(public_settings: Settings) -> None:
-    app = _make_app(public_settings)
+async def test_dashboard_returns_html(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.get("/")
+        r = await client.get("/?key=test-key")
     assert "text/html" in r.headers["content-type"]
     assert "arr-mcp" in r.text
 
 
-async def test_dashboard_no_user_menu_when_anonymous(
-    public_settings: Settings,
-) -> None:
-    app = _make_app(public_settings)
+async def test_dashboard_no_user_menu_when_anonymous(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.get("/")
+        r = await client.get("/?key=test-key")
     assert 'id="user-menu"' not in r.text
 
 
-async def test_dashboard_shows_user_avatar_when_signed_in(
-    public_settings: Settings,
-) -> None:
-    app = _make_app(public_settings)
+async def test_dashboard_shows_user_avatar_when_signed_in(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://test",
-        cookies=_signed_in_cookies(public_settings),
+        cookies=_signed_in_cookies(settings),
     ) as client:
         r = await client.get("/")
     assert 'id="user-menu"' in r.text
@@ -99,21 +119,19 @@ async def test_dashboard_shows_user_avatar_when_signed_in(
     assert "Pending review" not in r.text
 
 
-async def test_dashboard_shows_admin_menu_item_when_admin(
-    public_settings: Settings,
-) -> None:
-    app = _make_app(public_settings)
+async def test_dashboard_shows_admin_menu_item_when_admin(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://test",
-        cookies=_signed_in_cookies(public_settings, is_admin=True),
+        cookies=_signed_in_cookies(settings, is_admin=True),
     ) as client:
         r = await client.get("/")
     assert "Pending review" in r.text
 
 
-async def test_dashboard_redirects_unauthenticated(private_settings: Settings) -> None:
-    app = _make_app(private_settings)
+async def test_dashboard_redirects_unauthenticated(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://test",
@@ -124,8 +142,22 @@ async def test_dashboard_redirects_unauthenticated(private_settings: Settings) -
     assert "/auth/signin" in r.headers["location"]
 
 
-async def test_dashboard_accepts_valid_key(private_settings: Settings) -> None:
-    app = _make_app(private_settings)
+async def test_dashboard_redirects_to_setup_when_no_users(
+    unseeded_settings: Settings,
+) -> None:
+    app = _make_app(unseeded_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        follow_redirects=False,
+    ) as client:
+        r = await client.get("/")
+    assert r.status_code == 302
+    assert "/auth/setup" in r.headers["location"]
+
+
+async def test_dashboard_accepts_valid_key(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
@@ -133,8 +165,8 @@ async def test_dashboard_accepts_valid_key(private_settings: Settings) -> None:
     assert r.status_code == 200
 
 
-async def test_dashboard_redirects_wrong_key(private_settings: Settings) -> None:
-    app = _make_app(private_settings)
+async def test_dashboard_redirects_wrong_key(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://test",
@@ -145,21 +177,21 @@ async def test_dashboard_redirects_wrong_key(private_settings: Settings) -> None
     assert "/auth/signin" in r.headers["location"]
 
 
-async def test_api_status_returns_200(public_settings: Settings) -> None:
-    app = _make_app(public_settings)
+async def test_api_status_returns_200(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.get("/api/status")
+        r = await client.get("/api/status?key=test-key")
     assert r.status_code == 200
 
 
-async def test_api_status_shape(public_settings: Settings) -> None:
-    app = _make_app(public_settings)
+async def test_api_status_shape(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.get("/api/status")
+        r = await client.get("/api/status?key=test-key")
     data = r.json()
     assert "generated_at" in data
     assert "containers" in data
@@ -172,12 +204,12 @@ async def test_api_status_shape(public_settings: Settings) -> None:
     assert "stats" in data
 
 
-async def test_api_status_stats_shape(public_settings: Settings) -> None:
-    app = _make_app(public_settings)
+async def test_api_status_stats_shape(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.get("/api/status")
+        r = await client.get("/api/status?key=test-key")
     stats = r.json()["stats"]
     assert "containers_running" in stats
     assert "containers_total" in stats
@@ -186,56 +218,54 @@ async def test_api_status_stats_shape(public_settings: Settings) -> None:
     assert "upgrades_count" in stats
 
 
-async def test_api_status_alerts_empty_when_no_log(public_settings: Settings) -> None:
-    app = _make_app(public_settings)
+async def test_api_status_alerts_empty_when_no_log(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.get("/api/status")
+        r = await client.get("/api/status?key=test-key")
     assert r.json()["alerts_recent"] == []
 
 
-async def test_api_status_upgrades_empty_when_no_cache(
-    public_settings: Settings,
-) -> None:
-    app = _make_app(public_settings)
+async def test_api_status_upgrades_empty_when_no_cache(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.get("/api/status")
+        r = await client.get("/api/status?key=test-key")
     assert r.json()["upgrades"] == []
 
 
 async def test_api_status_connectivity_empty_when_no_credentials(
-    public_settings: Settings,
+    settings: Settings,
 ) -> None:
-    app = _make_app(public_settings)
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.get("/api/status")
+        r = await client.get("/api/status?key=test-key")
     # No services configured — connectivity list should be empty
     assert r.json()["connectivity"] == []
 
 
-async def test_dashboard_tab_structure(public_settings: Settings) -> None:
-    app = _make_app(public_settings)
+async def test_dashboard_tab_structure(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.get("/")
+        r = await client.get("/?key=test-key")
     assert 'id="infrastructure"' in r.text
     assert 'id="media"' in r.text
     assert 'data-tab="infrastructure"' in r.text
     assert 'data-tab="media"' in r.text
 
 
-async def test_api_status_disk_fields(public_settings: Settings) -> None:
-    app = _make_app(public_settings)
+async def test_api_status_disk_fields(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.get("/api/status")
+        r = await client.get("/api/status?key=test-key")
     data = r.json()
     if data["disk"]:
         d = data["disk"][0]
@@ -245,7 +275,7 @@ async def test_api_status_disk_fields(public_settings: Settings) -> None:
         assert "used_pct" in d
 
 
-async def test_dashboard_shows_containers(public_settings: Settings) -> None:
+async def test_dashboard_shows_containers(settings: Settings) -> None:
     containers = [
         {
             "Id": "abc123def456",
@@ -255,25 +285,16 @@ async def test_dashboard_shows_containers(public_settings: Settings) -> None:
             "Status": "Up 2 hours",
         }
     ]
-    app = _make_app(public_settings, containers=containers)
+    app = _make_app(settings, containers=containers)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.get("/")
+        r = await client.get("/?key=test-key")
     assert "plex" in r.text
 
 
-async def test_stacks_absent_for_non_compose_runtime(tmp_path) -> None:
+async def test_stacks_absent_for_non_compose_runtime(settings: Settings) -> None:
     """Stacks section must be empty when runtime is not docker-compose."""
-    media = tmp_path / "media"
-    media.mkdir()
-    settings = Settings(
-        api_key="test-key",
-        port=8081,
-        media_dir=str(media),
-        container_runtime="podman",
-        dashboard_public=True,
-    )
     containers = [
         {
             "Id": "abc123",
@@ -287,7 +308,7 @@ async def test_stacks_absent_for_non_compose_runtime(tmp_path) -> None:
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.get("/api/status")
+        r = await client.get("/api/status?key=test-key")
     assert r.json()["stacks"] == []
 
 
@@ -297,13 +318,19 @@ async def test_stacks_present_for_compose_runtime(tmp_path) -> None:
     compose.mkdir()
     media = tmp_path / "media"
     media.mkdir()
+    services = tmp_path / "services"
+    services.mkdir()
     settings = Settings(
         api_key="test-key",
         port=8081,
         compose_dir=str(compose),
         media_dir=str(media),
+        services_dir=str(services),
         container_runtime="docker-compose",
-        dashboard_public=True,
+        session_secret="test-secret-32-bytes-long-abcdef",
+    )
+    UserStore(settings.services_dir).create_local(
+        "setup-admin", "password123", is_admin=True
     )
     containers = [
         {
@@ -318,7 +345,7 @@ async def test_stacks_present_for_compose_runtime(tmp_path) -> None:
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.get("/api/status")
+        r = await client.get("/api/status?key=test-key")
     assert len(r.json()["stacks"]) > 0
 
 
@@ -327,18 +354,18 @@ async def test_stacks_present_for_compose_runtime(tmp_path) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_api_diagnose_requires_issue_type(public_settings: Settings) -> None:
-    app = _make_app(public_settings)
+async def test_api_diagnose_requires_issue_type(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        r = await client.post("/api/diagnose", json={"context": {}})
+        r = await client.post("/api/diagnose?key=test-key", json={"context": {}})
     assert r.status_code == 400
     assert "issue_type" in r.json()["error"]
 
 
-async def test_api_diagnose_rejects_missing_key(private_settings: Settings) -> None:
-    app = _make_app(private_settings)
+async def test_api_diagnose_rejects_missing_key(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
@@ -349,14 +376,14 @@ async def test_api_diagnose_rejects_missing_key(private_settings: Settings) -> N
 
 
 async def test_api_diagnose_returns_fallback_when_null_provider(
-    public_settings: Settings,
+    settings: Settings,
 ) -> None:
-    app = _make_app(public_settings)
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
         r = await client.post(
-            "/api/diagnose",
+            "/api/diagnose?key=test-key",
             json={
                 "issue_type": "disk_pressure",
                 "context": {"path": "/data", "used_pct": 92},
@@ -369,15 +396,13 @@ async def test_api_diagnose_returns_fallback_when_null_provider(
     assert all("label" in rem and "tool" in rem for rem in data["remedies"])
 
 
-async def test_api_diagnose_fallback_contains_known_tools(
-    public_settings: Settings,
-) -> None:
-    app = _make_app(public_settings)
+async def test_api_diagnose_fallback_contains_known_tools(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
         r = await client.post(
-            "/api/diagnose",
+            "/api/diagnose?key=test-key",
             json={
                 "issue_type": "failed_download",
                 "context": {"title": "Show S01E01", "error": "timeout"},
@@ -389,14 +414,14 @@ async def test_api_diagnose_fallback_contains_known_tools(
 
 
 async def test_api_diagnose_unknown_issue_type_returns_empty_remedies(
-    public_settings: Settings,
+    settings: Settings,
 ) -> None:
-    app = _make_app(public_settings)
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
         r = await client.post(
-            "/api/diagnose",
+            "/api/diagnose?key=test-key",
             json={"issue_type": "totally_unknown", "context": {}},
         )
     assert r.status_code == 200
@@ -406,7 +431,7 @@ async def test_api_diagnose_unknown_issue_type_returns_empty_remedies(
 
 
 async def test_api_diagnose_with_ai_provider_returns_narrative(
-    public_settings: Settings,
+    settings: Settings,
 ) -> None:
     """When AI provider returns a valid response, it is passed through."""
     mock_provider = MagicMock()
@@ -425,7 +450,7 @@ async def test_api_diagnose_with_ai_provider_returns_narrative(
     mock_client = MagicMock(spec=ContainerClient)
     mock_client.get = AsyncMock(return_value=[])
 
-    routes = make_dashboard_routes(mock_client, public_settings, mock_provider)
+    routes = make_dashboard_routes(mock_client, settings, mock_provider)
 
     async def _app(scope, receive, send):
         from starlette.applications import Starlette
@@ -444,7 +469,7 @@ async def test_api_diagnose_with_ai_provider_returns_narrative(
         transport=httpx.ASGITransport(app=_app), base_url="http://test"
     ) as client:
         r = await client.post(
-            "/api/diagnose",
+            "/api/diagnose?key=test-key",
             json={"issue_type": "disk_pressure", "context": {"used_pct": 95}},
         )
     assert r.status_code == 200
@@ -458,23 +483,8 @@ async def test_api_diagnose_with_ai_provider_returns_narrative(
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture
-def interest_settings(public_settings: Settings, tmp_path) -> Settings:
-    services = tmp_path / "services"
-    services.mkdir()
-    return public_settings.model_copy(update={"services_dir": str(services)})
-
-
-def _signed_in_cookies(settings: Settings, is_admin: bool = False) -> dict[str, str]:
-    from arr_mcp.dashboard.auth import AuthUser, SessionManager
-
-    user = AuthUser(plex_id="1", plex_username="ryan", is_admin=is_admin)
-    token = SessionManager(settings.session_secret).sign(user)
-    return {"arr_mcp_session": token}
-
-
-async def test_api_interest_requires_session(public_settings: Settings) -> None:
-    app = _make_app(public_settings)
+async def test_api_interest_requires_session(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
@@ -485,12 +495,12 @@ async def test_api_interest_requires_session(public_settings: Settings) -> None:
     assert r.status_code == 401
 
 
-async def test_api_interest_invalid_json(public_settings: Settings) -> None:
-    app = _make_app(public_settings)
+async def test_api_interest_invalid_json(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://test",
-        cookies=_signed_in_cookies(public_settings),
+        cookies=_signed_in_cookies(settings),
     ) as client:
         r = await client.post(
             "/api/interest",
@@ -500,12 +510,12 @@ async def test_api_interest_invalid_json(public_settings: Settings) -> None:
     assert r.status_code == 400
 
 
-async def test_api_interest_requires_content_id(public_settings: Settings) -> None:
-    app = _make_app(public_settings)
+async def test_api_interest_requires_content_id(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://test",
-        cookies=_signed_in_cookies(public_settings),
+        cookies=_signed_in_cookies(settings),
     ) as client:
         r = await client.post(
             "/api/interest", json={"content_type": "movie", "state": "watched"}
@@ -513,14 +523,12 @@ async def test_api_interest_requires_content_id(public_settings: Settings) -> No
     assert r.status_code == 400
 
 
-async def test_api_interest_rejects_invalid_content_type(
-    public_settings: Settings,
-) -> None:
-    app = _make_app(public_settings)
+async def test_api_interest_rejects_invalid_content_type(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://test",
-        cookies=_signed_in_cookies(public_settings),
+        cookies=_signed_in_cookies(settings),
     ) as client:
         r = await client.post(
             "/api/interest",
@@ -529,12 +537,12 @@ async def test_api_interest_rejects_invalid_content_type(
     assert r.status_code == 400
 
 
-async def test_api_interest_rejects_invalid_state(public_settings: Settings) -> None:
-    app = _make_app(public_settings)
+async def test_api_interest_rejects_invalid_state(settings: Settings) -> None:
+    app = _make_app(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://test",
-        cookies=_signed_in_cookies(public_settings),
+        cookies=_signed_in_cookies(settings),
     ) as client:
         r = await client.post(
             "/api/interest",
@@ -543,16 +551,15 @@ async def test_api_interest_rejects_invalid_state(public_settings: Settings) -> 
     assert r.status_code == 400
 
 
-async def test_api_interest_sets_single_content_id(
-    interest_settings: Settings,
-) -> None:
+async def test_api_interest_sets_single_content_id(settings: Settings) -> None:
     from arr_mcp.services.interests import InterestState, InterestStore
 
-    app = _make_app(interest_settings)
+    app = _make_app(settings)
+    cookies = _signed_in_cookies(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://test",
-        cookies=_signed_in_cookies(interest_settings),
+        cookies=cookies,
     ) as client:
         r = await client.post(
             "/api/interest",
@@ -565,22 +572,25 @@ async def test_api_interest_sets_single_content_id(
     assert r.status_code == 200
     assert r.json() == {"ok": True}
 
-    store = InterestStore(interest_settings.services_dir)
-    record = store.get("100", "1")
+    user_store = UserStore(settings.services_dir)
+    app_user = user_store.find_by_username("ryan")
+    assert app_user is not None
+
+    store = InterestStore(settings.services_dir)
+    record = store.get("100", app_user.app_user_id)
     assert record.state == InterestState.marked_deletion
     assert record.username == "ryan"
 
 
-async def test_api_interest_sets_multiple_content_ids(
-    interest_settings: Settings,
-) -> None:
+async def test_api_interest_sets_multiple_content_ids(settings: Settings) -> None:
     from arr_mcp.services.interests import InterestState, InterestStore
 
-    app = _make_app(interest_settings)
+    app = _make_app(settings)
+    cookies = _signed_in_cookies(settings)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://test",
-        cookies=_signed_in_cookies(interest_settings),
+        cookies=cookies,
     ) as client:
         r = await client.post(
             "/api/interest",
@@ -592,6 +602,10 @@ async def test_api_interest_sets_multiple_content_ids(
         )
     assert r.status_code == 200
 
-    store = InterestStore(interest_settings.services_dir)
-    assert store.get("100", "1").state == InterestState.watched
-    assert store.get("101", "1").state == InterestState.watched
+    user_store = UserStore(settings.services_dir)
+    app_user = user_store.find_by_username("ryan")
+    assert app_user is not None
+
+    store = InterestStore(settings.services_dir)
+    assert store.get("100", app_user.app_user_id).state == InterestState.watched
+    assert store.get("101", app_user.app_user_id).state == InterestState.watched

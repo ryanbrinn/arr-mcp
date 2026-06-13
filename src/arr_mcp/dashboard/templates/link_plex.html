@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>arr-mcp — Sign in</title>
+  <title>arr-mcp — Link Plex account</title>
   <link rel="stylesheet" href="/static/style.css">
   <style>
     .signin-wrap {
@@ -54,15 +54,6 @@
     }
     .btn-plex:hover { background: #f0b429; }
     .btn-plex svg { width: 20px; height: 20px; fill: #000; }
-    .signin-error {
-      background: rgba(231,76,60,.15);
-      border: 1px solid rgba(231,76,60,.4);
-      border-radius: 6px;
-      color: #e74c3c;
-      padding: .75rem 1rem;
-      font-size: .875rem;
-      margin-bottom: 1.5rem;
-    }
     .signin-notice {
       background: rgba(74,158,255,.12);
       border: 1px solid rgba(74,158,255,.35);
@@ -73,54 +64,14 @@
       text-align: left;
       margin-bottom: 1.5rem;
     }
-    .signin-divider {
-      display: flex;
-      align-items: center;
-      gap: .75rem;
-      margin: 1.5rem 0;
-      color: var(--muted);
-      font-size: .8rem;
-    }
-    .signin-divider::before,
-    .signin-divider::after {
-      content: "";
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-    }
-    .local-login-form {
-      display: flex;
-      flex-direction: column;
-      gap: .75rem;
-      text-align: left;
-    }
-    .local-login-form label {
-      font-size: .8rem;
-      color: var(--muted);
-      margin-bottom: .25rem;
+    .signin-back {
       display: block;
+      margin-top: 1.5rem;
+      color: var(--muted);
+      font-size: .8rem;
+      text-decoration: none;
     }
-    .local-login-form input {
-      width: 100%;
-      padding: .6rem .75rem;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: inherit;
-      font-size: .9rem;
-      box-sizing: border-box;
-    }
-    .btn-local {
-      width: 100%;
-      padding: .65rem 1rem;
-      border-radius: 8px;
-      border: none;
-      background: var(--accent, #4a9eff);
-      color: #000;
-      font-weight: 700;
-      font-size: .9rem;
-      cursor: pointer;
-    }
+    .signin-back:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -130,41 +81,26 @@
         <img class="logo-img" src="/static/logo.svg" alt="arr-mcp logo">
         <span class="logo">arr-mcp</span>
       </div>
-      <p class="signin-tagline">Home media stack management</p>
-
-      {% if error %}
-      <div class="signin-error">{{ error }}</div>
-      {% endif %}
+      <p class="signin-tagline">Link your Plex account</p>
 
       {% if is_local %}
       <div class="signin-notice">
         Plex sign-in may not finish on a local or non-HTTPS deployment —
-        plex.tv can't redirect back to this address. If "Sign in with Plex"
-        leaves you on plex.tv, use the username/password form below instead.
+        plex.tv can't redirect back to this address. If linking doesn't
+        complete and you're left on plex.tv, you can come back and try
+        again from a deployment with a recognised https address.
       </div>
       {% endif %}
 
-      <a href="/auth/plex/start" class="btn-plex">
+      <a href="/auth/link/plex/start" class="btn-plex">
         <!-- Plex "P" logo mark -->
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path d="M11.994 2L4 12.005 11.994 22l8.004-9.995L11.994 2z"/>
         </svg>
-        Sign in with Plex
+        Link Plex account
       </a>
 
-      <div class="signin-divider">or</div>
-
-      <form class="local-login-form" method="post" action="/auth/local/login">
-        <div>
-          <label for="username">Username</label>
-          <input type="text" id="username" name="username" autocomplete="username" required>
-        </div>
-        <div>
-          <label for="password">Password</label>
-          <input type="password" id="password" name="password" autocomplete="current-password" required>
-        </div>
-        <button type="submit" class="btn-local">Sign in</button>
-      </form>
+      <a href="/" class="signin-back">Back to dashboard</a>
     </div>
   </div>
 </body>

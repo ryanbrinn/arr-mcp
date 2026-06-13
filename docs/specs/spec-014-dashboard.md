@@ -38,7 +38,8 @@ The dashboard uses the **same API key** as the MCP endpoint, passed as a query p
 GET /?key=<api_key>
 ```
 
-If `DASHBOARD_PUBLIC=true` is set in the environment, the dashboard is served unauthenticated (read-only, intended for LAN-only deployments). Default is `false` — auth required.
+The dashboard otherwise requires a signed-in session (see ADR-0008 for the
+AppUser/session model and login providers).
 
 The `/health` endpoint remains unauthenticated (liveness probe use case).
 
@@ -165,7 +166,6 @@ Plain CSS `<div>` with inline `width` style — no SVG, no canvas, no JavaScript
 Add to `config.py`:
 
 ```python
-dashboard_public: bool = False   # DASHBOARD_PUBLIC env var
 public_url: str = ""             # PUBLIC_URL env var — used in "Open in Claude" link
 ```
 
@@ -190,8 +190,7 @@ File: `tests/dashboard/test_routes.py`
 | Test | Description |
 |---|---|
 | `test_dashboard_returns_200` | `GET /` returns 200 with valid API key |
-| `test_dashboard_rejects_missing_key` | `GET /` without key → 401 (when `DASHBOARD_PUBLIC=false`) |
-| `test_dashboard_public_mode` | `GET /` without key succeeds when `DASHBOARD_PUBLIC=true` |
+| `test_dashboard_rejects_missing_key` | `GET /` without key or session → 401 |
 | `test_api_status_shape` | `GET /api/status` returns expected JSON keys |
 | `test_api_status_disk_fields` | Disk entries contain `total_gb`, `used_gb`, `free_gb`, `used_pct` |
 | `test_dashboard_html_contains_containers` | HTML response contains container names |

@@ -26,6 +26,7 @@ class PlexUser:
     username: str
     title: str
     token: str
+    is_admin: bool = False
 
 
 @dataclass
@@ -316,6 +317,7 @@ def _parse_home_users(payload: dict) -> list[PlexUser]:  # type: ignore[type-arg
                 username=u.get("username", ""),
                 title=u.get("title", u.get("username", "")),
                 token=u.get("authToken", ""),
+                is_admin=bool(u.get("admin", False)),
             )
         )
     return users

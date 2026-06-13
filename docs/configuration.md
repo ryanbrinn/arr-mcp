@@ -15,9 +15,8 @@ All settings are loaded from environment variables or a `.env` file in the worki
 | `ARR_MCP_CONTAINER_RUNTIME` | `docker-compose` | `docker-compose` / `docker` / `podman` / `auto` |
 | `ARR_MCP_SOCKET_PATH` | `` | Explicit socket path — required when running inside a container |
 | `ARR_MCP_HELPER_SOCKET` | `/run/arr-agent/arr-agent.sock` | Path to the arr-agent Unix socket |
-| `ARR_MCP_DASHBOARD_PUBLIC` | `false` | Serve dashboard without auth (set `true` for LAN-only deployments) |
-| `ARR_MCP_SESSION_SECRET` | `` | Secret for signing dashboard session cookies (Plex sign-in) — see [Dashboard](#dashboard) |
-| `ARR_MCP_ADMIN_PLEX_USERS` | `` | Comma-separated Plex usernames granted the dashboard admin role |
+| `ARR_MCP_ADMIN_USERS` | `` | Comma-separated usernames granted admin on first login (e.g. `alice,bob`) |
+| `ARR_MCP_SESSION_SECRET` | `` | Secret for signing dashboard session cookies. Generate with `python -c "import secrets; print(secrets.token_hex(32))"`. If unset, a random per-process secret is used and sessions do not survive restarts |
 | `ARR_MCP_LOG_LEVEL` | `info` | `debug` / `info` / `warning` / `error` |
 
 ## AI provider settings
@@ -115,26 +114,17 @@ Override the in-container path if needed:
 
 ## Dashboard
 
-The dashboard is served at `GET /` and requires authentication by default. Three auth modes:
-
-**Plex sign-in** (default, recommended): household members sign in with their Plex account via `/auth/signin`. A signed session cookie is issued and identifies the user for interest-state tracking and admin actions. Configure:
-
-| Variable | Default | Description |
-|---|---|---|
-| `ARR_MCP_SESSION_SECRET` | `` | Secret used to sign session cookies. Generate with `python -c "import secrets; print(secrets.token_hex(32))"`. If unset, a random per-process secret is used and sessions do not survive restarts |
-| `ARR_MCP_ADMIN_PLEX_USERS` | `` | Comma-separated Plex usernames that receive the admin role (review queue, interest overrides, deletions) |
-
-**Key in query param** (fallback, no Plex identity):
+The dashboard is served at `GET /` and always requires authentication: either a
+signed-in session (local username/password, or "Sign in with Plex"), or the
+API key as a query param for programmatic access:
 
 ```
 http://your-server:8081/?key=your-secret-key
 ```
 
-**Public mode** (no auth, suitable for LAN-only deployments):
-
-```bash
--e ARR_MCP_DASHBOARD_PUBLIC=true
-```
+On first run, no accounts exist yet — the dashboard redirects to `/auth/setup`
+to create the first (admin) account. See
+[ADR-0008](adr/0008-authentication-strategy.md) for the full auth model.
 
 See [ADR-0008](adr/0008-authentication-strategy.md) for the full authentication design.
 
