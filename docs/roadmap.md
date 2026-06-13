@@ -133,7 +133,7 @@ Before declaring Phase 2 complete, confirm:
 - [ ] Deletion of watchlisted content is blocked with a clear user-facing message
 - [ ] Alert rules can be configured and fire correctly
 - [ ] Version checker surfaces new releases with parsed release notes
-- [ ] The local test-stack mirrors production env shape with realistic seed data, and the manual-testing skill can stand up an instance from a branch and walk the dashboard
+- [x] The local test-stack mirrors production env shape with realistic seed data, and the manual-testing skill can stand up an instance from a branch and walk the dashboard
 - [ ] `mkdocs.yml` nav reflects the full ADR inventory and end-user/contributor docs are accurate
 - [ ] All Phase 1 verification criteria still pass (no regression)
 
