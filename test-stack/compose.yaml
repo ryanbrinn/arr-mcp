@@ -1,6 +1,16 @@
 # Minimal throwaway stack for manual E2E testing.
 # These containers simulate a real media stack without touching production data.
-# Started automatically by scripts/test-deploy.sh — do not run on the production host directly.
+#
+# Two ways to run this:
+#   - scripts/test-deploy.sh: deploys to a remote host, runs arr-mcp on the
+#     bare host against these containers via localhost:<port>.
+#   - scripts/test-stack.sh: runs everything locally via Docker, including
+#     arr-mcp itself (the "arr-mcp" service below), on the shared "test-net"
+#     network using container hostnames.
+
+networks:
+  test-net:
+    name: test-net
 
 services:
   test-sabnzbd:
@@ -15,6 +25,8 @@ services:
     ports:
       - "18080:8080"
     restart: unless-stopped
+    networks:
+      - test-net
 
   test-sonarr:
     image: lscr.io/linuxserver/sonarr:latest
@@ -29,6 +41,8 @@ services:
     ports:
       - "18989:8989"
     restart: unless-stopped
+    networks:
+      - test-net
 
   test-radarr:
     image: lscr.io/linuxserver/radarr:latest
@@ -43,6 +57,8 @@ services:
     ports:
       - "17878:7878"
     restart: unless-stopped
+    networks:
+      - test-net
 
   test-plex:
     image: lscr.io/linuxserver/plex:latest
@@ -58,3 +74,31 @@ services:
     ports:
       - "33400:32400"
     restart: unless-stopped
+    networks:
+      - test-net
+
+  # Only started by scripts/test-stack.sh via the "local" profile —
+  # scripts/test-deploy.sh (which runs arr-mcp on the bare remote host) does
+  # not pass --profile local, so this service is skipped there.
+  arr-mcp:
+    profiles:
+      - local
+    build:
+      context: ..
+      dockerfile: Containerfile
+    container_name: test-arr-mcp
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "8081:8081"
+    depends_on:
+      - test-sabnzbd
+      - test-sonarr
+      - test-radarr
+      - test-plex
+    restart: unless-stopped
+    networks:
+      - test-net

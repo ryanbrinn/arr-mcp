@@ -191,6 +191,31 @@ Use `--stop` when you plan to test the same branch again shortly. Use `--clean` 
 
 ---
 
+## Local manual testing
+
+For day-to-day verification of dashboard/UI changes, `scripts/test-stack.sh`
+runs a fully local, disposable stack via `docker compose` — including arr-mcp
+itself as a container, alongside the test services on a shared Docker
+network. No remote host or SSH access required.
+
+```bash
+bash scripts/test-stack.sh up [branch]   # start (optionally on a branch)
+bash scripts/test-stack.sh down          # stop
+bash scripts/test-stack.sh reset         # stop, remove volumes and data
+bash scripts/test-stack.sh logs [svc]    # tail logs
+```
+
+`up` seeds Sonarr/Radarr with a representative media library, seeds the media
+interest cache, and seeds a local admin account (`admin` / `password123`),
+then prints the dashboard URL (`http://localhost:8081/`).
+
+This is the local counterpart to `scripts/test-deploy.sh` above — use it for
+quick iteration; use the remote workflow for shared/remote testing. See the
+`manual-testing` skill (`.claude/skills/manual-testing/SKILL.md`) for the full
+walkthrough, including using Claude's Preview tools to drive the dashboard.
+
+---
+
 ## Test environment reference
 
 | Command | What it does |

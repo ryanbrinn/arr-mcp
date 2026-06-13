@@ -63,7 +63,12 @@ seed_sonarr() {
     "rootFolderPath":"/data/tv","monitored":false,"seasons":[],
     "addOptions":{"searchForMissingEpisodes":false}}'
 
-  echo "  Sonarr seeded with 3 series."
+  # Stranger Things — continuing, monitored (badge: wanted/partial)
+  _add_series '{"tvdbId":305288,"title":"Stranger Things","qualityProfileId":1,
+    "rootFolderPath":"/data/tv","monitored":true,"seasons":[],
+    "addOptions":{"searchForMissingEpisodes":false}}'
+
+  echo "  Sonarr seeded with 4 series."
 }
 
 seed_radarr() {
@@ -104,7 +109,12 @@ seed_radarr() {
     "rootFolderPath":"/data/movies","monitored":false,
     "addOptions":{"searchForMovie":false}}'
 
-  echo "  Radarr seeded with 3 movies."
+  # The Matrix — monitored, no file (badge: wanted)
+  _add_movie '{"tmdbId":603,"title":"The Matrix","qualityProfileId":1,
+    "rootFolderPath":"/data/movies","monitored":true,
+    "addOptions":{"searchForMovie":false}}'
+
+  echo "  Radarr seeded with 4 movies."
 }
 
 echo "Seeding media library test data..."
