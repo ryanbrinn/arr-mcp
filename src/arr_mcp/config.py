@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -69,7 +71,7 @@ class Settings(BaseSettings):
             "Override with ARR_MCP_HELPER_SOCKET if mounted elsewhere."
         ),
     )
-    admin_users: list[str] = Field(
+    admin_users: Annotated[list[str], NoDecode] = Field(
         default_factory=list,
         description=(
             "Comma-separated usernames that receive admin role on the dashboard. "
@@ -84,7 +86,7 @@ class Settings(BaseSettings):
             "Sessions survive restarts only when this is set."
         ),
     )
-    allowed_stacks: list[str] = Field(
+    allowed_stacks: Annotated[list[str], NoDecode] = Field(
         default_factory=list,
         description=(
             "Comma-separated stack names the MCP server may operate on. "
